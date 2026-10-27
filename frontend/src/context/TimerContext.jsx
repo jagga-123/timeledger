@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../hooks/useAuth';
 import * as timerApi from '../api/timer';
 import { getErrorMessage } from '../utils/errors';
-import { formatElapsed } from '../utils/time';
+import { formatClock } from '../utils/time';
 
 export const TimerContext = createContext(null);
 
@@ -93,7 +93,7 @@ export function TimerProvider({ children }) {
 
   // Show the time in the browser tab title
   useEffect(() => {
-    document.title = timer ? `${formatElapsed(elapsedSeconds)} · TimeLedger` : 'TimeLedger';
+    document.title = timer ? `${formatClock(elapsedSeconds)} · TimeLedger` : 'TimeLedger';
   }, [timer, elapsedSeconds]);
 
   const start = async ({ projectId, description, billable }) => {
@@ -117,7 +117,7 @@ export function TimerProvider({ children }) {
     try {
       const data = await timerApi.stopTimer();
       applyServerState({ timer: null, serverTime: data.serverTime }, requestSentAt);
-      toast.success(`Timer stopped · ${formatElapsed(data.entry.durationSeconds)}`);
+      toast.success(`Timer stopped · ${formatClock(data.entry.durationSeconds)}`);
       return true;
     } catch (err) {
       toast.error(getErrorMessage(err));

@@ -8,7 +8,7 @@ import ProjectSelect from './ProjectSelect';
 import { useTimer } from '../hooks/useTimer';
 import { getProjects } from '../api/projects';
 import { getErrorMessage } from '../utils/errors';
-import { formatElapsed } from '../utils/time';
+import { formatClock } from '../utils/time';
 
 const CARD = 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6';
 
@@ -186,7 +186,7 @@ function RunningTimer({ timer, elapsedSeconds, onStop, onUpdate }) {
       </p>
 
       <p className="mt-3 font-mono text-5xl font-semibold tabular-nums sm:text-6xl" data-testid="elapsed">
-        {formatElapsed(elapsedSeconds)}
+        {formatClock(elapsedSeconds)}
       </p>
 
       <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center">

@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Square } from 'lucide-react';
 import { useTimer } from '../hooks/useTimer';
-import { formatElapsed } from '../utils/time';
+import { formatClock } from '../utils/time';
 
 // Small "a timer is running" indicator for the sidebar and mobile top bar. Shows nothing when idle.
 export default function MiniTimer() {
   const { timer, elapsedSeconds, stop } = useTimer();
   if (!timer) return null;
 
-  const time = formatElapsed(elapsedSeconds);
+  const time = formatClock(elapsedSeconds);
 
   return (
     <div className="flex items-center rounded-lg bg-white/10 text-white" data-testid="mini-timer">
