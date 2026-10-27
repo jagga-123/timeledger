@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Use font-mono for numbers and time values */
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-primary: var(--color-indigo-600);
+  --color-sidebar: var(--color-indigo-950);
+  --color-success: var(--color-emerald-500);
+  --color-warning: var(--color-amber-500);
+  --color-page: var(--color-slate-50);
+}
+
+body {
+  @apply bg-page font-sans text-slate-900 antialiased;
+}
