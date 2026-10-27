@@ -1,5 +1,6 @@
 import { createContext, useEffect, useState } from 'react';
 import api from '../api/axios';
+import { isSameTimeZone } from '../utils/time';
 
 export const AuthContext = createContext(null);
 
@@ -21,13 +22,30 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Day boundaries and entry times use the user's saved time zone, which follows the device:
+  // when the device is in a different zone, save that one.
+  const syncTimezone = async (currentUser) => {
+    const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!deviceZone || isSameTimeZone(deviceZone, currentUser.timezone)) return;
+
+    try {
+      const { data } = await api.patch('/auth/me', { timezone: deviceZone });
+      setUser(data.user);
+    } catch {
+      // Keep the saved time zone; there is nothing useful to tell the user
+    }
+  };
+
   // Restore the logged-in user when the app loads
   useEffect(() => {
     if (!localStorage.getItem('token')) return;
 
     api
       .get('/auth/me')
-      .then((res) => setUser(res.data.user))
+      .then((res) => {
+        setUser(res.data.user);
+        syncTimezone(res.data.user);
+      })
       .catch((err) => {
         if (err.response?.status === 401) clearSession();
       })
@@ -38,11 +56,13 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     const { data } = await api.post('/auth/login', credentials);
     saveSession(data);
+    syncTimezone(data.user);
   };
 
   const register = async (details) => {
     const { data } = await api.post('/auth/register', details);
     saveSession(data);
+    syncTimezone(data.user);
   };
 
   const logout = clearSession;
