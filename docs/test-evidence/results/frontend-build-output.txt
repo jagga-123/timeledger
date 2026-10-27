@@ -1,11 +1,14 @@
-﻿> timeledger-frontend@0.1.0 build
+
+> timeledger-frontend@0.1.0 build
 > vite build
+
 vite v8.3.5 building client environment for production...
 transforming...
-✓ 2039 modules transformed.
+✓ 2043 modules transformed.
 rendering chunks...
 computing gzip size...
 dist/index.html                   1.02 kB │ gzip:   0.55 kB
-dist/assets/index-DuAhkd4k.css   30.84 kB │ gzip:   6.38 kB
-dist/assets/index-Bwj2e4TM.js   391.37 kB │ gzip: 123.30 kB
-✓ built in 932ms
+dist/assets/index-B_yNVs-0.css   32.71 kB │ gzip:   6.69 kB
+dist/assets/index-BA-s-go-.js   409.22 kB │ gzip: 126.82 kB
+
+✓ built in 1.24s

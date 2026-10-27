@@ -1,4 +1,4 @@
-﻿PASS  "Timesheet" in the sidebar opens the real page (not "Coming soon")
+PASS  "Timesheet" in the sidebar opens the real page (not "Coming soon")
 PASS  header: "Timesheet" with a note about the time zone
 PASS  week navigator shows "9 – 15 Mar 2026"  -> 9 – 15 Mar 2026
 PASS  columns: Project, Mon 9 ... Sun 15, Total  -> PROJECT | Mon 9 | Tue 10 | Wed 11 | Thu 12 | Fri 13 | Sat 14 | Sun 15 | TOTAL
@@ -24,9 +24,9 @@ PASS  ...and today's 15 minutes show in it  -> 15m
 PASS  a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL  -> 2026-10-26
 PASS  a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL  -> 2026-10-26
 PASS  a link with ?week=banana (not a date) shows the current week and fixes the URL  -> 2026-10-26
-PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6ae0b31bc2addf75b5e38859&from=2026-03-09&to=2026-03-09&overlap=1
+PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6ae0c10cfb765a66f7b3bb84&from=2026-03-09&to=2026-03-09&overlap=1
 PASS  Time entries starts with those filters already set (Custom range, that day, that project)  -> {"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"}
-PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0b31bc2addf75b5e38859","overlap":"true"}
+PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0c10cfb765a66f7b3bb84","overlap":"true"}
 PASS  the list shows exactly that entry (Homepage, 09:00–11:00, 2h)  -> Website · Acme Corp Homepage 09:00–11:00 Billable 2h
 PASS  Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
 PASS  Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
@@ -44,7 +44,7 @@ PASS  phone: no wide table, one card per day (7)
 PASS  phone: Wednesday card shows its total and the projects with their hours  -> Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h
 PASS  phone: a day without time says "No time tracked"  -> Thu 12 — No time tracked
 PASS  phone: the entry across midnight shows on both Tuesday and Wednesday
-PASS  phone: no horizontal scroll, the navigator and cards fit in 375px  -> overflow=0 navRight=340.765625
+PASS  phone: no horizontal scroll, the navigator and cards fit in 375px  -> overflow=0 navRight=334.171875
 PASS  phone: the summary cards are there (9h, 7h 30m, $410.00)  -> total hours 9h | billable hours 7h 30m | billable amount $410.00
 PASS  phone: tapping a project in a day card also opens Time entries for that day
 PASS  phone: the dashboard "This week" card shows and nothing scrolls sideways

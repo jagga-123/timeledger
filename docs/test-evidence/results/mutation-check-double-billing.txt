@@ -1,0 +1,15 @@
+﻿Mutation check (proves the double-billing tests can fail)
+
+Change made temporarily to backend/src/services/invoice.service.js, in create():
+the claim's filter no longer contains "invoiceId: null", so a second request could claim entries that are
+already on an invoice.
+
+Result of  npm test -- src/tests/invoices.test.js  with that change:
+  Tests: 5 failed, 27 passed, 32 total
+  x bills billable, unbilled, finished entries of that client inside the range, and nothing else
+  x become billed, cannot be edited or deleted, and cannot be invoiced a second time
+  x two identical requests at the same time: one invoice, every entry on exactly that one
+  x eight requests at once: exactly one wins
+  x overlapping ranges at the same time: every entry still ends up on exactly one invoice
+
+The change was then undone (the file is byte-for-byte the original again) and the same test file passes 32/32.

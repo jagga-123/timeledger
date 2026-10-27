@@ -12,20 +12,22 @@ A full-stack time tracker and invoicing app for freelancers, built with the MERN
 | 4 | Start/stop timer, kept on the server | Done |
 | 5 | Time entries: add and edit by hand, filters and totals, time zones | Done |
 | 6 | Weekly timesheet: hours per project per day | Done |
-| 7+ | Invoices, demo seed data | Planned |
+| 7 | Invoices: bill unbilled time to a client once, printable invoice page, Draft / Sent / Paid | Done |
+| 8+ | Demo seed data | Planned |
 
-**Test results:** 108 backend tests and 300 automated browser checks all pass. Everything is in [docs/test-evidence](docs/test-evidence): a one-page report with screenshots ([test-report.html](docs/test-evidence/test-report.html), download it and open it in a browser), every screenshot as a separate image, the raw results and the test code.
+**Test results:** 140 backend tests and 385 automated browser checks all pass. Everything is in [docs/test-evidence](docs/test-evidence): a one-page report with screenshots ([test-report.html](docs/test-evidence/test-report.html), download it and open it in a browser), every screenshot as a separate image, the raw results and the test code.
 
 ## Features
 
 - **Authentication**: register and log in with a hashed password (bcrypt) and a JWT. Logged-in users stay logged in after a reload; logged-out users are redirected to `/login`.
-- **App layout**: fixed sidebar on desktop; top bar and bottom tab bar on phones. Time Entries, Timesheet and Invoices are "Coming soon" placeholders for now.
+- **App layout**: fixed sidebar on desktop; top bar and bottom tab bar on phones.
 - **Clients**: add, edit and delete clients (name, optional company and email). The list shows how many projects each client has. Names are unique per user, ignoring case.
 - **Projects**: each project belongs to a client and has an hourly rate (0 to 10000, stored with 2 decimals) and a color. Filter the list by client. Names are unique per client. A project that has time entries can't be deleted.
 - **Timer**: start and stop a timer on a project from the dashboard. Only one timer can run per user. It is kept on the server, so it is still correct after a refresh, after closing the browser, and on another device. A small running indicator shows in the sidebar (or top bar on phones) on every page, and the time appears in the browser tab title.
 - **Today**: the dashboard lists today's stopped timers with their total. Each one can be edited.
 - **Time entries**: add an entry by hand (project, description, date, start and end time, billable or not), edit or delete it. The Time entries page filters by date range (this week, last week, this month, custom), client, project, billable and billed/unbilled, shows total hours, billable hours and the unbilled amount, and groups entries by day. Entries that are on an invoice are locked.
 - **Timesheet**: a weekly grid of hours per project per day (Monday to Sunday) with daily and weekly totals, the billable hours and amount, a week navigator (the week is kept in the URL, e.g. `/timesheet?week=2026-03-09`) and today's column highlighted. An entry that crosses midnight is split between the days it touches. Click a cell to see the entries behind it. On phones and tablets the grid becomes one card per day. The dashboard has a "This week" card with a link to it.
+- **Invoices**: pick a client and a period (quick picks: last week, this month, last month, or custom dates) and see exactly what will be billed before you create the invoice: one line per project (hours × rate), the entry count and the total. Creating it takes the client's unbilled, billable, finished entries in that period (both days included, counted in your time zone; a running timer is never billed) and marks them as billed. Invoices are numbered `INV-0001`, `INV-0002`, ... per user, due 14 days after they are issued, and keep a copy of the client, the rates and the lines, so editing a client or a project later never changes an invoice. The invoice page is a printable A4 paper (**Print / Save as PDF**: the sidebar, bars and buttons are left out), with the entries it contains listed below it. Mark an invoice as sent, then paid; delete a draft to give its entries back (its number is never reused). The Time entries page shows a "Billed" badge that links to the invoice. See [How invoices avoid double billing](#how-invoices-avoid-double-billing).
 - **Time zones**: all times are stored in UTC. Day boundaries and the times you type use your saved time zone, which follows your device (it is updated when you open the app on a device in another zone). Days are counted in that zone, never the server's, and with calendar arithmetic, so a daylight saving day is correctly 23 or 25 hours long.
 - **Private data**: every record belongs to one user. Asking for someone else's record returns `404`.
 
@@ -37,6 +39,18 @@ A full-stack time tracker and invoicing app for freelancers, built with the MERN
 - The browser re-checks the server when the tab becomes visible again and every 30 seconds, so a timer started or stopped on another device shows up by itself.
 - Stopping is one atomic update that only matches a still-running timer, so two Stop requests can't both succeed. The duration is calculated by the database as `floor((endedAt - startedAt) / 1000)` seconds.
 
+### How invoices avoid double billing
+
+The rule: **a time entry can never be on two invoices, even if two requests arrive at the same moment** (two tabs, a double click, two devices).
+
+- Creating an invoice first **claims** the entries. It is one `updateMany` whose filter only matches entries that are billable, finished, in the period, for that client and **not billed yet** (`invoiceId: null`), and it sets `invoiceId` to the new invoice's id. MongoDB applies a change to a single entry one at a time, so when two requests race for the same entries, one of them finds them already claimed. It claims nothing and gets `400 No unbilled billable time for this client in this period`.
+- The invoice is then built from **exactly the entries that this request claimed** (read back by its own invoice id), never from a list read earlier, so the lines always add up to what was claimed.
+- The claim, the next invoice number (a per-user counter) and the invoice itself are saved in **one MongoDB transaction**. If any step fails, the claim is rolled back and the number is not used. A transaction that collides with another one is retried by the driver.
+- Entries on an invoice are locked (they can't be edited or deleted). Deleting a **draft** invoice releases its entries again in one transaction; sent and paid invoices can't be deleted.
+- The tests cover two identical simultaneous requests, eight at once, overlapping periods at the same moment, two users invoicing at the same time, and a failure while saving the invoice (the claimed entries are released and no number is used up). The browser checks press "Create invoice" in two tabs at the same moment and send six simultaneous API requests: exactly one invoice comes out each time. Taking the "not billed yet" condition out of the claim makes 5 of the invoice tests fail, including all three concurrency tests (see [docs/test-evidence](docs/test-evidence/results/mutation-check-double-billing.txt)).
+- **Transactions need a replica set.** MongoDB Atlas is one, so it works as is. A plain local `mongod` is not: invoice routes then answer `503 Invoices need MongoDB transactions...`. To use a local MongoDB, start it as a single-node replica set (`mongod --replSet rs0`, then run `rs.initiate()` once in `mongosh`) and add `?replicaSet=rs0` to `MONGODB_URI`.
+- Money: each line is `hours × rate` rounded to cents; the invoice total is the sum of those rounded lines (so the printed lines always add up to the printed total).
+
 ## Tech stack
 
 - **Backend:** Node.js (ES modules), Express 5, MongoDB with Mongoose 9, Zod 4 for validation, JSON Web Tokens, bcryptjs, Luxon (time zone maths)
@@ -45,7 +59,7 @@ A full-stack time tracker and invoicing app for freelancers, built with the MERN
 
 ## Setup
 
-**Prerequisites:** Node.js 20.19+ (or 22.12+) and a MongoDB database (local, or a free MongoDB Atlas cluster).
+**Prerequisites:** Node.js 20.19+ (or 22.12+) and a MongoDB database: a free MongoDB Atlas cluster, or a local MongoDB that runs as a **replica set** (invoices use transactions, which a plain standalone `mongod` does not support; see [How invoices avoid double billing](#how-invoices-avoid-double-billing)).
 
 ### Backend
 
@@ -130,6 +144,12 @@ All routes are under `/api`. Routes marked **auth** need the header `Authorizati
 | `GET /timesheet` | yes | Optional `weekStart` (a Monday, `YYYY-MM-DD`; defaults to the current week in your time zone, `400 Week must start on a Monday` otherwise). Returns `{ weekStart, weekEnd, timezone, days, rows, dayTotals, weekTotalSeconds, billableSeconds, billableAmount }`: `days` are 7 `{ date, label }`, each row has a project, its client and 7 `seconds` (one per day, an entry across midnight is split) plus `totalSeconds` and `billableSeconds`. The running timer is left out |
 | `PATCH /entries/:id` | yes | Change any of those fields. `409 This entry is on an invoice and can't be changed` for a billed entry, `409 Stop the timer first` for the running timer |
 | `DELETE /entries/:id` | yes | Returns `204`. Same `409` rules as editing |
+| `GET /invoices` | yes | Returns `{ invoices }`, newest first, without their lines. Optional `?status=draft\|sent\|paid` and `?clientId=` |
+| `GET /invoices/:id` | yes | Returns `{ invoice, entries }`: the invoice with its lines, and the time entries on it in time order |
+| `POST /invoices/preview` | yes | Body: `clientId`, `from`, `to` (`YYYY-MM-DD`, both days included, in your time zone). Returns `{ preview }` with the lines, total and entries that an invoice would contain, and saves nothing. `400` for a client that isn't yours, `from` after `to`, a period over 366 days or an end date after today, and `400 No unbilled billable time for this client in this period` when nothing matches |
+| `POST /invoices` | yes | Same body plus optional `notes` (max 500). Bills the matching entries and returns `201 { invoice }` (`INV-0001`, ...). The same `400`s as the preview, which is also what a second, simultaneous request for the same entries gets. `503` if MongoDB has no transactions (a local server that isn't a replica set) |
+| `PATCH /invoices/:id/status` | yes | Body: `status` (`sent` or `paid`). Draft to sent, sent to paid or draft to paid; anything else is `409 Can't change status from X to Y`. Returns `{ invoice }` |
+| `DELETE /invoices/:id` | yes | Returns `204` and makes the invoice's entries unbilled again. Only drafts: `409 Only draft invoices can be deleted` |
 
 **Errors** always look like `{ "message": "...", "errors": [{ "path": "email", "message": "..." }] }`; `errors` is only present for validation failures (`400`). A malformed `:id` returns `400 Invalid id`, a missing or invalid token returns `401`, and a record that doesn't exist or belongs to someone else returns `404`.
 
@@ -142,10 +162,10 @@ timeledger/
 │   └── src/
 │       ├── app.js, server.js         Express app and startup
 │       ├── config/                   MongoDB connection
-│       ├── models/                   User, Client, Project, TimeEntry
-│       ├── routes/                   auth, clients, projects, timer, entries
+│       ├── models/                   User, Client, Project, TimeEntry, Invoice, Counter (invoice numbers)
+│       ├── routes/                   auth, clients, projects, timer, entries, timesheet, invoices
 │       ├── controllers/              request handlers
-│       ├── services/                 timer.service.js (the running timer), entries.service.js (manual entries, filters, totals), timesheet.service.js (the weekly grid)
+│       ├── services/                 timer.service.js (the running timer), entries.service.js (manual entries, filters, totals), timesheet.service.js (the weekly grid), invoice.service.js (preview, create, status, delete)
 │       ├── middleware/               auth, validation, error handling
 │       ├── validators/               Zod schemas
 │       ├── utils/                    helpers (tokens, errors, money, ids)
@@ -157,7 +177,7 @@ timeledger/
 │       ├── components/               shared UI (Modal, Button, FormField, ...)
 │       ├── context/, hooks/          auth and timer state
 │       ├── layouts/                  AuthLayout, AppLayout (sidebar / tab bar)
-│       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries, Timesheet
+│       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries, Timesheet, Invoices, InvoiceDetail
 │       └── utils/                    formatting and error helpers
 └── docs/
     └── test-evidence/                test report, screenshots, raw results, test code
@@ -170,7 +190,7 @@ cd backend
 npm test
 ```
 
-The 108 backend tests run against a throwaway in-memory MongoDB, so they never touch your real database:
+The 140 backend tests run against a throwaway in-memory MongoDB (the invoice tests against an in-memory replica set, which needs a moment to start), so they never touch your real database:
 
 | File | Tests | Covers |
 | --- | --- | --- |
@@ -180,12 +200,14 @@ The 108 backend tests run against a throwaway in-memory MongoDB, so they never t
 | `timer.test.js` | 25 | server-side start time, one timer per user (including simultaneous requests and the database index itself), stop and duration, editing the running timer, other users' timers |
 | `entries.test.js` | 28 | manual entries (duration, client copied, UTC storage), the time rules (end after start, max 24 hours, not in the future), editing and deleting, billed and running entries locked, other users' entries, filters (including `overlap`) and totals (billable amount from each project's rate) |
 | `timesheet.test.js` | 24 | entries on the right day columns, splitting across midnight, clipping at the week edges, the same UTC entry on different days for India and New York, the daylight saving weeks of 2 March and 26 October 2026 (23-hour and 25-hour Sundays), totals and billable amount, Monday rule, other users' entries, and the pure `splitIntoDays` function |
+| `invoices.test.js` | 32 | which entries are billed, line items and rounding, snapshots that later changes can't alter, billed entries locked, **an entry never on two invoices (two identical requests, eight at once, overlapping periods, two users)**, all or nothing, the 503 without transactions, time zone day boundaries (India, New York), validation, numbering that is never reused, the status flow, deleting a draft, per-user privacy |
 
-The browser checks (300 in total for Steps 2 to 6) drive the real app in a headless browser: sign-up and login, the sidebar and mobile layout, every Clients and Projects action, the timer (start, stop, refresh while running, a freshly opened browser, a second tab, wrong device clocks, starting a second timer), time entries (date presets, every filter, adding and editing by hand, delete, the dashboard's Today edit, time zones including a device in New York), the timesheet (an entry across midnight, the week in the URL, the navigator, today's column, clicking a cell, the daylight saving Sunday on a New York device, phone and tablet layouts, the dashboard's "This week" card), and a check that nothing scrolls sideways at 375px. Their results, screenshots and scripts are in [docs/test-evidence](docs/test-evidence).
+The browser checks (385 in total for Steps 2 to 7) drive the real app in a headless browser: sign-up and login, the sidebar and mobile layout, every Clients and Projects action, the timer (start, stop, refresh while running, a freshly opened browser, a second tab, wrong device clocks, starting a second timer), time entries (date presets, every filter, adding and editing by hand, delete, the dashboard's Today edit, time zones including a device in New York), the timesheet (an entry across midnight, the week in the URL, the navigator, today's column, clicking a cell, the daylight saving Sunday on a New York device, phone and tablet layouts, the dashboard's "This week" card), invoices (the live preview, creating an invoice, billing the same period again, two tabs creating at the same moment, six simultaneous API requests, Draft to Sent to Paid, deleting a draft, an invoice that doesn't change when a rate or client changes, another user's invoice, the printed page and the PDF it produces, phone layout), and a check that nothing scrolls sideways at 375px. Their results, screenshots and scripts are in [docs/test-evidence](docs/test-evidence).
 
 ## Troubleshooting
 
 - **`querySrv ECONNREFUSED` when connecting to Atlas:** Node's DNS lookup failed. The app already uses public DNS servers by default. If your network blocks them, set `DNS_SERVERS` in `backend/.env` to your network's DNS.
 - **`JWT_SECRET is not defined`:** copy `backend/.env.example` to `backend/.env` and set a long random value.
 - **Browser shows a CORS error:** make sure `FRONTEND_URL` in `backend/.env` matches the address of the frontend (default `http://localhost:5173`).
+- **`503 Invoices need MongoDB transactions` when creating or deleting an invoice:** your MongoDB is a plain standalone server. Use MongoDB Atlas, or run a local MongoDB as a single-node replica set (`mongod --replSet rs0`, `rs.initiate()` once in `mongosh`, and `?replicaSet=rs0` on `MONGODB_URI`).
 - **Port already in use:** another copy of the app is running. Stop it, or change `PORT` / the Vite port.

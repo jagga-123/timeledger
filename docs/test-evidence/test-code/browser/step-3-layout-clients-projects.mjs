@@ -302,15 +302,12 @@ await clickLabel('Delete Mobile app');
 await clickButton('Delete', '[role=dialog]');
 check('project is deleted after confirming', (await hasText('Project deleted')) && (await waitRows(2)));
 
-// ===== 5. Coming-soon pages =====
-// (Time Entries and Timesheet became real pages in Steps 5 and 6, so only Invoices is still a "Coming soon" placeholder)
-for (const [href, title] of [['/invoices', 'Invoices']]) {
-  await page.click(`aside a[href="${href}"]`);
-  await waitPath(href);
-  const ok = (await hasText('Coming soon')) && (await page.$eval('main h1', (h) => h.innerText)) === title;
-  check(`${title}: "Coming soon" placeholder`, ok);
-}
-await shot('09-coming-soon-desktop');
+// ===== 5. The sidebar pages that were "Coming soon" in this step =====
+// (Time Entries, Timesheet and Invoices became real pages in Steps 5 to 7; Invoices shows its empty state here)
+await page.click('aside a[href="/invoices"]');
+await waitPath('/invoices');
+check('Invoices: the real page with "Create your first invoice" (no more "Coming soon")', (await hasText('Create your first invoice')) && !(await text()).includes('Coming soon') && (await page.$eval('main h1', (h) => h.innerText)) === 'Invoices');
+await shot('09-invoices-empty-desktop');
 
 // ===== 6. Mobile (375px) =====
 await page.setViewport({ width: 375, height: 667, isMobile: true, hasTouch: true });

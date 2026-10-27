@@ -1,4 +1,4 @@
-﻿PASS  idle: card asks "What are you working on?"
+PASS  idle: card asks "What are you working on?"
 PASS  idle: description input is there
 PASS  idle: Billable switch is on by default
 PASS  idle: big primary "Start" button  -> {"text":"Start","size":16,"bg":"oklch(0.511 0.262 276.966)"}
@@ -19,7 +19,7 @@ PASS  running: description is editable and holds what I typed
 PASS  running: white Stop button  -> rgb(255, 255, 255)
 PASS  running: clock starts at (almost) zero  -> 00:00:00
 PASS  running: tab title is "HH:MM:SS · TimeLedger"  -> 00:00:00 · TimeLedger
-PASS  server: timer exists with the server-side start time (between click and response)  -> 50ms after the click
+PASS  server: timer exists with the server-side start time (between click and response)  -> 32ms after the click
 PASS  server: description and project saved
 PASS  clock ticks every second  -> 0s -> 3s
 PASS  mini timer in the sidebar: pulsing dot + time + stop icon  -> {"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"}
@@ -33,19 +33,19 @@ PASS  after a page refresh the timer is still running
 PASS  ...and the clock did not reset (it continues from the server start time)  -> 4s -> 4s
 PASS  ...description survived too
 PASS  a freshly opened browser shows the same running timer
-PASS  ...with the same elapsed time (within 2s)  -> A=5s B=5s
+PASS  ...with the same elapsed time (within 2s)  -> A=4s B=5s
 PASS  ...and the title shows the time there too
-PASS  device clock 10 minutes AHEAD still shows the correct elapsed time  -> A=8s C=8s
-PASS  device clock 2 hours BEHIND still shows the correct elapsed time  -> A=8s D=9s
+PASS  device clock 10 minutes AHEAD still shows the correct elapsed time  -> A=7s C=7s
+PASS  device clock 2 hours BEHIND still shows the correct elapsed time  -> A=7s D=7s
 PASS  Stop shows a toast with the logged time
 PASS  ...the card goes back to the start form
 PASS  ...the tab title goes back to "TimeLedger"
 PASS  ...the mini timer disappears
 PASS  ...the server has no running timer
-PASS  "Today" lists the stopped entry with project, client, description and duration  -> Website redesign · Acme Corp Hero section v2 00:00:09
-PASS  ...and its duration matches what the clock showed (within 2s)  -> clock=8s list=9s
+PASS  "Today" lists the stopped entry with project, client, description and duration  -> Website redesign · Acme Corp Hero section v2 00:00:08
+PASS  ...and its duration matches what the clock showed (within 2s)  -> clock=7s list=8s
 PASS  ...Today shows a total
-PASS  server: stopped entry has endedAt and durationSeconds  -> 9s
+PASS  server: stopped entry has endedAt and durationSeconds  -> 8s
 PASS  E: second tab loads idle
 PASS  another device starts a timer (API)
 PASS  starting a second timer shows the 409 message as is
@@ -56,7 +56,7 @@ PASS  tab A shows the timer started elsewhere after becoming visible
 PASS  ...with the same time as E (within 2s)
 PASS  tab A goes idle after the timer is stopped elsewhere
 PASS  ...and "Today" now has both entries
-PASS  a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh)  -> 22s
+PASS  a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh)  -> 24s
 PASS  the stop icon in the mini timer stops the timer
 PASS  ...and "Today" now has 3 entries
 PASS  no projects: "Create a project first" with a link

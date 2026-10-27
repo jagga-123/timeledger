@@ -1,34 +1,37 @@
-# TimeLedger: test evidence (Steps 1-6)
+# TimeLedger: test evidence (Steps 1-7)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 20:02.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 20:57.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 52 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 64 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
+| [sample-pdfs/](sample-pdfs) | Two invoices exactly as the browser's "Save as PDF" engine produced them (a one-page invoice, and a 36-project invoice over three pages). |
 | [test-code/](test-code) | The test files that were run. |
 
 ## Summary
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **108/108 passed** |
+| Backend tests (Jest + Supertest) | **140/140 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
 | Browser checks, Step 3 (layout, clients, projects) | **62/62 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
 | Browser checks, Step 5 (time entries) | **82/82 passed** |
 | Browser checks, Step 6 (timesheet) | **54/54 passed** |
+| Browser checks, Step 7 (invoices) | **85/85 passed** |
+| Mutation check: taking the "not billed yet" guard out of the claim | **5 tests fail** ([results/mutation-check-double-billing.txt](results/mutation-check-double-billing.txt)); with the guard restored 32/32 pass |
 | Frontend production build | passed |
 
 Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft Windows 11 Home Single Language.
 
 ## How the tests were run
 
-- **Backend tests:** `cd backend && npm test`. Each test file starts its own throwaway in-memory MongoDB, so no real database is used.
-- **Browser checks:** a script drives Microsoft Edge (headless) like a real user: it clicks, types, reloads and takes screenshots. It runs against the production build of the frontend and the real backend (on an in-memory MongoDB) on separate ports (5100 and 5273). Any request to the normal dev ports 5000/5173 is blocked, so a running `npm run dev` and its real database are never touched.
+- **Backend tests:** `cd backend && npm test`. Each test file starts its own throwaway in-memory MongoDB, so no real database is used (the invoice tests use an in-memory *replica set*, because invoices need MongoDB transactions).
+- **Browser checks:** a script drives Microsoft Edge (headless) like a real user: it clicks, types, reloads and takes screenshots. It runs against the production build of the frontend and the real backend (on an in-memory MongoDB replica set) on separate ports (5100 and 5273). Any request to the normal dev ports 5000/5173 is blocked, so a running `npm run dev` and its real database are never touched.
 - **What a "browser check" is:** one yes/no question about the running app, for example "after a wrong password a toast appears and we stay on /login". The full list is below.
 
 ## What was NOT tested
@@ -40,12 +43,15 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - Time zones were checked for two zones only: India (the default) and New York (a device set to that zone, including the daylight-saving change). Other zones use the same code but were not run.
 - The timesheet's 25-hour day (clocks going back, week of 26 October 2026) is checked by the backend tests only. In the browser only the 23-hour day (clocks going forward) was checked, on a device set to New York.
 - The weekly timesheet was only looked at for weeks that start on a Monday and users with the default or New York time zone; other zones use the same code.
-- The database parts of the browser checks that no screen can do yet (marking an entry as billed, a timer entry with exact seconds) were set up by writing to the throwaway test database directly, because there are no invoices yet.
+- Some of the Step 5 and Step 6 browser checks set up their data (an entry marked as billed, a timer entry with exact seconds) by writing to the throwaway test database directly, because invoices did not exist yet when those scripts were written. The Step 7 checks create everything through the API and the screens.
+- Invoices were tested on an in-memory MongoDB replica set and are written for MongoDB Atlas (also a replica set). A plain local MongoDB that is not a replica set cannot run transactions; the app then answers 503 with an explanation (a test simulates that error), but a real standalone mongod was not started to see it.
+- The printed invoice was checked by emulating print media in Edge, by the produced PDF files' page count and paper size (A4), and by screenshot. The PDF text itself was not extracted and no printer or other PDF viewer was used.
+- Invoices only have a status you set by hand (Draft, Sent, Paid): nothing is e-mailed, and there is no online payment, tax, discount or currency conversion.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (108)
+## Backend tests (140)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
@@ -103,6 +109,31 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns zeros for an entry outside the week or touching it only at an edge
 - ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
 
+### `auth.test.js` (11 tests)
+
+**POST /api/auth/register**
+
+- ✅ creates a user and returns { user, token } without the password hash
+- ✅ returns 409 for a duplicate email (case-insensitive)
+- ✅ returns 400 with field-wise errors for invalid input
+
+**POST /api/auth/login**
+
+- ✅ returns { user, token } for correct credentials
+- ✅ returns 401 for a wrong password
+
+**GET /api/auth/me**
+
+- ✅ returns 401 without a token
+- ✅ returns 401 for an invalid token
+- ✅ returns the current user with a valid token
+
+**PATCH /api/auth/me (time zone)**
+
+- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
+- ✅ rejects an unknown time zone and a missing value
+- ✅ requires a token
+
 ### `timer.test.js` (25 tests)
 
 **POST /api/timer/start and GET /api/timer**
@@ -147,31 +178,6 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 
 - ✅ lists only my stopped entries inside the range, newest first, with project and client names
 - ✅ rejects a malformed date
-
-### `auth.test.js` (11 tests)
-
-**POST /api/auth/register**
-
-- ✅ creates a user and returns { user, token } without the password hash
-- ✅ returns 409 for a duplicate email (case-insensitive)
-- ✅ returns 400 with field-wise errors for invalid input
-
-**POST /api/auth/login**
-
-- ✅ returns { user, token } for correct credentials
-- ✅ returns 401 for a wrong password
-
-**GET /api/auth/me**
-
-- ✅ returns 401 without a token
-- ✅ returns 401 for an invalid token
-- ✅ returns the current user with a valid token
-
-**PATCH /api/auth/me (time zone)**
-
-- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
-- ✅ rejects an unknown time zone and a missing value
-- ✅ requires a token
 
 ### `entries.test.js` (28 tests)
 
@@ -220,6 +226,76 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ combines filters and filters by client, project and date range
 - ✅ with overlap=true, from/to also match entries that start before the range or run past it
 - ✅ rejects invalid filters
+
+### `invoices.test.js` (32 tests)
+
+**POST /api/invoices: which entries are billed**
+
+- ✅ bills billable, unbilled, finished entries of that client inside the range, and nothing else
+- ✅ shows the same entries in a preview without saving anything
+- ✅ answers a preview and a create with "nothing to bill" when no entry matches
+
+**line items and totals**
+
+- ✅ makes one line per project with hours, rate and amount rounded to cents, and a total that adds up
+- ✅ the total is the sum of the rounded lines, not the rounded sum of the exact amounts
+- ✅ snapshots the client, the sender, the period, the time zone, the dates and the notes
+- ✅ later changes to a rate, a project, the client or the user never change an existing invoice
+
+**billed entries**
+
+- ✅ become billed, cannot be edited or deleted, and cannot be invoiced a second time
+
+**concurrency: an entry is never on two invoices**
+
+- ✅ two identical requests at the same time: one invoice, every entry on exactly that one
+- ✅ eight requests at once: exactly one wins
+- ✅ overlapping ranges at the same time: every entry still ends up on exactly one invoice
+- ✅ two users invoicing at the same time do not affect each other
+
+**all or nothing**
+
+- ✅ if saving the invoice fails, the claimed entries are released and no number is used up
+- ✅ explains clearly when MongoDB has no transactions (a plain local server)
+
+**the date range uses the user's time zone**
+
+- ✅ India: 23:30 on the last day is in, 00:15 the next morning is out
+- ✅ New York (UTC-4 in March): the day starts at 04:00 UTC
+
+**validation**
+
+- ✅ rejects a client that isn't the user's, or missing
+- ✅ rejects bad dates, from after to, ranges over 366 days and an end date after today
+- ✅ rejects notes over 500 characters
+
+**invoice numbers**
+
+- ✅ count up per user (INV-0001, INV-0002, ...) and are never reused
+- ✅ are unique per user in the database too
+
+**PATCH /api/invoices/:id/status**
+
+- ✅ allows draft to sent, sent to paid, and draft to paid, and records when
+- ✅ rejects every other change with 409 "Can't change status from X to Y"
+- ✅ rejects a status that does not exist
+
+**DELETE /api/invoices/:id**
+
+- ✅ deletes a draft and gives its entries back so they can be invoiced again
+- ✅ refuses to delete a sent or a paid invoice (409) and keeps its entries billed
+- ✅ returns 404 for an invoice that does not exist and 400 for a malformed id
+
+**GET /api/invoices and /api/invoices/:id**
+
+- ✅ lists my invoices newest first with filters, without the heavy fields
+- ✅ returns one invoice with its lines, and the entries on it in time order
+
+**users can't touch each other's invoices**
+
+- ✅ user B cannot see, change or delete user A's invoice (404) and it is not in B's list
+- ✅ user B cannot bill user A's entries, even by using A's client id
+- ✅ requires a login
 
 ### `clients-projects.test.js` (18 tests)
 
@@ -342,7 +418,7 @@ Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser
 - ✅ client with projects is still listed
 - ✅ client without projects is deleted
 - ✅ project is deleted after confirming
-- ✅ Invoices: "Coming soon" placeholder
+- ✅ Invoices: the real page with "Create your first invoice" (no more "Coming soon")
 - ✅ mobile: sidebar hidden, top bar with logo + logout shown
 - ✅ mobile: bottom tab bar has 6 tabs, all inside the screen, pinned to bottom
 - ✅ mobile: tab labels are not clipped
@@ -385,7 +461,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ running: white Stop button (rgb(255, 255, 255))
 - ✅ running: clock starts at (almost) zero (00:00:00)
 - ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
-- ✅ server: timer exists with the server-side start time (between click and response) (50ms after the click)
+- ✅ server: timer exists with the server-side start time (between click and response) (32ms after the click)
 - ✅ server: description and project saved
 - ✅ clock ticks every second (0s -> 3s)
 - ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
@@ -399,19 +475,19 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ ...and the clock did not reset (it continues from the server start time) (4s -> 4s)
 - ✅ ...description survived too
 - ✅ a freshly opened browser shows the same running timer
-- ✅ ...with the same elapsed time (within 2s) (A=5s B=5s)
+- ✅ ...with the same elapsed time (within 2s) (A=4s B=5s)
 - ✅ ...and the title shows the time there too
-- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=8s C=8s)
-- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=8s D=9s)
+- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=7s C=7s)
+- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=7s D=7s)
 - ✅ Stop shows a toast with the logged time
 - ✅ ...the card goes back to the start form
 - ✅ ...the tab title goes back to "TimeLedger"
 - ✅ ...the mini timer disappears
 - ✅ ...the server has no running timer
-- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:09)
-- ✅ ...and its duration matches what the clock showed (within 2s) (clock=8s list=9s)
+- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:08)
+- ✅ ...and its duration matches what the clock showed (within 2s) (clock=7s list=8s)
 - ✅ ...Today shows a total
-- ✅ server: stopped entry has endedAt and durationSeconds (9s)
+- ✅ server: stopped entry has endedAt and durationSeconds (8s)
 - ✅ E: second tab loads idle
 - ✅ another device starts a timer (API)
 - ✅ starting a second timer shows the 409 message as is
@@ -422,7 +498,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ ...with the same time as E (within 2s)
 - ✅ tab A goes idle after the timer is stopped elsewhere
 - ✅ ...and "Today" now has both entries
-- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (22s)
+- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (24s)
 - ✅ the stop icon in the mini timer stops the timer
 - ✅ ...and "Today" now has 3 entries
 - ✅ no projects: "Create a project first" with a link
@@ -555,9 +631,9 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL (2026-10-26)
 - ✅ a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL (2026-10-26)
 - ✅ a link with ?week=banana (not a date) shows the current week and fixes the URL (2026-10-26)
-- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6ae0b31bc2addf75b5e38859&from=2026-03-09&to=2026-03-09&overlap=1)
+- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6ae0c10cfb765a66f7b3bb84&from=2026-03-09&to=2026-03-09&overlap=1)
 - ✅ Time entries starts with those filters already set (Custom range, that day, that project) ({"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"})
-- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0b31bc2addf75b5e38859","overlap":"true"})
+- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0c10cfb765a66f7b3bb84","overlap":"true"})
 - ✅ the list shows exactly that entry (Homepage, 09:00–11:00, 2h) (Website · Acme Corp Homepage 09:00–11:00 Billable 2h)
 - ✅ Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
 - ✅ Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
@@ -575,12 +651,102 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ phone: Wednesday card shows its total and the projects with their hours (Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h)
 - ✅ phone: a day without time says "No time tracked" (Thu 12 — No time tracked)
 - ✅ phone: the entry across midnight shows on both Tuesday and Wednesday
-- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=340.765625)
+- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=334.171875)
 - ✅ phone: the summary cards are there (9h, 7h 30m, $410.00) (total hours 9h | billable hours 7h 30m | billable amount $410.00)
 - ✅ phone: tapping a project in a day card also opens Time entries for that day
 - ✅ phone: the dashboard "This week" card shows and nothing scrolls sideways
 - ✅ tablet (768px): day cards, no sideways scroll
 - ✅ small laptop (1024px): the grid shows and fits without sideways scroll ({"visible":true,"fits":true})
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
+## Browser checks, Step 7: invoices (85)
+
+Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoices.mjs). Raw output: [results/browser-checks-step-7-invoices.txt](results/browser-checks-step-7-invoices.txt).
+
+- ✅ Invoices: header "Invoices" with a "New invoice" button
+- ✅ empty state "Create your first invoice" with a button
+- ✅ summary cards start at Outstanding $0.00, Paid $0.00, Invoices 0 (outstanding $0.00 | paid $0.00 | invoices 0)
+- ✅ the status filter is hidden while there are no invoices
+- ✅ "New invoice" opens the modal with a client select, quick picks, dates and notes
+- ✅ it starts on "This month" (the 1st up to today) ({"from":"2026-10-01","to":"2026-10-27","pressed":"This month"})
+- ✅ "Create invoice" is disabled until there is something to bill
+- ✅ ...and the preview asks for a client first
+- ✅ quick pick "Last week" fills 2026-10-19 to 2026-10-25 ({"from":"2026-10-19","to":"2026-10-25"})
+- ✅ quick pick "Last month" fills 2026-09-01 to 2026-09-30 ({"from":"2026-09-01","to":"2026-09-30"})
+- ✅ quick pick "This month" fills 2026-10-01 to 2026-10-27 ({"from":"2026-10-01","to":"2026-10-27"})
+- ✅ typing a date switches the quick pick to "Custom"
+- ✅ the end date cannot be picked after today (2026-10-27)
+- ✅ a client with its own unbilled time previews only that (Brand 1.00 h x $80.00 = $80.00) (Brand 1.00 h × $80.00 $80.00 1 entry · 9 – 13 Mar 2026 $80.00)
+- ✅ Acme preview: line items with hours, rate and amount, entry count and total (App 1.50 h × $60.00 $90.00 Website 2.78 h × $50.00 $138.89 4 entries · 9 – 13 Mar 2026 $228.89)
+- ✅ ...with the total $228.89 (non-billable, other client, outside the period and the 23:30 edge handled)
+- ✅ ...and "Create invoice" is enabled
+- ✅ creating shows the toast "Invoice INV-0001 created"
+- ✅ ...and opens the invoice page
+- ✅ invoice page: logo, "INVOICE", number INV-0001 and a Draft badge (INV-0001 Draft)
+- ✅ From (the user) and Bill to (name, company, email)
+- ✅ issue date is today and the due date is 14 days later (India time) (TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793114254594@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 27 Oct 2026 DUE DATE 10 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 N)
+- ✅ period "9 – 13 Mar 2026"
+- ✅ line items table: Project, Hours, Rate, Amount (project | hours | rate | amount)
+- ✅ ...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89 ([["App","1.50","$60.00","$90.00"],["Website","2.78","$50.00","$138.89"]])
+- ✅ subtotal and total $228.89
+- ✅ notes are at the bottom
+- ✅ actions: Back, Print / Save as PDF, Mark as sent, Mark as paid, Delete (a draft) (Back | Print / Save as PDF | Mark as sent | Mark as paid | Delete)
+- ✅ the paper is a white card
+- ✅ Draft badge is slate (oklch(0.372 0.044 257.287))
+- ✅ "Time entries included (4)" is collapsed at first ({"open":false,"summary":"Time entries included (4)"})
+- ✅ ...opening it lists the 4 entries in time order (date, project, description, duration), including the 23:30 one on 13 March (9 Mar 2026 Website Homepage 2h | 10 Mar 2026 App App review 1h 30m | 12 Mar 2026 Website Quick fix 16m | 13 Mar 2026 Website Late deploy 30m)
+- ✅ the "Invoices" sidebar item stays highlighted on the invoice page
+- ✅ billing the same period again: the preview says there is nothing to bill (No unbilled billable time for this client in this period)
+- ✅ ...and "Create invoice" stays disabled
+- ✅ API: creating it again is refused with the same 400
+- ✅ Time entries: the 4 invoiced entries show a "Billed" badge (4)
+- ✅ ...and the others are still billable / non-billable (Website · Acme Corp Not billable 09:00–10:00 Non-billable 1h | Brand · Zeta Ltd Other client 14:00–15:00 Billable 1h)
+- ✅ the Billed badge links to its invoice (/invoices/6ae0c092fb765a66f7b3baf3)
+- ✅ ...and clicking it opens that invoice
+- ✅ both tabs see the same preview ($270.00, 3 entries) (App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00 || App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00)
+- ✅ exactly ONE of the two tabs got an invoice (/invoices/6ae0c09afb765a66f7b3baf6 / /invoices)
+- ✅ the other tab is told there is nothing left to bill, and stays on the form
+- ✅ ...with "Create invoice" disabled again
+- ✅ server: only one invoice exists for that period (INV-0002), not two (INV-0002,INV-0001)
+- ✅ server: all 3 entries are on that one invoice
+- ✅ API: 6 simultaneous requests for the same period give one 201 and five 400 (201,400,400,400,400,400)
+- ✅ API: all 3 entries are on that single invoice and it lists exactly those ids
+- ✅ API: the invoice numbers are INV-0001, INV-0002, INV-0003 with no gaps or repeats
+- ✅ Mark as sent: toast, "Sent" badge, and the Mark as sent / Delete buttons go away
+- ✅ the Sent badge is amber and the page shows the sent date
+- ✅ the line items are still there after the status change
+- ✅ Mark as paid: toast, "Paid" badge in emerald, no more status buttons
+- ✅ ...emerald colour and a paid date
+- ✅ API: a paid invoice cannot go back (409 "Can't change status from paid to sent") or be deleted (409)
+- ✅ after the project rate (50 -> 99) and the client name/email changed, the old invoice is exactly the same (App|1.50|$60.00|$90.00 ; Website|2.78|$50.00|$138.89)
+- ✅ list: 3 invoices, newest first, each with number, client, period, issued date, total and status (INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 27 Oct 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 27 Oct 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 27 Oct 2026 $228.89 Paid)
+- ✅ badge colours: Paid emerald, Draft slate; amounts in JetBrains Mono ({"paid":"oklch(0.508 0.118 165.612)","draft":"oklch(0.372 0.044 257.287)","mono":"\"JetBrains Mono\", ui-monospace, SFMono-Regular, monospace"})
+- ✅ summary: Outstanding $570.00 (the two drafts), Paid $228.89, Invoices 3 (outstanding $570.00 | paid $228.89 | invoices 3)
+- ✅ status filter: All, Draft, Sent, Paid
+- ✅ filter "Draft" shows the 2 drafts, but the cards still cover everything
+- ✅ filter "Paid" shows INV-0001 only
+- ✅ filter "Sent" with none shows an empty state
+- ✅ Delete asks for confirmation and explains the entries become unbilled (Delete invoice? INV-0002 will be deleted and its 3 time entries become unbilled again, so you can invoice them later. Cancel Delete)
+- ✅ Cancel keeps it
+- ✅ confirming deletes it: toast, back to the list
+- ✅ server: its 3 entries are unbilled again (and can be edited again)
+- ✅ the freed entries show up in a new preview again
+- ✅ a new invoice for them gets INV-0004: the number of the deleted one is not reused
+- ✅ print: the sidebar, top bar, bottom bar, action buttons and the entry list are hidden (["none","none","none","none","none"])
+- ✅ print: white background, no leftover sidebar space, no border or shadow (["rgb(255, 255, 255)","0px","0px","rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"])
+- ✅ print: the invoice fills the page width and nothing is cut off at the sides ([0,794,794,0])
+- ✅ print: the line items show as a table (not the stacked phone layout)
+- ✅ print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice) ({"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":116627})
+- ✅ print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width (3 pages, 36 lines)
+- ✅ another user opening my invoice sees "Invoice not found" (and none of my data)
+- ✅ ...and their own list is empty
+- ✅ a malformed invoice id also shows "Invoice not found"
+- ✅ phone: the invoice list has no horizontal scroll (overflow=0)
+- ✅ phone: every invoice row fits and shows its total and status
+- ✅ phone: the new-invoice modal fits the screen without sideways scroll ({"left":16,"right":359,"top":33.34375,"bottom":633.640625})
+- ✅ phone: the line items become stacked rows (project, amount, hours × rate) (App $90.00 1.50 h × $60.00 Website $138.89 2.78 h × $50.00)
+- ✅ phone: the invoice page has no horizontal scroll and the buttons fit (overflow=0 paper=359 actions=300.921875)
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
@@ -652,9 +818,9 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 
 ![Delete confirm dialog](screenshots/step-3-layout-clients-projects/08-confirm-dialog-desktop.png)
 
-**"Coming soon" placeholder (Invoices)**
+**Invoices page, empty state (it was a "Coming soon" placeholder in this step, built in Step 7)**
 
-!["Coming soon" placeholder (Invoices)](screenshots/step-3-layout-clients-projects/09-coming-soon-desktop.png)
+![Invoices page, empty state (it was a "Coming soon" placeholder in this step, built in Step 7)](screenshots/step-3-layout-clients-projects/09-invoices-empty-desktop.png)
 
 **Projects on a 375px phone: top bar + bottom tab bar**
 
@@ -802,10 +968,62 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 
 ![Tablet (768px): day cards instead of a cramped table](screenshots/step-6-timesheet/09-timesheet-tablet.png)
 
+## Screenshots, Step 7: invoices
+
+Printed as PDF: [sample-pdfs/invoice-INV-0001.pdf](sample-pdfs/invoice-INV-0001.pdf) and [sample-pdfs/invoice-long-36-projects.pdf](sample-pdfs/invoice-long-36-projects.pdf).
+
+**Invoices, empty: summary cards at zero and "Create your first invoice"**
+
+![Invoices, empty: summary cards at zero and "Create your first invoice"](screenshots/step-7-invoices/01-invoices-empty-desktop.png)
+
+**New invoice: client, quick date picks, notes and a live preview of exactly what will be billed (4 entries, $228.89)**
+
+![New invoice: client, quick date picks, notes and a live preview of exactly what will be billed (4 entries, $228.89)](screenshots/step-7-invoices/02-new-invoice-modal-desktop.png)
+
+**The invoice page (a white A4-style paper): From / Bill to, dates, line items per project, total and notes, with the entries it contains below**
+
+![The invoice page (a white A4-style paper): From / Bill to, dates, line items per project, total and notes, with the entries it contains below](screenshots/step-7-invoices/03-invoice-detail-desktop.png)
+
+**Two tabs pressed "Create invoice" at the same moment: the one that lost is told "No unbilled billable time for this client in this period"**
+
+![Two tabs pressed "Create invoice" at the same moment: the one that lost is told "No unbilled billable time for this client in this period"](screenshots/step-7-invoices/04-second-tab-nothing-to-bill-desktop.png)
+
+**Invoices list: Outstanding / Paid / count cards, status filter, number, client, period, total and a Draft / Sent / Paid badge**
+
+![Invoices list: Outstanding / Paid / count cards, status filter, number, client, period, total and a Draft / Sent / Paid badge](screenshots/step-7-invoices/05-invoices-list-desktop.png)
+
+**Deleting a draft asks first and says its time entries become unbilled again**
+
+![Deleting a draft asks first and says its time entries become unbilled again](screenshots/step-7-invoices/06-delete-invoice-confirm-desktop.png)
+
+**The page as printed (print media, A4 width): sidebar, bars and buttons gone, only the invoice**
+
+![The page as printed (print media, A4 width): sidebar, bars and buttons gone, only the invoice](screenshots/step-7-invoices/07-invoice-print-preview.png)
+
+**Phone (375px): invoice list without sideways scrolling**
+
+![Phone (375px): invoice list without sideways scrolling](screenshots/step-7-invoices/08-invoices-list-mobile.png)
+
+**Phone: the New invoice modal with its preview fits the screen**
+
+![Phone: the New invoice modal with its preview fits the screen](screenshots/step-7-invoices/09-new-invoice-modal-mobile.png)
+
+**Phone: the invoice page, top of the page with its action buttons**
+
+![Phone: the invoice page, top of the page with its action buttons](screenshots/step-7-invoices/10-invoice-detail-mobile-top.png)
+
+**Phone: the whole invoice; line items become stacked rows (project and amount, hours × rate below)**
+
+![Phone: the whole invoice; line items become stacked rows (project and amount, hours × rate below)](screenshots/step-7-invoices/11-invoice-detail-mobile-full.png)
+
+**Time entries: invoiced entries show a "Billed" badge (a link to the invoice) and a lock instead of edit/delete**
+
+![Time entries: invoiced entries show a "Billed" badge (a link to the invoice) and a lock instead of edit/delete](screenshots/step-7-invoices/12-time-entries-billed-badges-desktop.png)
+
 ## Re-running the browser checks
 
 The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
-2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, port 5100).
-3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs` and `node step-6-timesheet.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.
+2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, as a replica set, port 5100).
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs`, `node step-6-timesheet.mjs` and `node step-7-invoices.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.

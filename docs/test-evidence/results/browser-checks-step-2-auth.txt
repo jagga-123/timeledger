@@ -1,4 +1,4 @@
-﻿PASS  / redirects to /login when logged out
+PASS  / redirects to /login when logged out
 PASS  login page shows brand + demo hint
 PASS  empty login shows server field errors
 PASS  link goes to /register

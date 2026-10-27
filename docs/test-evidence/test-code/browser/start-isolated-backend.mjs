@@ -1,6 +1,7 @@
 // Starts the real backend (src/server.js) against a throwaway in-memory MongoDB and keeps running.
 // Run from the backend dir. Uses its own port so it can never collide with (or silently talk to) a
 // developer's own `npm run dev`, and never touches the Atlas DB from .env.
+// The database is a one-node replica set because invoices use MongoDB transactions.
 import net from 'node:net';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -20,9 +21,9 @@ if (busy) {
 }
 
 const require = createRequire(process.cwd() + '/package.json');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
-const mongod = await MongoMemoryServer.create();
+const mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
 process.env.MONGODB_URI = mongod.getUri('timeledger-e2e'); // set before server.js loads dotenv, which never overrides it
 process.env.PORT = PORT;
 process.env.FRONTEND_URL = FRONTEND_URL;
@@ -35,6 +36,6 @@ if (process.env.E2E_MONGO_URI_FILE) {
 }
 
 await import(pathToFileURL(process.cwd() + '/src/server.js').href);
-console.log(`E2E backend ready on port ${PORT} (in-memory MongoDB)`);
+console.log(`E2E backend ready on port ${PORT} (in-memory MongoDB replica set)`);
 
 process.on('SIGTERM', async () => { await mongod.stop(); process.exit(0); });

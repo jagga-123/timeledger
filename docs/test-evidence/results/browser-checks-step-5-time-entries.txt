@@ -1,4 +1,4 @@
-﻿PASS  "Time Entries" in the sidebar opens the real page (not "Coming soon")
+PASS  "Time Entries" in the sidebar opens the real page (not "Coming soon")
 PASS  header: "Time entries" + "Add entry" button
 PASS  default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time)  -> 2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z
 PASS  this week shows today's entry under a "Today" heading  -> Today · Tue, 27 Oct 2026
