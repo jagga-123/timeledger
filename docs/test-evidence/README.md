@@ -1,13 +1,13 @@
-# TimeLedger: test evidence (Steps 1-4)
+# TimeLedger: test evidence (Steps 1-5)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 16:50.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 17:38.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 31 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 43 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
 | [test-code/](test-code) | The test files that were run. |
 
@@ -15,10 +15,11 @@ Everything that was run to check the app, in one folder: the results, every scre
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **51/51 passed** |
+| Backend tests (Jest + Supertest) | **83/83 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
-| Browser checks, Step 3 (layout, clients, projects) | **64/64 passed** |
+| Browser checks, Step 3 (layout, clients, projects) | **63/63 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
+| Browser checks, Step 5 (time entries) | **82/82 passed** |
 | Frontend production build | passed |
 
 Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft Windows 11 Home Single Language.
@@ -35,11 +36,13 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - Only Microsoft Edge was used (no Firefox or Safari, no real phone; phone layouts were checked at a 375px-wide window).
 - No load, performance or security-scanning tests.
 - The "other devices" in the timer checks are separate browser windows with their own storage (some with deliberately wrong clocks), not real phones or computers.
+- Time zones were checked for two zones only: India (the default) and New York (a device set to that zone, including the daylight-saving change). Other zones use the same code but were not run.
+- The database parts of the browser checks that no screen can do yet (marking an entry as billed, a timer entry with exact seconds) were set up by writing to the throwaway test database directly, because there are no invoices yet.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (51)
+## Backend tests (83)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
@@ -95,7 +98,7 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ lists only my stopped entries inside the range, newest first, with project and client names
 - ✅ rejects a malformed date
 
-### `auth.test.js` (8 tests)
+### `auth.test.js` (11 tests)
 
 **POST /api/auth/register**
 
@@ -114,7 +117,60 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns 401 for an invalid token
 - ✅ returns the current user with a valid token
 
-### `clients-projects.test.js` (16 tests)
+**PATCH /api/auth/me (time zone)**
+
+- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
+- ✅ rejects an unknown time zone and a missing value
+- ✅ requires a token
+
+### `entries.test.js` (27 tests)
+
+**POST /api/entries**
+
+- ✅ creates a manual entry with the right duration and the project's client
+- ✅ is billable by default, copies the client of whichever project is chosen, and stores UTC
+- ✅ validates required fields, date formats and field lengths
+- ✅ rejects another user's project and an archived project
+
+**POST /api/entries > time rules**
+
+- ✅ rejects an end before the start, and a zero-length entry
+- ✅ rejects an entry longer than 24 hours but accepts exactly 24 hours
+- ✅ rejects an end time in the future, with 1 minute of clock difference allowed
+
+**PATCH /api/entries/:id**
+
+- ✅ recalculates the duration when the times change
+- ✅ checks the new time against the existing one when only one time is sent
+- ✅ copies the new project's client when the project changes
+- ✅ can change just the description and billable flag, leaving the times alone
+- ✅ rejects another user's project, and edits stopped timer entries like any other
+- ✅ returns 409 for a billed entry and leaves it unchanged
+- ✅ returns 409 "Stop the timer first" for the running timer
+- ✅ returns 404 for an unknown id and 400 for a malformed one
+
+**DELETE /api/entries/:id**
+
+- ✅ deletes an entry
+- ✅ returns 409 for a billed entry
+- ✅ returns 409 "Stop the timer first" for the running timer
+
+**users can't touch each other's entries**
+
+- ✅ user A cannot see, edit or delete user B's entries (404)
+- ✅ user A cannot create an entry on user B's project
+- ✅ requires authentication
+
+**GET /api/entries**
+
+- ✅ lists finished entries newest first, without the running timer or other users' entries
+- ✅ calculates totals, including the billable amount from each project rate
+- ✅ filters by billable
+- ✅ filters by status (unbilled, billed, all)
+- ✅ combines filters and filters by client, project and date range
+- ✅ rejects invalid filters
+
+### `clients-projects.test.js` (18 tests)
 
 **creating clients and projects**
 
@@ -137,6 +193,11 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 **deleting**
 
 - ✅ returns 409 when deleting a client that still has projects, then succeeds once they are gone
+- ✅ returns 409 when deleting a project that has time entries
+
+**moving a project to another client**
+
+- ✅ moves the project's unbilled entries along, but not entries that are already on an invoice
 
 **validation**
 
@@ -181,7 +242,7 @@ Script: [test-code/browser/step-2-auth.mjs](test-code/browser/step-2-auth.mjs). 
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
-## Browser checks, Step 3: layout, clients, projects (64)
+## Browser checks, Step 3: layout, clients, projects (63)
 
 Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser/step-3-layout-clients-projects.mjs). Raw output: [results/browser-checks-step-3-layout-clients-projects.txt](results/browser-checks-step-3-layout-clients-projects.txt).
 
@@ -230,7 +291,6 @@ Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser
 - ✅ client with projects is still listed
 - ✅ client without projects is deleted
 - ✅ project is deleted after confirming
-- ✅ Time Entries: "Coming soon" placeholder
 - ✅ Timesheet: "Coming soon" placeholder
 - ✅ Invoices: "Coming soon" placeholder
 - ✅ mobile: sidebar hidden, top bar with logo + logout shown
@@ -275,7 +335,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ running: white Stop button (rgb(255, 255, 255))
 - ✅ running: clock starts at (almost) zero (00:00:00)
 - ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
-- ✅ server: timer exists with the server-side start time (between click and response) (174ms after the click)
+- ✅ server: timer exists with the server-side start time (between click and response) (64ms after the click)
 - ✅ server: description and project saved
 - ✅ clock ticks every second (0s -> 3s)
 - ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
@@ -286,22 +346,22 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ description saved to the server (Enter)
 - ✅ Escape reverts the edit and saves nothing
 - ✅ after a page refresh the timer is still running
-- ✅ ...and the clock did not reset (it continues from the server start time) (5s -> 5s)
+- ✅ ...and the clock did not reset (it continues from the server start time) (4s -> 4s)
 - ✅ ...description survived too
 - ✅ a freshly opened browser shows the same running timer
-- ✅ ...with the same elapsed time (within 2s) (A=6s B=7s)
+- ✅ ...with the same elapsed time (within 2s) (A=5s B=5s)
 - ✅ ...and the title shows the time there too
-- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=10s C=10s)
-- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=10s D=10s)
+- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=7s C=7s)
+- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=7s D=8s)
 - ✅ Stop shows a toast with the logged time
 - ✅ ...the card goes back to the start form
 - ✅ ...the tab title goes back to "TimeLedger"
 - ✅ ...the mini timer disappears
 - ✅ ...the server has no running timer
-- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:11)
-- ✅ ...and its duration matches what the clock showed (within 2s) (clock=10s list=11s)
+- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:08)
+- ✅ ...and its duration matches what the clock showed (within 2s) (clock=8s list=8s)
 - ✅ ...Today shows a total
-- ✅ server: stopped entry has endedAt and durationSeconds (11s)
+- ✅ server: stopped entry has endedAt and durationSeconds (8s)
 - ✅ E: second tab loads idle
 - ✅ another device starts a timer (API)
 - ✅ starting a second timer shows the 409 message as is
@@ -312,7 +372,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ ...with the same time as E (within 2s)
 - ✅ tab A goes idle after the timer is stopped elsewhere
 - ✅ ...and "Today" now has both entries
-- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (21s)
+- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (23s)
 - ✅ the stop icon in the mini timer stops the timer
 - ✅ ...and "Today" now has 3 entries
 - ✅ no projects: "Create a project first" with a link
@@ -325,6 +385,93 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ mobile running: no horizontal scroll (overflow=0)
 - ✅ mobile: other pages have no horizontal scroll while a timer runs
 - ✅ mobile: stop works
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
+## Browser checks, Step 5: time entries (82)
+
+Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-time-entries.mjs). Raw output: [results/browser-checks-step-5-time-entries.txt](results/browser-checks-step-5-time-entries.txt).
+
+- ✅ "Time Entries" in the sidebar opens the real page (not "Coming soon")
+- ✅ header: "Time entries" + "Add entry" button
+- ✅ default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time) (2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z)
+- ✅ this week shows today's entry under a "Today" heading (Today · Tue, 27 Oct 2026)
+- ✅ ...but not last week's
+- ✅ "Last week" asks for the previous Monday-to-Monday range (2026-10-18T18:30:00.000Z -> 2026-10-25T18:30:00.000Z)
+- ✅ ...and shows last week's entry only
+- ✅ "This month" asks for the 1st to the 1st of next month (2026-09-30T18:30:00.000Z -> 2026-10-31T18:30:00.000Z)
+- ✅ ...and includes today's entry
+- ✅ custom range includes both end days (9 March 00:00 to 14 March 00:00, India time) (2026-03-08T18:30:00.000Z -> 2026-03-13T18:30:00.000Z)
+- ✅ summary cards: total hours (total hours 8h 45m)
+- ✅ summary cards: billable hours (billable hours 7h 45m)
+- ✅ summary cards: unbilled amount (the billed entry is left out) (unbilled amount $385.00)
+- ✅ entries are grouped by day, newest day first, with the day's hours ([["Wed, 11 Mar 2026","5h 15m"],["Tue, 10 Mar 2026","1h 30m"],["Mon, 9 Mar 2026","2h"]])
+- ✅ within a day the latest start comes first
+- ✅ row: project, client, description, time range, duration, badge (Branding · Globex Logo options 09:00–12:15 Billable 3h 15m)
+- ✅ row: an entry past midnight shows 23:00–01:00 (+1 day) (Website · Acme Corp Night deploy 23:00–01:00 (+1 day) Billable 2h)
+- ✅ row: a non-billable entry gets the "Non-billable" badge (Mobile app · Acme Corp Internal sync 14:00–15:00 Non-billable 1h)
+- ✅ row: an entry on an invoice gets the "Billed" badge (Website · Acme Corp Wireframes 09:00–11:00 Billed 2h)
+- ✅ duration is shown in JetBrains Mono
+- ✅ badge colors: Billable emerald, Non-billable slate, Billed indigo (["oklch(0.508 0.118 165.612)","oklch(0.372 0.044 257.287)","oklch(0.457 0.24 277.023)"])
+- ✅ project color dot on each row (Branding is amber) (rgb(245, 158, 11))
+- ✅ billed entry: lock icon instead of edit/delete
+- ✅ normal entry: edit and delete buttons
+- ✅ Billable filter "Non-billable" sends billable=false and shows just that entry
+- ✅ ...the summary follows the filter (1h total, 0m billable, $0.00) (total hours 1h | billable hours 0s | unbilled amount $0.00)
+- ✅ "Billable" sends billable=true and hides the non-billable entry
+- ✅ Status "Billed" sends status=billed and shows only the invoiced entry
+- ✅ Status "Unbilled" shows the other 4
+- ✅ Client filter sends clientId and shows that client's entries
+- ✅ the Project filter only offers that client's projects (All projects, Branding)
+- ✅ Project filter sends projectId and shows only that project
+- ✅ filters with no match show "No entries match these filters" and a Clear button
+- ✅ Clear filters resets them and keeps the date range
+- ✅ an empty period shows "No time entries yet" with an Add entry button
+- ✅ ...and the summary is all zero (total hours 0s | billable hours 0s | unbilled amount $0.00)
+- ✅ "Add entry" opens the modal with today's date filled in (2026-10-27)
+- ✅ the modal has project, description, date, start, end and a billable switch (on)
+- ✅ duration starts as "—"
+- ✅ submitting an empty form shows field errors, and sends nothing
+- ✅ ...the entries list was not touched
+- ✅ live duration: 09:00 to 10:30 is "1h 30m"
+- ✅ an end time before the start time means next day: "23h" and "ends next day" (Duration: 23h)
+- ✅ ...and the hint goes away again
+- ✅ saving shows a toast, closes the modal and the entry appears in its day
+- ✅ ...under "Thu, 12 Mar 2026" with 1h 30m ({"heading":"Thu, 12 Mar 2026","total":"1h 30m","rows":["Website · Acme Corp Homepage copy 09:00–10:30 Billable 1h 30m"]})
+- ✅ server: typed in India time, stored in UTC (09:00 IST = 03:30Z), 5400s, source manual, project's client copied (["2026-03-12T03:30:00.000Z","2026-03-12T05:00:00.000Z",5400,"manual"])
+- ✅ the summary updated (10h 15m total, 9h 15m billable, $460.00 unbilled) (total hours 10h 15m | billable hours 9h 15m | unbilled amount $460.00)
+- ✅ the Billable switch can be turned off
+- ✅ server: 23:00 to 01:00 (India time) is stored as 2 hours crossing midnight, non-billable (["2026-03-13T17:30:00.000Z","2026-03-13T19:30:00.000Z",7200])
+- ✅ ...and the list shows "(+1 day)" for it (Mobile app · Acme Corp Release night 23:00–01:00 (+1 day) Non-billable 2h)
+- ✅ a future end time is rejected by the server and shown under "End time" (End time can't be in the future)
+- ✅ ...the modal stays open so it can be fixed
+- ✅ edit modal is filled with the entry ({"project":"Website\nAcme Corp","description":"Review","date":"2026-03-10","start":"10:00","end":"10:30","billable":"true","title":"Edit time entry","duration":"Duration: 30m"})
+- ✅ saving an edit shows a toast and updates the row
+- ✅ ...with the new time and duration (10:00–11:00, 1h) (Website · Acme Corp Review and fixes 10:00–11:00 Billable 1h)
+- ✅ server: duration recalculated to 3600s ([3600,"2026-03-10T05:30:00.000Z"])
+- ✅ changing the project also changes the entry's client on the server ([true,true])
+- ✅ editing only the description of a timer entry leaves its exact start, end and seconds alone ([1234,"2026-03-12T04:00:07.000Z","2026-03-12T04:20:41.000Z"])
+- ✅ delete asks for confirmation
+- ✅ Cancel keeps the entry
+- ✅ confirming deletes it, with a toast
+- ✅ server: the entry is gone
+- ✅ deleting an entry that was invoiced in the meantime shows the server's 409 message
+- ✅ ...and it is still there
+- ✅ Dashboard "Today": the pencil opens the same edit modal
+- ✅ ...and saving refreshes the Today list
+- ✅ server: the description changed, the times did not
+- ✅ same zone under another name (India: Asia/Kolkata saved, device says Asia/Calcutta): nothing is sent to the server (PATCH /auth/me calls: 0)
+- ✅ device time zone differs from the saved one: the app saves the device's zone, once (PATCH calls: 1, now saved: Asia/Calcutta)
+- ✅ a device in New York: the saved zone becomes America/New_York
+- ✅ 09:00-10:00 typed in New York is stored as 13:00Z-14:00Z (daylight saving, UTC-4) (["2026-03-12T13:00:00.000Z","2026-03-12T14:00:00.000Z"])
+- ✅ phone: the filters are collapsed behind a "Filters" button
+- ✅ ...tapping it opens the filters
+- ✅ phone: the Filters button shows how many filters are on
+- ✅ phone: no horizontal scroll with the list and summary (overflow=0)
+- ✅ phone: every row fits inside the screen
+- ✅ phone: the entry modal fits the screen ({"left":16,"right":359,"top":52.59375,"bottom":614.390625})
+- ✅ phone: no horizontal scroll with the modal open
+- ✅ phone: the dashboard Today list has no horizontal scroll (overflow=0)
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
@@ -458,10 +605,60 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 
 ![Running on a phone: mini timer in the top bar, Today list below](screenshots/step-4-timer/10-running-mobile.png)
 
+## Screenshots, Step 5: time entries
+
+**Time entries: filters, summary cards (total, billable, unbilled amount) and entries grouped by day with badges**
+
+![Time entries: filters, summary cards (total, billable, unbilled amount) and entries grouped by day with badges](screenshots/step-5-time-entries/01-time-entries-desktop.png)
+
+**Status filter "Billed": an entry on an invoice shows a lock instead of edit/delete**
+
+![Status filter "Billed": an entry on an invoice shows a lock instead of edit/delete](screenshots/step-5-time-entries/02-filter-billed-desktop.png)
+
+**Empty state: "No time entries yet" with an Add entry button**
+
+![Empty state: "No time entries yet" with an Add entry button](screenshots/step-5-time-entries/03-empty-state-desktop.png)
+
+**Add entry: an end time before the start time shows the live duration and "ends next day"**
+
+![Add entry: an end time before the start time shows the live duration and "ends next day"](screenshots/step-5-time-entries/04-add-entry-ends-next-day-desktop.png)
+
+**The server's rule "End time can't be in the future" shown under the End time field**
+
+![The server's rule "End time can't be in the future" shown under the End time field](screenshots/step-5-time-entries/05-add-entry-server-error-desktop.png)
+
+**Edit entry: the form is filled with the entry's project, date, times and billable setting**
+
+![Edit entry: the form is filled with the entry's project, date, times and billable setting](screenshots/step-5-time-entries/06-edit-entry-desktop.png)
+
+**Delete confirmation for a time entry**
+
+![Delete confirmation for a time entry](screenshots/step-5-time-entries/07-delete-confirm-desktop.png)
+
+**Dashboard "Today": the pencil opens the same edit modal**
+
+![Dashboard "Today": the pencil opens the same edit modal](screenshots/step-5-time-entries/08-dashboard-edit-desktop.png)
+
+**Phone (375px): filters collapsed behind a "Filters" button**
+
+![Phone (375px): filters collapsed behind a "Filters" button](screenshots/step-5-time-entries/09-mobile-collapsed-filters.png)
+
+**Phone: filters open; the button shows how many are on**
+
+![Phone: filters open; the button shows how many are on](screenshots/step-5-time-entries/10-mobile-filters-open.png)
+
+**Phone: summary cards and entries without sideways scrolling**
+
+![Phone: summary cards and entries without sideways scrolling](screenshots/step-5-time-entries/11-mobile-list.png)
+
+**Phone: the add entry modal fits the screen**
+
+![Phone: the add entry modal fits the screen](screenshots/step-5-time-entries/12-mobile-entry-modal.png)
+
 ## Re-running the browser checks
 
 The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
 2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, port 5100).
-3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs` and `node step-4-timer.mjs`. Each prints PASS/FAIL per check and writes its screenshots next to the script.
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs` and `node step-5-time-entries.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.

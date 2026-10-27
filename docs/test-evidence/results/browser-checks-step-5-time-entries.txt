@@ -1,0 +1,85 @@
+﻿PASS  "Time Entries" in the sidebar opens the real page (not "Coming soon")
+PASS  header: "Time entries" + "Add entry" button
+PASS  default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time)  -> 2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z
+PASS  this week shows today's entry under a "Today" heading  -> Today · Tue, 27 Oct 2026
+PASS  ...but not last week's
+PASS  "Last week" asks for the previous Monday-to-Monday range  -> 2026-10-18T18:30:00.000Z -> 2026-10-25T18:30:00.000Z
+PASS  ...and shows last week's entry only
+PASS  "This month" asks for the 1st to the 1st of next month  -> 2026-09-30T18:30:00.000Z -> 2026-10-31T18:30:00.000Z
+PASS  ...and includes today's entry
+PASS  custom range includes both end days (9 March 00:00 to 14 March 00:00, India time)  -> 2026-03-08T18:30:00.000Z -> 2026-03-13T18:30:00.000Z
+PASS  summary cards: total hours  -> total hours 8h 45m
+PASS  summary cards: billable hours  -> billable hours 7h 45m
+PASS  summary cards: unbilled amount (the billed entry is left out)  -> unbilled amount $385.00
+PASS  entries are grouped by day, newest day first, with the day's hours  -> [["Wed, 11 Mar 2026","5h 15m"],["Tue, 10 Mar 2026","1h 30m"],["Mon, 9 Mar 2026","2h"]]
+PASS  within a day the latest start comes first
+PASS  row: project, client, description, time range, duration, badge  -> Branding · Globex Logo options 09:00–12:15 Billable 3h 15m
+PASS  row: an entry past midnight shows 23:00–01:00 (+1 day)  -> Website · Acme Corp Night deploy 23:00–01:00 (+1 day) Billable 2h
+PASS  row: a non-billable entry gets the "Non-billable" badge  -> Mobile app · Acme Corp Internal sync 14:00–15:00 Non-billable 1h
+PASS  row: an entry on an invoice gets the "Billed" badge  -> Website · Acme Corp Wireframes 09:00–11:00 Billed 2h
+PASS  duration is shown in JetBrains Mono
+PASS  badge colors: Billable emerald, Non-billable slate, Billed indigo  -> ["oklch(0.508 0.118 165.612)","oklch(0.372 0.044 257.287)","oklch(0.457 0.24 277.023)"]
+PASS  project color dot on each row (Branding is amber)  -> rgb(245, 158, 11)
+PASS  billed entry: lock icon instead of edit/delete
+PASS  normal entry: edit and delete buttons
+PASS  Billable filter "Non-billable" sends billable=false and shows just that entry
+PASS  ...the summary follows the filter (1h total, 0m billable, $0.00)  -> total hours 1h | billable hours 0s | unbilled amount $0.00
+PASS  "Billable" sends billable=true and hides the non-billable entry
+PASS  Status "Billed" sends status=billed and shows only the invoiced entry
+PASS  Status "Unbilled" shows the other 4
+PASS  Client filter sends clientId and shows that client's entries
+PASS  the Project filter only offers that client's projects  -> All projects, Branding
+PASS  Project filter sends projectId and shows only that project
+PASS  filters with no match show "No entries match these filters" and a Clear button
+PASS  Clear filters resets them and keeps the date range
+PASS  an empty period shows "No time entries yet" with an Add entry button
+PASS  ...and the summary is all zero  -> total hours 0s | billable hours 0s | unbilled amount $0.00
+PASS  "Add entry" opens the modal with today's date filled in  -> 2026-10-27
+PASS  the modal has project, description, date, start, end and a billable switch (on)
+PASS  duration starts as "—"
+PASS  submitting an empty form shows field errors, and sends nothing
+PASS  ...the entries list was not touched
+PASS  live duration: 09:00 to 10:30 is "1h 30m"
+PASS  an end time before the start time means next day: "23h" and "ends next day"  -> Duration: 23h
+ends next day
+PASS  ...and the hint goes away again
+PASS  saving shows a toast, closes the modal and the entry appears in its day
+PASS  ...under "Thu, 12 Mar 2026" with 1h 30m  -> {"heading":"Thu, 12 Mar 2026","total":"1h 30m","rows":["Website · Acme Corp Homepage copy 09:00–10:30 Billable 1h 30m"]}
+PASS  server: typed in India time, stored in UTC (09:00 IST = 03:30Z), 5400s, source manual, project's client copied  -> ["2026-03-12T03:30:00.000Z","2026-03-12T05:00:00.000Z",5400,"manual"]
+PASS  the summary updated (10h 15m total, 9h 15m billable, $460.00 unbilled)  -> total hours 10h 15m | billable hours 9h 15m | unbilled amount $460.00
+PASS  the Billable switch can be turned off
+PASS  server: 23:00 to 01:00 (India time) is stored as 2 hours crossing midnight, non-billable  -> ["2026-03-13T17:30:00.000Z","2026-03-13T19:30:00.000Z",7200]
+PASS  ...and the list shows "(+1 day)" for it  -> Mobile app · Acme Corp Release night 23:00–01:00 (+1 day) Non-billable 2h
+PASS  a future end time is rejected by the server and shown under "End time"  -> End time can't be in the future
+PASS  ...the modal stays open so it can be fixed
+PASS  edit modal is filled with the entry  -> {"project":"Website\nAcme Corp","description":"Review","date":"2026-03-10","start":"10:00","end":"10:30","billable":"true","title":"Edit time entry","duration":"Duration: 30m"}
+PASS  saving an edit shows a toast and updates the row
+PASS  ...with the new time and duration (10:00–11:00, 1h)  -> Website · Acme Corp Review and fixes 10:00–11:00 Billable 1h
+PASS  server: duration recalculated to 3600s  -> [3600,"2026-03-10T05:30:00.000Z"]
+PASS  changing the project also changes the entry's client on the server  -> [true,true]
+PASS  editing only the description of a timer entry leaves its exact start, end and seconds alone  -> [1234,"2026-03-12T04:00:07.000Z","2026-03-12T04:20:41.000Z"]
+PASS  delete asks for confirmation
+PASS  Cancel keeps the entry
+PASS  confirming deletes it, with a toast
+PASS  server: the entry is gone
+PASS  deleting an entry that was invoiced in the meantime shows the server's 409 message
+PASS  ...and it is still there
+PASS  Dashboard "Today": the pencil opens the same edit modal
+PASS  ...and saving refreshes the Today list
+PASS  server: the description changed, the times did not
+PASS  same zone under another name (India: Asia/Kolkata saved, device says Asia/Calcutta): nothing is sent to the server  -> PATCH /auth/me calls: 0
+PASS  device time zone differs from the saved one: the app saves the device's zone, once  -> PATCH calls: 1, now saved: Asia/Calcutta
+PASS  a device in New York: the saved zone becomes America/New_York
+PASS  09:00-10:00 typed in New York is stored as 13:00Z-14:00Z (daylight saving, UTC-4)  -> ["2026-03-12T13:00:00.000Z","2026-03-12T14:00:00.000Z"]
+PASS  phone: the filters are collapsed behind a "Filters" button
+PASS  ...tapping it opens the filters
+PASS  phone: the Filters button shows how many filters are on
+PASS  phone: no horizontal scroll with the list and summary  -> overflow=0
+PASS  phone: every row fits inside the screen
+PASS  phone: the entry modal fits the screen  -> {"left":16,"right":359,"top":52.59375,"bottom":614.390625}
+PASS  phone: no horizontal scroll with the modal open
+PASS  phone: the dashboard Today list has no horizontal scroll  -> overflow=0
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL STEP 5 BROWSER CHECKS PASSED

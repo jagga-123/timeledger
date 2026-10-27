@@ -10,18 +10,21 @@ A full-stack time tracker and invoicing app for freelancers, built with the MERN
 | 2 | Authentication: register, login, JWT, protected routes | Done |
 | 3 | App layout, Clients and Projects | Done |
 | 4 | Start/stop timer, kept on the server | Done |
-| 5+ | Manual time entries, timesheet, invoices, demo seed data | Planned |
+| 5 | Time entries: add and edit by hand, filters and totals, time zones | Done |
+| 6+ | Timesheet, invoices, demo seed data | Planned |
 
-**Test results:** 51 backend tests and 166 automated browser checks all pass. Everything is in [docs/test-evidence](docs/test-evidence): a one-page report with screenshots ([test-report.html](docs/test-evidence/test-report.html), download it and open it in a browser), every screenshot as a separate image, the raw results and the test code.
+**Test results:** 83 backend tests and 247 automated browser checks all pass. Everything is in [docs/test-evidence](docs/test-evidence): a one-page report with screenshots ([test-report.html](docs/test-evidence/test-report.html), download it and open it in a browser), every screenshot as a separate image, the raw results and the test code.
 
 ## Features
 
 - **Authentication**: register and log in with a hashed password (bcrypt) and a JWT. Logged-in users stay logged in after a reload; logged-out users are redirected to `/login`.
 - **App layout**: fixed sidebar on desktop; top bar and bottom tab bar on phones. Time Entries, Timesheet and Invoices are "Coming soon" placeholders for now.
 - **Clients**: add, edit and delete clients (name, optional company and email). The list shows how many projects each client has. Names are unique per user, ignoring case.
-- **Projects**: each project belongs to a client and has an hourly rate (0 to 10000, stored with 2 decimals) and a color. Filter the list by client. Names are unique per client.
+- **Projects**: each project belongs to a client and has an hourly rate (0 to 10000, stored with 2 decimals) and a color. Filter the list by client. Names are unique per client. A project that has time entries can't be deleted.
 - **Timer**: start and stop a timer on a project from the dashboard. Only one timer can run per user. It is kept on the server, so it is still correct after a refresh, after closing the browser, and on another device. A small running indicator shows in the sidebar (or top bar on phones) on every page, and the time appears in the browser tab title.
-- **Today**: the dashboard lists today's stopped timers with their total.
+- **Today**: the dashboard lists today's stopped timers with their total. Each one can be edited.
+- **Time entries**: add an entry by hand (project, description, date, start and end time, billable or not), edit or delete it. The Time entries page filters by date range (this week, last week, this month, custom), client, project, billable and billed/unbilled, shows total hours, billable hours and the unbilled amount, and groups entries by day. Entries that are on an invoice are locked.
+- **Time zones**: all times are stored in UTC. Day boundaries and the times you type use your saved time zone, which follows your device (it is updated when you open the app on a device in another zone).
 - **Private data**: every record belongs to one user. Asking for someone else's record returns `404`.
 
 ### How the timer works
@@ -119,7 +122,11 @@ All routes are under `/api`. Routes marked **auth** need the header `Authorizati
 | `POST /timer/start` | yes | Body: `projectId`, optional `description` (max 200), `billable` (default true). Returns `201 { timer, serverTime }`. `400 Project not found` if the project isn't yours or is archived, `409 A timer is already running. Stop it first.` |
 | `POST /timer/stop` | yes | Returns `{ entry, serverTime }` with `endedAt` and `durationSeconds`. `404 No timer is running` |
 | `PATCH /timer` | yes | Change `description`, `billable` or `projectId` of the running timer only. Returns `{ timer, serverTime }` |
-| `GET /entries?from=&to=` | yes | Stopped entries (ISO date-times, `from` inclusive, `to` exclusive), newest first. Used for the dashboard's "Today" list |
+| `PATCH /auth/me` | yes | Body: `timezone` (a real time zone name such as `Asia/Kolkata`). Returns `{ user }` |
+| `GET /entries` | yes | Finished entries (the running timer is left out), newest first, plus totals. Optional filters: `from` (inclusive) and `to` (exclusive) as ISO date-times, `clientId`, `projectId`, `billable` (`true` / `false`), `status` (`all` / `unbilled` / `billed`). Returns `{ entries, totals: { totalSeconds, billableSeconds, billableAmount, unbilledAmount } }` |
+| `POST /entries` | yes | Body: `projectId`, `startedAt`, `endedAt` (ISO timestamps, offsets allowed), optional `description` (max 200), `billable` (default true). Returns `201 { entry }` with `source: "manual"` and the project's client copied in. `400` if the end isn't after the start, the entry is longer than 24 hours, or the end is in the future (1 minute of clock difference is allowed) |
+| `PATCH /entries/:id` | yes | Change any of those fields. `409 This entry is on an invoice and can't be changed` for a billed entry, `409 Stop the timer first` for the running timer |
+| `DELETE /entries/:id` | yes | Returns `204`. Same `409` rules as editing |
 
 **Errors** always look like `{ "message": "...", "errors": [{ "path": "email", "message": "..." }] }`; `errors` is only present for validation failures (`400`). A malformed `:id` returns `400 Invalid id`, a missing or invalid token returns `401`, and a record that doesn't exist or belongs to someone else returns `404`.
 
@@ -135,7 +142,7 @@ timeledger/
 │       ├── models/                   User, Client, Project, TimeEntry
 │       ├── routes/                   auth, clients, projects, timer, entries
 │       ├── controllers/              request handlers
-│       ├── services/                 timer.service.js (start / stop / edit the running timer)
+│       ├── services/                 timer.service.js (the running timer), entries.service.js (manual entries, filters, totals)
 │       ├── middleware/               auth, validation, error handling
 │       ├── validators/               Zod schemas
 │       ├── utils/                    helpers (tokens, errors, money, ids)
@@ -147,7 +154,7 @@ timeledger/
 │       ├── components/               shared UI (Modal, Button, FormField, ...)
 │       ├── context/, hooks/          auth and timer state
 │       ├── layouts/                  AuthLayout, AppLayout (sidebar / tab bar)
-│       ├── pages/                    Login, Register, Dashboard, Clients, Projects
+│       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries
 │       └── utils/                    formatting and error helpers
 └── docs/
     └── test-evidence/                test report, screenshots, raw results, test code
@@ -160,16 +167,17 @@ cd backend
 npm test
 ```
 
-The 51 backend tests run against a throwaway in-memory MongoDB, so they never touch your real database:
+The 83 backend tests run against a throwaway in-memory MongoDB, so they never touch your real database:
 
 | File | Tests | Covers |
 | --- | --- | --- |
 | `health.test.js` | 2 | health route and JSON 404 |
-| `auth.test.js` | 8 | register, login, `/me`, validation, duplicate email |
-| `clients-projects.test.js` | 16 | create/edit/delete, duplicate names, per-user isolation, delete rules, rate validation and rounding |
-| `timer.test.js` | 25 | server-side start time, one timer per user (including simultaneous requests and the database index itself), stop and duration, editing the running timer, other users' timers, the entries list |
+| `auth.test.js` | 11 | register, login, `/me`, validation, duplicate email, saving the time zone |
+| `clients-projects.test.js` | 18 | create/edit/delete, duplicate names, per-user isolation, delete rules (including projects that have time entries), entries following a project to another client, rate validation and rounding |
+| `timer.test.js` | 25 | server-side start time, one timer per user (including simultaneous requests and the database index itself), stop and duration, editing the running timer, other users' timers |
+| `entries.test.js` | 27 | manual entries (duration, client copied, UTC storage), the time rules (end after start, max 24 hours, not in the future), editing and deleting, billed and running entries locked, other users' entries, filters and totals (billable amount from each project's rate) |
 
-The browser checks (166 in total for Steps 2 to 4) drive the real app in a headless browser: sign-up and login, the sidebar and mobile layout, every Clients and Projects action, the timer (start, stop, refresh while running, a freshly opened browser, a second tab, wrong device clocks, starting a second timer), and a check that nothing scrolls sideways at 375px. Their results, screenshots and scripts are in [docs/test-evidence](docs/test-evidence).
+The browser checks (247 in total for Steps 2 to 5) drive the real app in a headless browser: sign-up and login, the sidebar and mobile layout, every Clients and Projects action, the timer (start, stop, refresh while running, a freshly opened browser, a second tab, wrong device clocks, starting a second timer), time entries (date presets, every filter, adding and editing by hand, delete, the dashboard's Today edit, time zones including a device in New York), and a check that nothing scrolls sideways at 375px. Their results, screenshots and scripts are in [docs/test-evidence](docs/test-evidence).
 
 ## Troubleshooting
 

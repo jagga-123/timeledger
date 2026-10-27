@@ -303,7 +303,8 @@ await clickButton('Delete', '[role=dialog]');
 check('project is deleted after confirming', (await hasText('Project deleted')) && (await waitRows(2)));
 
 // ===== 5. Coming-soon pages =====
-for (const [href, title] of [['/time-entries', 'Time Entries'], ['/timesheet', 'Timesheet'], ['/invoices', 'Invoices']]) {
+// (Time Entries became a real page in Step 5, so it is no longer a "Coming soon" placeholder)
+for (const [href, title] of [['/timesheet', 'Timesheet'], ['/invoices', 'Invoices']]) {
   await page.click(`aside a[href="${href}"]`);
   await waitPath(href);
   const ok = (await hasText('Coming soon')) && (await page.$eval('main h1', (h) => h.innerText)) === title;

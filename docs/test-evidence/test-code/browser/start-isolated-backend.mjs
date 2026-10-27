@@ -29,6 +29,11 @@ process.env.FRONTEND_URL = FRONTEND_URL;
 process.env.JWT_SECRET = 'e2e-secret';
 process.env.JWT_EXPIRES_IN = '1h';
 
+// Let test scripts reach the throwaway database (e.g. to mark an entry as billed, which no API can do yet)
+if (process.env.E2E_MONGO_URI_FILE) {
+  (await import('node:fs')).writeFileSync(process.env.E2E_MONGO_URI_FILE, process.env.MONGODB_URI);
+}
+
 await import(pathToFileURL(process.cwd() + '/src/server.js').href);
 console.log(`E2E backend ready on port ${PORT} (in-memory MongoDB)`);
 
