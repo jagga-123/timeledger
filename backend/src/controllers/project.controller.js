@@ -1,5 +1,6 @@
 import Client from '../models/Client.js';
 import Project from '../models/Project.js';
+import TimeEntry from '../models/TimeEntry.js';
 import { HttpError, conflictOnDuplicate } from '../utils/httpError.js';
 import { isValidObjectId } from '../utils/objectId.js';
 
@@ -52,15 +53,32 @@ export const updateProject = async (req, res) => {
   if (req.body.clientId) {
     await assertOwnClient(req, req.body.clientId);
   }
+  const movedToAnotherClient = req.body.clientId && req.body.clientId !== String(project.clientId);
 
   project.set(req.body);
   await project.save().catch(conflictOnDuplicate(DUPLICATE_MESSAGE));
+
+  // Entries keep a copy of their project's client, so entries that aren't on an invoice yet move along
+  if (movedToAnotherClient) {
+    await TimeEntry.updateMany(
+      { userId: req.user.id, projectId: project._id, invoiceId: null },
+      { clientId: project.clientId }
+    );
+  }
+
   await project.populate('client', 'name');
   res.json({ project });
 };
 
 export const deleteProject = async (req, res) => {
   const project = await findOwnProject(req);
+
+  // Entries (including a running timer) point at their project, so it can't disappear underneath them
+  const hasEntries = await TimeEntry.exists({ userId: req.user.id, projectId: project._id });
+  if (hasEntries) {
+    throw new HttpError(409, 'This project has time entries. Delete them first.');
+  }
+
   await project.deleteOne();
   res.status(204).end();
 };
