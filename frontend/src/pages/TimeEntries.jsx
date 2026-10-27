@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Clock, Lock, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/PageHeader';
+import SummaryCard from '../components/SummaryCard';
 import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import Button from '../components/Button';
@@ -26,12 +28,40 @@ import {
 
 const DEFAULT_FILTERS = {
   preset: 'this-week', // this-week | last-week | this-month | custom
+  overlap: false, // match entries that merely touch the date range (set by timesheet links)
   from: '', // custom range, "YYYY-MM-DD"
   to: '',
   clientId: '',
   projectId: '',
   billable: 'all', // all | billable | non-billable
   status: 'all', // all | unbilled | billed
+};
+
+// The page can be opened with filters already set, e.g. from the Timesheet:
+// /time-entries?projectId=<id>&from=2026-03-10&to=2026-03-10 (also clientId, billable, status).
+// Only used for the starting filters; unknown or malformed values are ignored.
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
+
+const filtersFromUrl = (params) => {
+  const filters = { ...DEFAULT_FILTERS };
+
+  const from = params.get('from') ?? '';
+  const to = params.get('to') ?? '';
+  if (DATE_KEY.test(from) || DATE_KEY.test(to)) {
+    filters.preset = 'custom';
+    filters.from = DATE_KEY.test(from) ? from : '';
+    filters.to = DATE_KEY.test(to) ? to : '';
+    // From the timesheet: an entry that crosses midnight belongs to both of its days
+    filters.overlap = params.get('overlap') === '1';
+  }
+  for (const name of ['clientId', 'projectId']) {
+    if (OBJECT_ID.test(params.get(name) ?? '')) filters[name] = params.get(name);
+  }
+  if (['billable', 'non-billable'].includes(params.get('billable'))) filters.billable = params.get('billable');
+  if (['unbilled', 'billed'].includes(params.get('status'))) filters.status = params.get('status');
+
+  return filters;
 };
 
 const SELECT_CLASS =
@@ -48,15 +78,6 @@ function Filter({ label, htmlFor, children }) {
   );
 }
 
-function SummaryCard({ label, value }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 font-mono text-2xl font-semibold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
 function EntryBadge({ entry }) {
   if (entry.invoiceId) return <Badge tone="primary">Billed</Badge>;
   return entry.billable ? <Badge tone="success">Billable</Badge> : <Badge>Non-billable</Badge>;
@@ -66,7 +87,8 @@ export default function TimeEntries() {
   const { user } = useAuth();
   const timeZone = user.timezone;
 
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState(() => filtersFromUrl(searchParams));
   const [filtersOpen, setFiltersOpen] = useState(false); // phones only
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState(null);
@@ -101,6 +123,7 @@ export default function TimeEntries() {
       to: range.to?.toISOString(),
       clientId: filters.clientId || undefined,
       projectId: filters.projectId || undefined,
+      overlap: filters.overlap ? 'true' : undefined,
       billable: { all: undefined, billable: 'true', 'non-billable': 'false' }[filters.billable],
       status: filters.status === 'all' ? undefined : filters.status,
     };
@@ -124,6 +147,7 @@ export default function TimeEntries() {
     setFilters((current) => {
       const next = { ...current, [name]: value };
       if (name === 'clientId') next.projectId = ''; // the old project may belong to another client
+      if (['preset', 'from', 'to'].includes(name)) next.overlap = false; // a date range chosen here matches by start day
       return next;
     });
   };
@@ -180,7 +204,15 @@ export default function TimeEntries() {
     </Button>
   );
 
-  const clearFilters = () => setFilters((current) => ({ ...DEFAULT_FILTERS, preset: current.preset, from: current.from, to: current.to }));
+  // Keeps the date range (and how it matches), resets everything else
+  const clearFilters = () =>
+    setFilters((current) => ({
+      ...DEFAULT_FILTERS,
+      preset: current.preset,
+      from: current.from,
+      to: current.to,
+      overlap: current.overlap,
+    }));
 
   const renderEntries = () => {
     if (days.length === 0) {

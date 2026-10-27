@@ -134,6 +134,38 @@ export const customRange = (fromKey, toKey, timeZone) => ({
   to: toKey ? dateTimeInZone(addDaysToDateKey(toKey, 1), '00:00', timeZone) : undefined,
 });
 
+// The Monday of the current week as a date key ("2026-03-09"), in the given time zone
+export const currentWeekKey = (timeZone, now = new Date()) =>
+  dateKeyInZone(presetRange('this-week', timeZone, now).from, timeZone);
+
+// Is this a real calendar date in "YYYY-MM-DD" form that falls on a Monday?
+export const isMondayKey = (dateKey) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return false;
+  const { year, month, day } = parseDateKey(dateKey);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isRealDate = date.getUTCMonth() === month - 1 && date.getUTCDate() === day; // not 2026-02-30
+  return isRealDate && date.getUTCDay() === 1;
+};
+
+// formatWeekRange("2026-03-09", "2026-03-15") -> "9 – 15 Mar 2026"
+// ("2026-03-30", "2026-04-05") -> "30 Mar – 5 Apr 2026"; across a new year both years are shown
+export const formatWeekRange = (startKey, endKey) => {
+  const part = (key, options) => {
+    const { year, month, day } = parseDateKey(key);
+    return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', ...options }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  };
+  const start = parseDateKey(startKey);
+  const end = parseDateKey(endKey);
+
+  if (start.year !== end.year) {
+    return `${part(startKey, { day: 'numeric', month: 'short', year: 'numeric' })} – ${part(endKey, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
+  if (start.month !== end.month) {
+    return `${part(startKey, { day: 'numeric', month: 'short' })} – ${part(endKey, { day: 'numeric', month: 'short' })} ${end.year}`;
+  }
+  return `${start.day} – ${part(endKey, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+};
+
 // Browsers and servers may use different names for the same zone ("Asia/Calcutta" and "Asia/Kolkata")
 export const isSameTimeZone = (a, b) => {
   try {
