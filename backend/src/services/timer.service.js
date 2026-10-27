@@ -1,6 +1,6 @@
-import Project from '../models/Project.js';
 import TimeEntry from '../models/TimeEntry.js';
 import { HttpError } from '../utils/httpError.js';
+import { findUsableProject } from './projectLookup.js';
 
 // The running timer lives in the database (an entry with endedAt: null), never in the browser.
 // All times come from this server's clock, so every device sees the same start time.
@@ -9,15 +9,6 @@ const ALREADY_RUNNING = 'A timer is already running. Stop it first.';
 const NOT_RUNNING = 'No timer is running';
 
 const withDetails = (query) => query.populate('project', 'name color').populate('client', 'name');
-
-// A timer can only be started on one of the user's own projects that isn't archived
-const findUsableProject = async (userId, projectId) => {
-  const project = await Project.findOne({ _id: projectId, userId, archived: false });
-  if (!project) {
-    throw new HttpError(400, 'Project not found');
-  }
-  return project;
-};
 
 export const getRunning = (userId) => withDetails(TimeEntry.findOne({ userId, endedAt: null }));
 
@@ -100,15 +91,4 @@ export const updateRunning = async (userId, { projectId, description, billable }
     throw new HttpError(404, NOT_RUNNING);
   }
   return entry;
-};
-
-// Stopped entries in a date range, newest first
-export const listStopped = (userId, { from, to }) => {
-  const filter = { userId, endedAt: { $ne: null } };
-  if (from || to) {
-    filter.startedAt = {};
-    if (from) filter.startedAt.$gte = from;
-    if (to) filter.startedAt.$lt = to;
-  }
-  return withDetails(TimeEntry.find(filter).sort({ startedAt: -1 }).limit(500));
 };

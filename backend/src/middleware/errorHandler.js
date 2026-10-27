@@ -24,5 +24,6 @@ export const errorHandler = (err, req, res, next) => {
 
   res.status(status).json({
     message: status >= 500 ? 'Internal server error' : err.message,
+    ...(status < 500 && err.errors && { errors: err.errors }),
   });
 };
