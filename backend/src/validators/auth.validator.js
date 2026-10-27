@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidTimeZone } from '../utils/timezone.js';
 
 const email = z
   .string({ error: 'Email is required' })
@@ -16,6 +17,14 @@ export const registerSchema = z.object({
   password: z
     .string({ error: 'Password is required' })
     .min(8, 'Password must be at least 8 characters'),
+});
+
+// PATCH /api/auth/me: for now only the time zone can be changed
+export const updateMeSchema = z.object({
+  timezone: z
+    .string({ error: 'Time zone is required' })
+    .trim()
+    .refine(isValidTimeZone, 'Unknown time zone'),
 });
 
 export const loginSchema = z.object({

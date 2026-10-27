@@ -32,3 +32,9 @@ export const login = async (req, res) => {
 export const getMe = (req, res) => {
   res.json({ user: req.user });
 };
+
+export const updateMe = async (req, res) => {
+  req.user.timezone = req.body.timezone;
+  await req.user.save();
+  res.json({ user: req.user });
+};
