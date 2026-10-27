@@ -9,6 +9,7 @@ import {
   Timer,
   Users,
 } from 'lucide-react';
+import MiniTimer from '../components/MiniTimer';
 import { useAuth } from '../hooks/useAuth';
 
 const navItems = [
@@ -60,6 +61,10 @@ export default function AppLayout() {
           ))}
         </nav>
 
+        <div className="px-3 pb-3 empty:hidden">
+          <MiniTimer />
+        </div>
+
         <div className="flex items-center gap-3 border-t border-white/10 px-4 py-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-800 text-sm font-semibold text-white">
             {user.name[0].toUpperCase()}
@@ -79,15 +84,18 @@ export default function AppLayout() {
 
       <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 md:hidden">
         <Logo />
-        <button
-          type="button"
-          onClick={logout}
-          aria-label="Log out"
-          title="Log out"
-          className="rounded-lg p-2 text-indigo-200 transition hover:bg-indigo-900 hover:text-white"
-        >
-          <LogOut size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <MiniTimer />
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Log out"
+            title="Log out"
+            className="rounded-lg p-2 text-indigo-200 transition hover:bg-indigo-900 hover:text-white"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       <main className="md:pl-64">

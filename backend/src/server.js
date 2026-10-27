@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import app from './app.js';
-import { connectDB } from './config/db.js';
+import { connectDB, ensureIndexes } from './config/db.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -10,6 +10,7 @@ const start = async () => {
       throw new Error('JWT_SECRET is not defined');
     }
     await connectDB();
+    await ensureIndexes();
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
     console.error('Failed to start server:', err.message);

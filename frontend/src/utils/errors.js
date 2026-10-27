@@ -24,8 +24,9 @@ export const handleFormError = (err, setErrors, conflictField) => {
   }
 };
 
-// General message for toasts
+// General message for toasts (for a validation error, the first specific problem is more useful than "Validation failed")
 export const getErrorMessage = (err) => {
   if (!err.response) return 'Cannot reach the server. Please try again.';
-  return err.response.data?.message || 'Something went wrong. Please try again.';
+  const { message, errors } = err.response.data || {};
+  return (Array.isArray(errors) && errors[0]?.message) || message || 'Something went wrong. Please try again.';
 };

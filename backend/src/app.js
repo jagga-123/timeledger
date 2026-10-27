@@ -3,6 +3,8 @@ import cors from 'cors';
 import authRoutes from './routes/auth.routes.js';
 import clientRoutes from './routes/client.routes.js';
 import projectRoutes from './routes/project.routes.js';
+import timerRoutes from './routes/timer.routes.js';
+import entryRoutes from './routes/entry.routes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -17,6 +19,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/timer', timerRoutes);
+app.use('/api/entries', entryRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

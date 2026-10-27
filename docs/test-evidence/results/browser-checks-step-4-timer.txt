@@ -1,0 +1,75 @@
+﻿PASS  idle: card asks "What are you working on?"
+PASS  idle: description input is there
+PASS  idle: Billable switch is on by default
+PASS  idle: big primary "Start" button  -> {"text":"Start","size":16,"bg":"oklch(0.511 0.262 276.966)"}
+PASS  idle: tab title is plain "TimeLedger"
+PASS  idle: no mini timer in the sidebar
+PASS  idle: nothing running on the server
+PASS  start without a project shows an inline error
+PASS  ...and does not start anything
+PASS  dropdown opens as a listbox
+PASS  dropdown is grouped by client (alphabetical)  -> Acme Corp, Globex
+PASS  dropdown lists every project with its color dot  -> [{"name":"Mobile app","dot":"rgb(79, 70, 229)"},{"name":"Website redesign","dot":"rgb(16, 185, 129)"},{"name":"Branding","dot":"rgb(245, 158, 11)"}]
+PASS  keyboard: ArrowDown + Enter selects a project and closes the list
+PASS  Start switches the card to the running state
+PASS  running: card is bg-primary (indigo-600)  -> oklch(0.511 0.262 276.966)
+PASS  running: shows "Running · Client / Project"  -> Running · Acme Corp / Website redesign
+PASS  running: big HH:MM:SS clock in JetBrains Mono  -> 00:00:00 60px
+PASS  running: description is editable and holds what I typed
+PASS  running: white Stop button  -> rgb(255, 255, 255)
+PASS  running: clock starts at (almost) zero  -> 00:00:00
+PASS  running: tab title is "HH:MM:SS · TimeLedger"  -> 00:00:00 · TimeLedger
+PASS  server: timer exists with the server-side start time (between click and response)  -> 174ms after the click
+PASS  server: description and project saved
+PASS  clock ticks every second  -> 0s -> 3s
+PASS  mini timer in the sidebar: pulsing dot + time + stop icon  -> {"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"}
+PASS  mini timer stays visible on other pages
+PASS  tab title keeps showing the time on other pages
+PASS  clicking the mini timer goes to the dashboard
+PASS  ...and the running card shows straight away
+PASS  description saved to the server (Enter)
+PASS  Escape reverts the edit and saves nothing
+PASS  after a page refresh the timer is still running
+PASS  ...and the clock did not reset (it continues from the server start time)  -> 5s -> 5s
+PASS  ...description survived too
+PASS  a freshly opened browser shows the same running timer
+PASS  ...with the same elapsed time (within 2s)  -> A=6s B=7s
+PASS  ...and the title shows the time there too
+PASS  device clock 10 minutes AHEAD still shows the correct elapsed time  -> A=10s C=10s
+PASS  device clock 2 hours BEHIND still shows the correct elapsed time  -> A=10s D=10s
+PASS  Stop shows a toast with the logged time
+PASS  ...the card goes back to the start form
+PASS  ...the tab title goes back to "TimeLedger"
+PASS  ...the mini timer disappears
+PASS  ...the server has no running timer
+PASS  "Today" lists the stopped entry with project, client, description and duration  -> Website redesign · Acme Corp Hero section v2 00:00:11
+PASS  ...and its duration matches what the clock showed (within 2s)  -> clock=10s list=11s
+PASS  ...Today shows a total
+PASS  server: stopped entry has endedAt and durationSeconds  -> 11s
+PASS  E: second tab loads idle
+PASS  another device starts a timer (API)
+PASS  starting a second timer shows the 409 message as is
+PASS  ...and E now shows the timer that is running elsewhere
+PASS  ...with the other device's description
+PASS  server still has exactly one running timer
+PASS  tab A shows the timer started elsewhere after becoming visible
+PASS  ...with the same time as E (within 2s)
+PASS  tab A goes idle after the timer is stopped elsewhere
+PASS  ...and "Today" now has both entries
+PASS  a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh)  -> 21s
+PASS  the stop icon in the mini timer stops the timer
+PASS  ...and "Today" now has 3 entries
+PASS  no projects: "Create a project first" with a link
+PASS  ...the link goes to /projects
+PASS  mobile idle: no horizontal scroll  -> overflow=0
+PASS  mobile: project dropdown fits the screen  -> {"left":33,"right":342}
+PASS  mobile: timer starts
+PASS  mobile: mini timer shows in the top bar next to the logo and log out  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
+PASS  mobile: top bar contents fit (nothing pushed off screen)  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
+PASS  mobile running: no horizontal scroll  -> overflow=0
+PASS  mobile: other pages have no horizontal scroll while a timer runs
+PASS  mobile: stop works
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL STEP 4 BROWSER CHECKS PASSED

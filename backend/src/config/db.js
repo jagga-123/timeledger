@@ -15,6 +15,11 @@ const setDnsServers = () => {
   dns.setServers(configured.length > 0 ? configured : DEFAULT_DNS_SERVERS);
 };
 
+// Build every model's indexes before the server accepts requests. The "one running timer per user"
+// rule is a unique index, so we must be sure it exists (and fail loudly at startup if it can't be built).
+export const ensureIndexes = () =>
+  Promise.all(Object.values(mongoose.models).map((model) => model.createIndexes()));
+
 export const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
   if (!uri) {

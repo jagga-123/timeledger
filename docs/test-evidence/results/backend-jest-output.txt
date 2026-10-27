@@ -2,56 +2,91 @@
 > timeledger-backend@0.1.0 test
 > node --experimental-vm-modules node_modules/jest/bin/jest.js --reporters=default --verbose --json --outputFile=C:\Users\sande\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json
 
-(node:21408) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:27404) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/tests/health.test.js
+PASS src/tests/health.test.js (19.661 s)
   GET /api/health
-    √ returns status ok (69 ms)
-    √ returns a JSON error for unknown routes (15 ms)
+    √ returns status ok (80 ms)
+    √ returns a JSON error for unknown routes (13 ms)
 
-(node:26132) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:17776) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:15652) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:1472) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/tests/auth.test.js (6.078 s)
+(node:25760) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/tests/timer.test.js (25.923 s)
+  POST /api/timer/start and GET /api/timer
+    √ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it (813 ms)
+    √ returns { timer: null, serverTime } when nothing is running (61 ms)
+    √ defaults to billable with an empty description (79 ms)
+    √ returns 409 when a timer is already running (165 ms)
+    √ lets exactly one of two simultaneous start requests win (100 ms)
+    √ still allows only one when many requests arrive at once (227 ms)
+    √ allows different users to run timers at the same time (85 ms)
+    √ rejects another user's project with 400 'Project not found' (60 ms)
+    √ rejects an archived project and a project that does not exist (88 ms)
+    √ validates the body (54 ms)
+  one running timer per user is enforced by the database
+    √ has a partial unique index on userId for entries with endedAt: null (37 ms)
+    √ rejects a second running entry even when the service is bypassed (54 ms)
+  POST /api/timer/stop
+    √ calculates durationSeconds from startedAt and endedAt (127 ms)
+    √ keeps very short entries (duration can be 0) (90 ms)
+    √ returns 404 'No timer is running' when nothing is running (55 ms)
+    √ lets only one of two simultaneous stop requests succeed (100 ms)
+    √ lets the user start a new timer after stopping (123 ms)
+  PATCH /api/timer
+    √ updates description and billable of the running timer (87 ms)
+    √ can move the running timer to another of my projects (clientId follows) (91 ms)
+    √ rejects another user's project, bad input, and an empty patch is harmless (108 ms)
+    √ returns 404 when no timer is running and never edits a stopped entry (134 ms)
+  users can't touch each other's timers
+    √ user A cannot see, stop or edit user B's timer (140 ms)
+    √ requires authentication (71 ms)
+  GET /api/entries
+    √ lists only my stopped entries inside the range, newest first, with project and client names (86 ms)
+    √ rejects a malformed date (38 ms)
+
+PASS src/tests/auth.test.js (25.922 s)
   POST /api/auth/register
-    √ creates a user and returns { user, token } without the password hash (399 ms)
-    √ returns 409 for a duplicate email (case-insensitive) (336 ms)
-    √ returns 400 with field-wise errors for invalid input (20 ms)
+    √ creates a user and returns { user, token } without the password hash (993 ms)
+    √ returns 409 for a duplicate email (case-insensitive) (433 ms)
+    √ returns 400 with field-wise errors for invalid input (26 ms)
   POST /api/auth/login
-    √ returns { user, token } for correct credentials (345 ms)
-    √ returns 401 for a wrong password (319 ms)
+    √ returns { user, token } for correct credentials (453 ms)
+    √ returns 401 for a wrong password (403 ms)
   GET /api/auth/me
     √ returns 401 without a token (20 ms)
     √ returns 401 for an invalid token (11 ms)
-    √ returns the current user with a valid token (183 ms)
+    √ returns the current user with a valid token (225 ms)
 
-PASS src/tests/clients-projects.test.js (9.789 s)
+PASS src/tests/clients-projects.test.js (29.446 s)
   creating clients and projects
-    √ creates a client and a project, and lists them with projectCount and client name (718 ms)
-    √ filters projects by clientId (456 ms)
-    √ allows the same project name under different clients but not under the same client (409 ms)
+    √ creates a client and a project, and lists them with projectCount and client name (1328 ms)
+    √ filters projects by clientId (576 ms)
+    √ allows the same project name under different clients but not under the same client (538 ms)
   duplicate client names
-    √ returns 409 for a duplicate name (case-insensitive) for the same user (341 ms)
-    √ allows another user to use the same name (297 ms)
-    √ returns 409 when renaming a client to an existing name (334 ms)
+    √ returns 409 for a duplicate name (case-insensitive) for the same user (456 ms)
+    √ allows another user to use the same name (414 ms)
+    √ returns 409 when renaming a client to an existing name (397 ms)
   data isolation between users
-    √ user A cannot see, edit or delete user B's client (350 ms)
-    √ user A cannot see, edit or delete user B's project (330 ms)
-    √ rejects a project that uses another user's clientId with 400 (308 ms)
+    √ user A cannot see, edit or delete user B's client (321 ms)
+    √ user A cannot see, edit or delete user B's project (365 ms)
+    √ rejects a project that uses another user's clientId with 400 (342 ms)
   deleting
-    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (312 ms)
+    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (335 ms)
   validation
-    √ rejects invalid hourlyRate values with a field error (279 ms)
-    √ accepts the boundary rates 0 and 10000 (248 ms)
-    √ validates client and project fields (253 ms)
-    √ lets a client email be cleared with an empty string (245 ms)
-    √ returns 400 "Invalid id" for malformed ids (258 ms)
-    √ requires authentication (251 ms)
+    √ rejects invalid hourlyRate values with a field error (275 ms)
+    √ accepts the boundary rates 0 and 10000 (258 ms)
+    √ validates client and project fields (301 ms)
+    √ lets a client email be cleared with an empty string (340 ms)
+    √ returns 400 "Invalid id" for malformed ids (276 ms)
+    √ requires authentication (243 ms)
 
-Test Suites: 3 passed, 3 total
-Tests:       26 passed, 26 total
+Test Suites: 4 passed, 4 total
+Tests:       51 passed, 51 total
 Snapshots:   0 total
-Time:        10.248 s, estimated 11 s
+Time:        32.223 s
 Ran all test suites.
 Test results written to: ..\..\..\..\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json

@@ -1,13 +1,13 @@
-# TimeLedger: test evidence (Steps 1-3)
+# TimeLedger: test evidence (Steps 1-4)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 12:27.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 16:50.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 21 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 31 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
 | [test-code/](test-code) | The test files that were run. |
 
@@ -15,9 +15,10 @@ Everything that was run to check the app, in one folder: the results, every scre
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **26/26 passed** |
+| Backend tests (Jest + Supertest) | **51/51 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
 | Browser checks, Step 3 (layout, clients, projects) | **64/64 passed** |
+| Browser checks, Step 4 (timer) | **73/73 passed** |
 | Frontend production build | passed |
 
 Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft Windows 11 Home Single Language.
@@ -33,10 +34,12 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - The frontend components have no unit tests; they are only covered by the browser checks above.
 - Only Microsoft Edge was used (no Firefox or Safari, no real phone; phone layouts were checked at a 375px-wide window).
 - No load, performance or security-scanning tests.
+- The "other devices" in the timer checks are separate browser windows with their own storage (some with deliberately wrong clocks), not real phones or computers.
+- The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (26)
+## Backend tests (51)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
@@ -46,6 +49,51 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 
 - ✅ returns status ok
 - ✅ returns a JSON error for unknown routes
+
+### `timer.test.js` (25 tests)
+
+**POST /api/timer/start and GET /api/timer**
+
+- ✅ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it
+- ✅ returns { timer: null, serverTime } when nothing is running
+- ✅ defaults to billable with an empty description
+- ✅ returns 409 when a timer is already running
+- ✅ lets exactly one of two simultaneous start requests win
+- ✅ still allows only one when many requests arrive at once
+- ✅ allows different users to run timers at the same time
+- ✅ rejects another user's project with 400 'Project not found'
+- ✅ rejects an archived project and a project that does not exist
+- ✅ validates the body
+
+**one running timer per user is enforced by the database**
+
+- ✅ has a partial unique index on userId for entries with endedAt: null
+- ✅ rejects a second running entry even when the service is bypassed
+
+**POST /api/timer/stop**
+
+- ✅ calculates durationSeconds from startedAt and endedAt
+- ✅ keeps very short entries (duration can be 0)
+- ✅ returns 404 'No timer is running' when nothing is running
+- ✅ lets only one of two simultaneous stop requests succeed
+- ✅ lets the user start a new timer after stopping
+
+**PATCH /api/timer**
+
+- ✅ updates description and billable of the running timer
+- ✅ can move the running timer to another of my projects (clientId follows)
+- ✅ rejects another user's project, bad input, and an empty patch is harmless
+- ✅ returns 404 when no timer is running and never edits a stopped entry
+
+**users can't touch each other's timers**
+
+- ✅ user A cannot see, stop or edit user B's timer
+- ✅ requires authentication
+
+**GET /api/entries**
+
+- ✅ lists only my stopped entries inside the range, newest first, with project and client names
+- ✅ rejects a malformed date
 
 ### `auth.test.js` (8 tests)
 
@@ -202,6 +250,84 @@ Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
+## Browser checks, Step 4: timer (73)
+
+Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs). Raw output: [results/browser-checks-step-4-timer.txt](results/browser-checks-step-4-timer.txt).
+
+- ✅ idle: card asks "What are you working on?"
+- ✅ idle: description input is there
+- ✅ idle: Billable switch is on by default
+- ✅ idle: big primary "Start" button ({"text":"Start","size":16,"bg":"oklch(0.511 0.262 276.966)"})
+- ✅ idle: tab title is plain "TimeLedger"
+- ✅ idle: no mini timer in the sidebar
+- ✅ idle: nothing running on the server
+- ✅ start without a project shows an inline error
+- ✅ ...and does not start anything
+- ✅ dropdown opens as a listbox
+- ✅ dropdown is grouped by client (alphabetical) (Acme Corp, Globex)
+- ✅ dropdown lists every project with its color dot ([{"name":"Mobile app","dot":"rgb(79, 70, 229)"},{"name":"Website redesign","dot":"rgb(16, 185, 129)"},{"name":"Branding","dot":"rgb(245, 158, 11)"}])
+- ✅ keyboard: ArrowDown + Enter selects a project and closes the list
+- ✅ Start switches the card to the running state
+- ✅ running: card is bg-primary (indigo-600) (oklch(0.511 0.262 276.966))
+- ✅ running: shows "Running · Client / Project" (Running · Acme Corp / Website redesign)
+- ✅ running: big HH:MM:SS clock in JetBrains Mono (00:00:00 60px)
+- ✅ running: description is editable and holds what I typed
+- ✅ running: white Stop button (rgb(255, 255, 255))
+- ✅ running: clock starts at (almost) zero (00:00:00)
+- ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
+- ✅ server: timer exists with the server-side start time (between click and response) (174ms after the click)
+- ✅ server: description and project saved
+- ✅ clock ticks every second (0s -> 3s)
+- ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
+- ✅ mini timer stays visible on other pages
+- ✅ tab title keeps showing the time on other pages
+- ✅ clicking the mini timer goes to the dashboard
+- ✅ ...and the running card shows straight away
+- ✅ description saved to the server (Enter)
+- ✅ Escape reverts the edit and saves nothing
+- ✅ after a page refresh the timer is still running
+- ✅ ...and the clock did not reset (it continues from the server start time) (5s -> 5s)
+- ✅ ...description survived too
+- ✅ a freshly opened browser shows the same running timer
+- ✅ ...with the same elapsed time (within 2s) (A=6s B=7s)
+- ✅ ...and the title shows the time there too
+- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=10s C=10s)
+- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=10s D=10s)
+- ✅ Stop shows a toast with the logged time
+- ✅ ...the card goes back to the start form
+- ✅ ...the tab title goes back to "TimeLedger"
+- ✅ ...the mini timer disappears
+- ✅ ...the server has no running timer
+- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:11)
+- ✅ ...and its duration matches what the clock showed (within 2s) (clock=10s list=11s)
+- ✅ ...Today shows a total
+- ✅ server: stopped entry has endedAt and durationSeconds (11s)
+- ✅ E: second tab loads idle
+- ✅ another device starts a timer (API)
+- ✅ starting a second timer shows the 409 message as is
+- ✅ ...and E now shows the timer that is running elsewhere
+- ✅ ...with the other device's description
+- ✅ server still has exactly one running timer
+- ✅ tab A shows the timer started elsewhere after becoming visible
+- ✅ ...with the same time as E (within 2s)
+- ✅ tab A goes idle after the timer is stopped elsewhere
+- ✅ ...and "Today" now has both entries
+- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (21s)
+- ✅ the stop icon in the mini timer stops the timer
+- ✅ ...and "Today" now has 3 entries
+- ✅ no projects: "Create a project first" with a link
+- ✅ ...the link goes to /projects
+- ✅ mobile idle: no horizontal scroll (overflow=0)
+- ✅ mobile: project dropdown fits the screen ({"left":33,"right":342})
+- ✅ mobile: timer starts
+- ✅ mobile: mini timer shows in the top bar next to the logo and log out ({"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
+- ✅ mobile: top bar contents fit (nothing pushed off screen) ({"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
+- ✅ mobile running: no horizontal scroll (overflow=0)
+- ✅ mobile: other pages have no horizontal scroll while a timer runs
+- ✅ mobile: stop works
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
 ## Screenshots, Step 2: authentication
 
 **Login page (desktop)**
@@ -290,10 +416,52 @@ Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser
 
 ![Project modal on a phone](screenshots/step-3-layout-clients-projects/13-project-modal-mobile.png)
 
+## Screenshots, Step 4: timer
+
+**Timer card, idle: description, project, Billable switch and a big Start button**
+
+![Timer card, idle: description, project, Billable switch and a big Start button](screenshots/step-4-timer/01-idle-desktop.png)
+
+**Project dropdown grouped by client, each project with its color dot**
+
+![Project dropdown grouped by client, each project with its color dot](screenshots/step-4-timer/02-project-dropdown-desktop.png)
+
+**Running: indigo card with the big HH:MM:SS clock, editable description and a white Stop button (mini timer in the sidebar)**
+
+![Running: indigo card with the big HH:MM:SS clock, editable description and a white Stop button (mini timer in the sidebar)](screenshots/step-4-timer/03-running-desktop.png)
+
+**The mini timer (pulsing dot, time, stop icon) stays in the sidebar on every page**
+
+![The mini timer (pulsing dot, time, stop icon) stays in the sidebar on every page](screenshots/step-4-timer/04-mini-timer-on-clients-desktop.png)
+
+**After Stop: the entry shows up under "Today" with its duration and the day total**
+
+![After Stop: the entry shows up under "Today" with its duration and the day total](screenshots/step-4-timer/05-after-stop-today-desktop.png)
+
+**Starting a second timer from another tab: the server answers "A timer is already running. Stop it first."**
+
+![Starting a second timer from another tab: the server answers "A timer is already running. Stop it first."](screenshots/step-4-timer/06-second-timer-409-desktop.png)
+
+**"Create a project first" when there are no projects yet**
+
+!["Create a project first" when there are no projects yet](screenshots/step-4-timer/07-no-projects-desktop.png)
+
+**Idle timer on a 375px phone**
+
+![Idle timer on a 375px phone](screenshots/step-4-timer/08-idle-mobile.png)
+
+**Project dropdown on a phone**
+
+![Project dropdown on a phone](screenshots/step-4-timer/09-dropdown-mobile.png)
+
+**Running on a phone: mini timer in the top bar, Today list below**
+
+![Running on a phone: mini timer in the top bar, Today list below](screenshots/step-4-timer/10-running-mobile.png)
+
 ## Re-running the browser checks
 
 The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
 2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, port 5100).
-3. Run `node step-2-auth.mjs` and `node step-3-layout-clients-projects.mjs`. Each prints PASS/FAIL per check and writes its screenshots next to the script.
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs` and `node step-4-timer.mjs`. Each prints PASS/FAIL per check and writes its screenshots next to the script.
