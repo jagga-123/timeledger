@@ -43,7 +43,6 @@ PASS  deleting a client with projects shows the 409 message
 PASS  client with projects is still listed
 PASS  client without projects is deleted
 PASS  project is deleted after confirming
-PASS  Timesheet: "Coming soon" placeholder
 PASS  Invoices: "Coming soon" placeholder
 PASS  mobile: sidebar hidden, top bar with logo + logout shown
 PASS  mobile: bottom tab bar has 6 tabs, all inside the screen, pinned to bottom

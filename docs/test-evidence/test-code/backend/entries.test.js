@@ -483,6 +483,34 @@ describe('GET /api/entries', () => {
     ).toEqual(['e2', 'e1']);
   });
 
+  it('with overlap=true, from/to also match entries that start before the range or run past it', async () => {
+    // Wednesday 11 March in India: 00:00 to 24:00 = 2026-03-10T18:30Z to 2026-03-11T18:30Z
+    const wed = '?from=2026-03-10T18:30:00Z&to=2026-03-11T18:30:00Z';
+    // started Tuesday 23:00 India time, ended Wednesday 01:00
+    await insertEntry(alice, { start: '2026-03-10T17:30:00Z', seconds: 7200, description: 'crosses into wed' });
+    // started Wednesday 23:00, ends Thursday 01:00
+    await insertEntry(alice, { start: '2026-03-11T17:30:00Z', seconds: 7200, description: 'crosses out of wed' });
+    // touches the range only at its edges: ends exactly at the start / starts exactly at the end
+    await insertEntry(alice, { start: '2026-03-10T17:30:00Z', seconds: 3600, description: 'ends at wed 00:00' });
+    await insertEntry(alice, { start: '2026-03-11T18:30:00Z', seconds: 3600, description: 'starts at thu 00:00' });
+
+    // default: matches by the moment the entry started (newest first)
+    expect(names(await list(wed))).toEqual(['crosses out of wed', 'e2']);
+    // overlap: also the entry that started on Tuesday night but has an hour inside Wednesday
+    const overlapping = await list(`${wed}&overlap=true`);
+    expect(names(overlapping)).toEqual(['crosses out of wed', 'e2', 'crosses into wed']);
+    expect(names(overlapping)).not.toContain('ends at wed 00:00');
+    expect(names(overlapping)).not.toContain('starts at thu 00:00');
+    // the entries are listed with their full duration, not just the part inside the range
+    expect(overlapping.body.entries.find((e) => e.description === 'crosses into wed').durationSeconds).toBe(7200);
+
+    // overlap=false behaves like the default
+    expect(names(await list(`${wed}&overlap=false`))).toEqual(['crosses out of wed', 'e2']);
+    // a range with only "to" or only "from" works too
+    expect(names(await list('?to=2026-03-09T00:00:00Z&overlap=true'))).toEqual([]);
+    expect(names(await list('?from=2026-03-12T18:30:00Z&overlap=true'))).toEqual(['e4']);
+  });
+
   it('rejects invalid filters', async () => {
     const cases = [
       ['?status=pending', 'status', 'status must be all, unbilled or billed'],
@@ -491,6 +519,7 @@ describe('GET /api/entries', () => {
       ['?projectId=abc', 'projectId', 'projectId is not a valid id'],
       ['?from=yesterday', 'from', 'from must be a valid date'],
       ['?to=never', 'to', 'to must be a valid date'],
+      ['?overlap=maybe', 'overlap', 'overlap must be true or false'],
     ];
     for (const [query, path, message] of cases) {
       const res = await list(query);

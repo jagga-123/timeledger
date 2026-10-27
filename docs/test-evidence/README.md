@@ -1,13 +1,13 @@
-# TimeLedger: test evidence (Steps 1-5)
+# TimeLedger: test evidence (Steps 1-6)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 17:38.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 20:02.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 43 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 52 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
 | [test-code/](test-code) | The test files that were run. |
 
@@ -15,11 +15,12 @@ Everything that was run to check the app, in one folder: the results, every scre
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **83/83 passed** |
+| Backend tests (Jest + Supertest) | **108/108 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
-| Browser checks, Step 3 (layout, clients, projects) | **63/63 passed** |
+| Browser checks, Step 3 (layout, clients, projects) | **62/62 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
 | Browser checks, Step 5 (time entries) | **82/82 passed** |
+| Browser checks, Step 6 (timesheet) | **54/54 passed** |
 | Frontend production build | passed |
 
 Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft Windows 11 Home Single Language.
@@ -37,12 +38,14 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - No load, performance or security-scanning tests.
 - The "other devices" in the timer checks are separate browser windows with their own storage (some with deliberately wrong clocks), not real phones or computers.
 - Time zones were checked for two zones only: India (the default) and New York (a device set to that zone, including the daylight-saving change). Other zones use the same code but were not run.
+- The timesheet's 25-hour day (clocks going back, week of 26 October 2026) is checked by the backend tests only. In the browser only the 23-hour day (clocks going forward) was checked, on a device set to New York.
+- The weekly timesheet was only looked at for weeks that start on a Monday and users with the default or New York time zone; other zones use the same code.
 - The database parts of the browser checks that no screen can do yet (marking an entry as billed, a timer entry with exact seconds) were set up by writing to the throwaway test database directly, because there are no invoices yet.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (83)
+## Backend tests (108)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
@@ -52,6 +55,53 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 
 - ✅ returns status ok
 - ✅ returns a JSON error for unknown routes
+
+### `timesheet.test.js` (24 tests)
+
+**GET /api/timesheet: days and rows**
+
+- ✅ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project
+- ✅ only lists projects that have time that week and returns zeros for an empty week
+- ✅ defaults to the current week in the user's own time zone
+
+**entries across midnight and at the edges of the week**
+
+- ✅ splits an entry that crosses midnight between the two days
+- ✅ clips entries to the edges of the week and ignores entries outside it
+- ✅ leaves out the running timer
+- ✅ counts whole seconds, so the days add up to exactly the entry's durationSeconds
+
+**days are counted in the user's time zone**
+
+- ✅ the same UTC entries land on different days for India and New York
+- ✅ uses each user's own zone even when two users look at the same week
+
+**daylight saving weeks (America/New_York)**
+
+- ✅ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long
+- ✅ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long
+- ✅ a normal week after the change (9 March 2026): days start at 04:00 UTC
+
+**totals**
+
+- ✅ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount
+- ✅ billed entries still count towards the week
+
+**validation and privacy**
+
+- ✅ rejects a weekStart that is not a Monday
+- ✅ rejects a weekStart that is not a date
+- ✅ never shows another user's entries
+- ✅ requires a login
+
+**splitIntoDays**
+
+- ✅ puts an entry that stays inside one day in that day
+- ✅ splits an entry that crosses midnight
+- ✅ spreads a very long entry over every day it touches
+- ✅ clips the parts before the week starts and after it ends
+- ✅ returns zeros for an entry outside the week or touching it only at an edge
+- ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
 
 ### `timer.test.js` (25 tests)
 
@@ -123,7 +173,7 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ rejects an unknown time zone and a missing value
 - ✅ requires a token
 
-### `entries.test.js` (27 tests)
+### `entries.test.js` (28 tests)
 
 **POST /api/entries**
 
@@ -168,6 +218,7 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ filters by billable
 - ✅ filters by status (unbilled, billed, all)
 - ✅ combines filters and filters by client, project and date range
+- ✅ with overlap=true, from/to also match entries that start before the range or run past it
 - ✅ rejects invalid filters
 
 ### `clients-projects.test.js` (18 tests)
@@ -242,7 +293,7 @@ Script: [test-code/browser/step-2-auth.mjs](test-code/browser/step-2-auth.mjs). 
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
-## Browser checks, Step 3: layout, clients, projects (63)
+## Browser checks, Step 3: layout, clients, projects (62)
 
 Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser/step-3-layout-clients-projects.mjs). Raw output: [results/browser-checks-step-3-layout-clients-projects.txt](results/browser-checks-step-3-layout-clients-projects.txt).
 
@@ -291,7 +342,6 @@ Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser
 - ✅ client with projects is still listed
 - ✅ client without projects is deleted
 - ✅ project is deleted after confirming
-- ✅ Timesheet: "Coming soon" placeholder
 - ✅ Invoices: "Coming soon" placeholder
 - ✅ mobile: sidebar hidden, top bar with logo + logout shown
 - ✅ mobile: bottom tab bar has 6 tabs, all inside the screen, pinned to bottom
@@ -335,7 +385,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ running: white Stop button (rgb(255, 255, 255))
 - ✅ running: clock starts at (almost) zero (00:00:00)
 - ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
-- ✅ server: timer exists with the server-side start time (between click and response) (64ms after the click)
+- ✅ server: timer exists with the server-side start time (between click and response) (50ms after the click)
 - ✅ server: description and project saved
 - ✅ clock ticks every second (0s -> 3s)
 - ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
@@ -351,17 +401,17 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ a freshly opened browser shows the same running timer
 - ✅ ...with the same elapsed time (within 2s) (A=5s B=5s)
 - ✅ ...and the title shows the time there too
-- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=7s C=7s)
-- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=7s D=8s)
+- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=8s C=8s)
+- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=8s D=9s)
 - ✅ Stop shows a toast with the logged time
 - ✅ ...the card goes back to the start form
 - ✅ ...the tab title goes back to "TimeLedger"
 - ✅ ...the mini timer disappears
 - ✅ ...the server has no running timer
-- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:08)
-- ✅ ...and its duration matches what the clock showed (within 2s) (clock=8s list=8s)
+- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:09)
+- ✅ ...and its duration matches what the clock showed (within 2s) (clock=8s list=9s)
 - ✅ ...Today shows a total
-- ✅ server: stopped entry has endedAt and durationSeconds (8s)
+- ✅ server: stopped entry has endedAt and durationSeconds (9s)
 - ✅ E: second tab loads idle
 - ✅ another device starts a timer (API)
 - ✅ starting a second timer shows the 409 message as is
@@ -372,7 +422,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ ...with the same time as E (within 2s)
 - ✅ tab A goes idle after the timer is stopped elsewhere
 - ✅ ...and "Today" now has both entries
-- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (23s)
+- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (22s)
 - ✅ the stop icon in the mini timer stops the timer
 - ✅ ...and "Today" now has 3 entries
 - ✅ no projects: "Create a project first" with a link
@@ -425,7 +475,7 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ the Project filter only offers that client's projects (All projects, Branding)
 - ✅ Project filter sends projectId and shows only that project
 - ✅ filters with no match show "No entries match these filters" and a Clear button
-- ✅ Clear filters resets them and keeps the date range
+- ✅ Clear filters resets them and keeps the date range (rows=5 query={"from":"2026-03-08T18:30:00.000Z","to":"2026-03-13T18:30:00.000Z"})
 - ✅ an empty period shows "No time entries yet" with an Add entry button
 - ✅ ...and the summary is all zero (total hours 0s | billable hours 0s | unbilled amount $0.00)
 - ✅ "Add entry" opens the modal with today's date filled in (2026-10-27)
@@ -472,6 +522,65 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ phone: the entry modal fits the screen ({"left":16,"right":359,"top":52.59375,"bottom":614.390625})
 - ✅ phone: no horizontal scroll with the modal open
 - ✅ phone: the dashboard Today list has no horizontal scroll (overflow=0)
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
+## Browser checks, Step 6: timesheet (54)
+
+Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesheet.mjs). Raw output: [results/browser-checks-step-6-timesheet.txt](results/browser-checks-step-6-timesheet.txt).
+
+- ✅ "Timesheet" in the sidebar opens the real page (not "Coming soon")
+- ✅ header: "Timesheet" with a note about the time zone
+- ✅ week navigator shows "9 – 15 Mar 2026" (9 – 15 Mar 2026)
+- ✅ columns: Project, Mon 9 ... Sun 15, Total (PROJECT | Mon 9 | Tue 10 | Wed 11 | Thu 12 | Fri 13 | Sat 14 | Sun 15 | TOTAL)
+- ✅ rows are sorted by client, then project (Acme App, Acme Website, Zeta Brand) (Acme Corp/App | Acme Corp/Website | Zeta Ltd/Brand)
+- ✅ App row: 30m on Wed, 1h 30m on Sun, 2h in total (— | — | 30m | — | — | — | 1h 30m | 2h)
+- ✅ Website row: 2h Mon, 1h Tue + 1h Wed (the entry across midnight), 2h Sat, 6h in total (2h | 1h | 1h | — | — | 2h | — | 6h)
+- ✅ Brand row: 1h on Fri (— | — | — | — | 1h | — | — | 1h)
+- ✅ bottom row: daily totals and the week total (9h) (Daily total | 2h | 1h | 1h 30m | — | 1h | 2h | 1h 30m | 9h)
+- ✅ summary cards: total 9h, billable 7h 30m, billable amount $410.00 (total hours 9h | billable hours 7h 30m | billable amount $410.00)
+- ✅ project cell: color dot, project name, client name below in smaller text (rgb(16, 185, 129))
+- ✅ cells use JetBrains Mono, empty cells a light "—" (oklch(0.208 0.042 265.755) vs oklch(0.869 0.022 252.894))
+- ✅ weekend columns (Sat, Sun) are slightly muted (["oklch(0.984 0.003 247.858)","oklch(0.984 0.003 247.858)"])
+- ✅ no "today" highlight in a past week
+- ✅ the day cards are hidden on a wide screen
+- ✅ Previous: URL becomes ?week=2026-03-02 and the label "2 – 8 Mar 2026" (2026-03-02 / 2 – 8 Mar 2026)
+- ✅ a week without time shows "No time tracked this week" and a "Go to Dashboard" button
+- ✅ Next: back to 9 – 15 Mar 2026 with its data
+- ✅ a refresh keeps the week from the URL
+- ✅ "This week" jumps to the current week (Monday in India time) (2026-10-26 (expected 2026-10-26))
+- ✅ on the current week "Next" and "This week" are disabled, "Previous" is not ({"nextDisabled":true,"thisWeekDisabled":true,"prevDisabled":false})
+- ✅ today's column is highlighted in light indigo (header and cells) ({"count":1,"text":"Tue 27","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"})
+- ✅ ...and today's 15 minutes show in it (15m)
+- ✅ a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL (2026-10-26)
+- ✅ a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL (2026-10-26)
+- ✅ a link with ?week=banana (not a date) shows the current week and fixes the URL (2026-10-26)
+- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6ae0b31bc2addf75b5e38859&from=2026-03-09&to=2026-03-09&overlap=1)
+- ✅ Time entries starts with those filters already set (Custom range, that day, that project) ({"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"})
+- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0b31bc2addf75b5e38859","overlap":"true"})
+- ✅ the list shows exactly that entry (Homepage, 09:00–11:00, 2h) (Website · Acme Corp Homepage 09:00–11:00 Billable 2h)
+- ✅ Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
+- ✅ Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
+- ✅ changing the date range on that page drops the "overlap" matching
+- ✅ Time entries ignores malformed filter parameters in the URL ({"preset":"this-week","project":"","status":"all"})
+- ✅ Dashboard: a "This week" card with the week's total hours (15m) and a "View timesheet" link ({"title":"This week","total":"15m","link":"View timesheet","href":"/timesheet","side":true,"sameRow":true})
+- ✅ ...placed next to the Today list on a wide screen ([true,true])
+- ✅ "View timesheet" opens the timesheet
+- ✅ an empty week hides the grid and the summary cards
+- ✅ "Go to Dashboard" opens the dashboard
+- ✅ a device in New York: the page shows "Times shown in America/New_York"
+- ✅ the DST week (2 – 8 Mar 2026): Sunday 8 March has 23 hours, not 24 (["—","—","—","—","—","—","23h","23h"])
+- ✅ ...and the 24th hour is Monday 00:00-01:00 in the next week (["1h","—","—","—","—","—","—","1h"])
+- ✅ phone: no wide table, one card per day (7)
+- ✅ phone: Wednesday card shows its total and the projects with their hours (Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h)
+- ✅ phone: a day without time says "No time tracked" (Thu 12 — No time tracked)
+- ✅ phone: the entry across midnight shows on both Tuesday and Wednesday
+- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=340.765625)
+- ✅ phone: the summary cards are there (9h, 7h 30m, $410.00) (total hours 9h | billable hours 7h 30m | billable amount $410.00)
+- ✅ phone: tapping a project in a day card also opens Time entries for that day
+- ✅ phone: the dashboard "This week" card shows and nothing scrolls sideways
+- ✅ tablet (768px): day cards, no sideways scroll
+- ✅ small laptop (1024px): the grid shows and fits without sideways scroll ({"visible":true,"fits":true})
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
@@ -655,10 +764,48 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 
 ![Phone: the add entry modal fits the screen](screenshots/step-5-time-entries/12-mobile-entry-modal.png)
 
+## Screenshots, Step 6: timesheet
+
+**Timesheet for 9 – 15 Mar 2026: summary cards, a row per project, a column per day, daily totals; weekend columns muted**
+
+![Timesheet for 9 – 15 Mar 2026: summary cards, a row per project, a column per day, daily totals; weekend columns muted](screenshots/step-6-timesheet/01-timesheet-desktop.png)
+
+**A week without time: "No time tracked this week" with a Go to Dashboard button**
+
+![A week without time: "No time tracked this week" with a Go to Dashboard button](screenshots/step-6-timesheet/02-timesheet-empty-week-desktop.png)
+
+**The current week: today's column is highlighted, "Next" and "This week" are disabled**
+
+![The current week: today's column is highlighted, "Next" and "This week" are disabled](screenshots/step-6-timesheet/03-timesheet-current-week-desktop.png)
+
+**Clicking Wednesday's cell opens Time entries with that project and day already filtered, including the entry that started Tuesday night**
+
+![Clicking Wednesday's cell opens Time entries with that project and day already filtered, including the entry that started Tuesday night](screenshots/step-6-timesheet/04-cell-click-time-entries-desktop.png)
+
+**Dashboard: the "This week" card next to today's list, with a View timesheet link**
+
+![Dashboard: the "This week" card next to today's list, with a View timesheet link](screenshots/step-6-timesheet/05-dashboard-this-week-card-desktop.png)
+
+**A device in New York, the week daylight saving starts: Sunday 8 March shows 23h, not 24h**
+
+![A device in New York, the week daylight saving starts: Sunday 8 March shows 23h, not 24h](screenshots/step-6-timesheet/06-timesheet-dst-week-new-york-desktop.png)
+
+**Phone (375px): the week navigator, summary cards and the first day card**
+
+![Phone (375px): the week navigator, summary cards and the first day card](screenshots/step-6-timesheet/07-timesheet-mobile-top.png)
+
+**Phone: one card per day (Mon to Sun) with its projects and hours**
+
+![Phone: one card per day (Mon to Sun) with its projects and hours](screenshots/step-6-timesheet/08-timesheet-mobile-full.png)
+
+**Tablet (768px): day cards instead of a cramped table**
+
+![Tablet (768px): day cards instead of a cramped table](screenshots/step-6-timesheet/09-timesheet-tablet.png)
+
 ## Re-running the browser checks
 
 The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
 2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, port 5100).
-3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs` and `node step-5-time-entries.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs` and `node step-6-timesheet.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.

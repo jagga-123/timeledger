@@ -31,7 +31,7 @@ PASS  Client filter sends clientId and shows that client's entries
 PASS  the Project filter only offers that client's projects  -> All projects, Branding
 PASS  Project filter sends projectId and shows only that project
 PASS  filters with no match show "No entries match these filters" and a Clear button
-PASS  Clear filters resets them and keeps the date range
+PASS  Clear filters resets them and keeps the date range  -> rows=5 query={"from":"2026-03-08T18:30:00.000Z","to":"2026-03-13T18:30:00.000Z"}
 PASS  an empty period shows "No time entries yet" with an Add entry button
 PASS  ...and the summary is all zero  -> total hours 0s | billable hours 0s | unbilled amount $0.00
 PASS  "Add entry" opens the modal with today's date filled in  -> 2026-10-27

@@ -1,0 +1,56 @@
+﻿PASS  "Timesheet" in the sidebar opens the real page (not "Coming soon")
+PASS  header: "Timesheet" with a note about the time zone
+PASS  week navigator shows "9 – 15 Mar 2026"  -> 9 – 15 Mar 2026
+PASS  columns: Project, Mon 9 ... Sun 15, Total  -> PROJECT | Mon 9 | Tue 10 | Wed 11 | Thu 12 | Fri 13 | Sat 14 | Sun 15 | TOTAL
+PASS  rows are sorted by client, then project (Acme App, Acme Website, Zeta Brand)  -> Acme Corp/App | Acme Corp/Website | Zeta Ltd/Brand
+PASS  App row: 30m on Wed, 1h 30m on Sun, 2h in total  -> — | — | 30m | — | — | — | 1h 30m | 2h
+PASS  Website row: 2h Mon, 1h Tue + 1h Wed (the entry across midnight), 2h Sat, 6h in total  -> 2h | 1h | 1h | — | — | 2h | — | 6h
+PASS  Brand row: 1h on Fri  -> — | — | — | — | 1h | — | — | 1h
+PASS  bottom row: daily totals and the week total (9h)  -> Daily total | 2h | 1h | 1h 30m | — | 1h | 2h | 1h 30m | 9h
+PASS  summary cards: total 9h, billable 7h 30m, billable amount $410.00  -> total hours 9h | billable hours 7h 30m | billable amount $410.00
+PASS  project cell: color dot, project name, client name below in smaller text  -> rgb(16, 185, 129)
+PASS  cells use JetBrains Mono, empty cells a light "—"  -> oklch(0.208 0.042 265.755) vs oklch(0.869 0.022 252.894)
+PASS  weekend columns (Sat, Sun) are slightly muted  -> ["oklch(0.984 0.003 247.858)","oklch(0.984 0.003 247.858)"]
+PASS  no "today" highlight in a past week
+PASS  the day cards are hidden on a wide screen
+PASS  Previous: URL becomes ?week=2026-03-02 and the label "2 – 8 Mar 2026"  -> 2026-03-02 / 2 – 8 Mar 2026
+PASS  a week without time shows "No time tracked this week" and a "Go to Dashboard" button
+PASS  Next: back to 9 – 15 Mar 2026 with its data
+PASS  a refresh keeps the week from the URL
+PASS  "This week" jumps to the current week (Monday in India time)  -> 2026-10-26 (expected 2026-10-26)
+PASS  on the current week "Next" and "This week" are disabled, "Previous" is not  -> {"nextDisabled":true,"thisWeekDisabled":true,"prevDisabled":false}
+PASS  today's column is highlighted in light indigo (header and cells)  -> {"count":1,"text":"Tue 27","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"}
+PASS  ...and today's 15 minutes show in it  -> 15m
+PASS  a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL  -> 2026-10-26
+PASS  a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL  -> 2026-10-26
+PASS  a link with ?week=banana (not a date) shows the current week and fixes the URL  -> 2026-10-26
+PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6ae0b31bc2addf75b5e38859&from=2026-03-09&to=2026-03-09&overlap=1
+PASS  Time entries starts with those filters already set (Custom range, that day, that project)  -> {"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"}
+PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0b31bc2addf75b5e38859","overlap":"true"}
+PASS  the list shows exactly that entry (Homepage, 09:00–11:00, 2h)  -> Website · Acme Corp Homepage 09:00–11:00 Billable 2h
+PASS  Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
+PASS  Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
+PASS  changing the date range on that page drops the "overlap" matching
+PASS  Time entries ignores malformed filter parameters in the URL  -> {"preset":"this-week","project":"","status":"all"}
+PASS  Dashboard: a "This week" card with the week's total hours (15m) and a "View timesheet" link  -> {"title":"This week","total":"15m","link":"View timesheet","href":"/timesheet","side":true,"sameRow":true}
+PASS  ...placed next to the Today list on a wide screen  -> [true,true]
+PASS  "View timesheet" opens the timesheet
+PASS  an empty week hides the grid and the summary cards
+PASS  "Go to Dashboard" opens the dashboard
+PASS  a device in New York: the page shows "Times shown in America/New_York"
+PASS  the DST week (2 – 8 Mar 2026): Sunday 8 March has 23 hours, not 24  -> ["—","—","—","—","—","—","23h","23h"]
+PASS  ...and the 24th hour is Monday 00:00-01:00 in the next week  -> ["1h","—","—","—","—","—","—","1h"]
+PASS  phone: no wide table, one card per day (7)
+PASS  phone: Wednesday card shows its total and the projects with their hours  -> Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h
+PASS  phone: a day without time says "No time tracked"  -> Thu 12 — No time tracked
+PASS  phone: the entry across midnight shows on both Tuesday and Wednesday
+PASS  phone: no horizontal scroll, the navigator and cards fit in 375px  -> overflow=0 navRight=340.765625
+PASS  phone: the summary cards are there (9h, 7h 30m, $410.00)  -> total hours 9h | billable hours 7h 30m | billable amount $410.00
+PASS  phone: tapping a project in a day card also opens Time entries for that day
+PASS  phone: the dashboard "This week" card shows and nothing scrolls sideways
+PASS  tablet (768px): day cards, no sideways scroll
+PASS  small laptop (1024px): the grid shows and fits without sideways scroll  -> {"visible":true,"fits":true}
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL STEP 6 BROWSER CHECKS PASSED

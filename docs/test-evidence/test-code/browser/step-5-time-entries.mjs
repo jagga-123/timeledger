@@ -188,6 +188,18 @@ const setCustomRange = async (page, from, to) => {
   await settled(page);
 };
 
+// A toast from the previous action can still be on screen, so "toast visible" doesn't prove the save is done.
+// Read the server again until it shows the expected state (or give up after a few seconds).
+const eventually = async (read, isDone, timeout = 5000) => {
+  const deadline = Date.now() + timeout;
+  let value = await read();
+  while (!isDone(value) && Date.now() < deadline) {
+    await sleep(100);
+    value = await read();
+  }
+  return value;
+};
+
 const queryOf = (page) => {
   const url = new URL(page.entryRequests.at(-1));
   return Object.fromEntries(url.searchParams);
@@ -332,7 +344,10 @@ async function rowHandleButton(page, label) {
 }
 await clickButton(A, 'Clear filters', 'main');
 await settled(A);
-check('Clear filters resets them and keeps the date range', (await allRows(A)).length === 5 && queryOf(A).status === undefined && queryOf(A).clientId === undefined && queryOf(A).from === '2026-03-08T18:30:00.000Z');
+await A.waitForFunction(() => document.querySelectorAll('main li').length === 5, { timeout: 5000 }).catch(() => {}); // the list reloads after the click
+const clearedQuery = queryOf(A);
+const clearedRows = (await allRows(A)).length;
+check('Clear filters resets them and keeps the date range', clearedRows === 5 && clearedQuery.status === undefined && clearedQuery.clientId === undefined && clearedQuery.from === '2026-03-08T18:30:00.000Z', `rows=${clearedRows} query=${JSON.stringify(clearedQuery)}`);
 
 // no entries at all in the period -> "No time entries yet"
 await setCustomRange(A, '2020-01-01', '2020-01-07');
@@ -442,7 +457,10 @@ check('saving an edit shows a toast and updates the row', (await hasText(A, 'Ent
 await settled(A);
 const reviewRow = (await allRows(A)).find((r) => r.includes('Review and fixes'));
 check('...with the new time and duration (10:00–11:00, 1h)', reviewRow.includes('10:00–11:00') && reviewRow.includes('1h'), reviewRow);
-const edited = (await call('GET', '/entries?from=2026-03-10T00:00:00Z&to=2026-03-11T00:00:00Z', T)).body.entries.find((e) => e.description === 'Review and fixes');
+const edited = await eventually(
+  async () => (await call('GET', '/entries?from=2026-03-10T00:00:00Z&to=2026-03-11T00:00:00Z', T)).body.entries.find((e) => e.description === 'Review and fixes'),
+  (entry) => entry?.durationSeconds === 3600
+);
 check('server: duration recalculated to 3600s', edited && edited.durationSeconds === 3600 && edited.endedAt === '2026-03-10T05:30:00.000Z', JSON.stringify(edited && [edited.durationSeconds, edited.endedAt]));
 base = { total: base.total + 1800, billable: base.billable + 1800, unbilled: base.unbilled + 25 };
 
@@ -454,7 +472,10 @@ await chooseProject(A, '#entry-project', 'Branding');
 await clickButton(A, 'Save changes', '[role=dialog]');
 await hasText(A, 'Entry updated');
 await settled(A);
-const moved = (await call('GET', '/entries?from=2026-03-10T00:00:00Z&to=2026-03-11T00:00:00Z', T)).body.entries.find((e) => e.description === 'Review and fixes');
+const moved = await eventually(
+  async () => (await call('GET', '/entries?from=2026-03-10T00:00:00Z&to=2026-03-11T00:00:00Z', T)).body.entries.find((e) => e.description === 'Review and fixes'),
+  (entry) => entry?.projectId === branding._id
+);
 check('changing the project also changes the entry\'s client on the server', moved.projectId === branding._id && moved.clientId === globex._id, JSON.stringify([moved.projectId === branding._id, moved.clientId === globex._id]));
 
 // a timer entry keeps its exact seconds when only the description is edited
