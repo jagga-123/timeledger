@@ -71,7 +71,7 @@ export default function Register() {
           onChange={handleChange}
           error={errors.password}
         />
-        <Button type="submit" loading={submitting}>
+        <Button type="submit" fullWidth loading={submitting}>
           {submitting ? 'Creating account...' : 'Create account'}
         </Button>
       </form>

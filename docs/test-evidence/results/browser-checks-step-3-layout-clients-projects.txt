@@ -1,0 +1,66 @@
+﻿PASS  desktop: sidebar visible, 256px wide, indigo-950 background  -> 256px oklch(0.257 0.09 281.288)
+PASS  desktop: 6 nav items in order  -> Dashboard, Clients, Projects, Time Entries, Timesheet, Invoices
+PASS  desktop: active item has indigo-800 background
+PASS  desktop: user name + logout at bottom of sidebar
+PASS  desktop: mobile top bar and bottom tabs are hidden
+PASS  sidebar link goes to /clients
+PASS  clients: empty state with "Add your first client"
+PASS  clients: active item moves to Clients
+PASS  add client opens a modal
+PASS  empty client form shows name error
+PASS  bad email shows error under the email field
+PASS  valid client closes modal + toast
+PASS  client row shows name, company, email and project count  -> A Acme Corp 0 projects Acme Inc billing@acme.com
+PASS  toast does not cover the Add client button
+PASS  duplicate client name shows error under name
+PASS  modal stays open after duplicate
+PASS  Escape closes the modal
+PASS  clicking the backdrop closes the modal
+PASS  3 clients listed alphabetically  -> Acme, Globex, Initech
+PASS  edit modal is prefilled
+PASS  editing a client updates the row
+PASS  projects: empty state
+PASS  project modal has 6 color presets
+PASS  empty project form shows name/client/rate errors
+PASS  negative rate shows server error
+PASS  rate above 10000 shows server error
+PASS  valid project saves + toast
+PASS  project row: name, client name, rate rounded + formatted as $45.68/hr  -> Website redesign Acme Corp $45.68/hr
+PASS  project shows its color dot (Emerald)  -> rgb(16, 185, 129)
+PASS  rate uses JetBrains Mono
+PASS  same project name under a different client is allowed
+PASS  3 projects listed
+PASS  duplicate project name shows inline error
+PASS  filter by client shows only that client's projects  -> Mobile app Globex Ltd $60.00/hr | Website redesign Globex Ltd $30.00/hr
+PASS  filter with no projects shows its own empty state
+PASS  add project from a filtered view preselects the client
+PASS  edit project modal is prefilled
+PASS  editing a project updates the rate
+PASS  clients show project counts (1 / 2 / 0)  -> 1 project, 2 projects, 0 projects
+PASS  delete shows a confirm dialog
+PASS  Cancel keeps the client
+PASS  deleting a client with projects shows the 409 message
+PASS  client with projects is still listed
+PASS  client without projects is deleted
+PASS  project is deleted after confirming
+PASS  Time Entries: "Coming soon" placeholder
+PASS  Timesheet: "Coming soon" placeholder
+PASS  Invoices: "Coming soon" placeholder
+PASS  mobile: sidebar hidden, top bar with logo + logout shown
+PASS  mobile: bottom tab bar has 6 tabs, all inside the screen, pinned to bottom
+PASS  mobile: tab labels are not clipped
+PASS  mobile: no horizontal overflow on /  -> overflow=0
+PASS  mobile: no horizontal overflow on /clients  -> overflow=0
+PASS  mobile: no horizontal overflow on /projects  -> overflow=0
+PASS  mobile: no horizontal overflow on /time-entries  -> overflow=0
+PASS  mobile: no horizontal overflow on /timesheet  -> overflow=0
+PASS  mobile: no horizontal overflow on /invoices  -> overflow=0
+PASS  mobile: project rate is visible
+PASS  mobile: modal fits inside the screen  -> {"left":16,"right":359,"top":136,"bottom":531}
+PASS  mobile: modal causes no horizontal overflow
+PASS  mobile: project modal fits (scrolls internally if needed)  -> {"left":16,"right":359,"top":98.5,"bottom":568.5,"scrolls":false}
+PASS  mobile: logout from the top bar goes to /login
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL STEP 3 BROWSER CHECKS PASSED

@@ -61,7 +61,7 @@ export default function Login() {
           onChange={handleChange}
           error={errors.password}
         />
-        <Button type="submit" loading={submitting}>
+        <Button type="submit" fullWidth loading={submitting}>
           {submitting ? 'Logging in...' : 'Log in'}
         </Button>
       </form>

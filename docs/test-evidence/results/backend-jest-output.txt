@@ -1,0 +1,57 @@
+
+> timeledger-backend@0.1.0 test
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --reporters=default --verbose --json --outputFile=C:\Users\sande\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json
+
+(node:21408) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/tests/health.test.js
+  GET /api/health
+    √ returns status ok (69 ms)
+    √ returns a JSON error for unknown routes (15 ms)
+
+(node:26132) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:15652) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/tests/auth.test.js (6.078 s)
+  POST /api/auth/register
+    √ creates a user and returns { user, token } without the password hash (399 ms)
+    √ returns 409 for a duplicate email (case-insensitive) (336 ms)
+    √ returns 400 with field-wise errors for invalid input (20 ms)
+  POST /api/auth/login
+    √ returns { user, token } for correct credentials (345 ms)
+    √ returns 401 for a wrong password (319 ms)
+  GET /api/auth/me
+    √ returns 401 without a token (20 ms)
+    √ returns 401 for an invalid token (11 ms)
+    √ returns the current user with a valid token (183 ms)
+
+PASS src/tests/clients-projects.test.js (9.789 s)
+  creating clients and projects
+    √ creates a client and a project, and lists them with projectCount and client name (718 ms)
+    √ filters projects by clientId (456 ms)
+    √ allows the same project name under different clients but not under the same client (409 ms)
+  duplicate client names
+    √ returns 409 for a duplicate name (case-insensitive) for the same user (341 ms)
+    √ allows another user to use the same name (297 ms)
+    √ returns 409 when renaming a client to an existing name (334 ms)
+  data isolation between users
+    √ user A cannot see, edit or delete user B's client (350 ms)
+    √ user A cannot see, edit or delete user B's project (330 ms)
+    √ rejects a project that uses another user's clientId with 400 (308 ms)
+  deleting
+    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (312 ms)
+  validation
+    √ rejects invalid hourlyRate values with a field error (279 ms)
+    √ accepts the boundary rates 0 and 10000 (248 ms)
+    √ validates client and project fields (253 ms)
+    √ lets a client email be cleared with an empty string (245 ms)
+    √ returns 400 "Invalid id" for malformed ids (258 ms)
+    √ requires authentication (251 ms)
+
+Test Suites: 3 passed, 3 total
+Tests:       26 passed, 26 total
+Snapshots:   0 total
+Time:        10.248 s, estimated 11 s
+Ran all test suites.
+Test results written to: ..\..\..\..\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json

@@ -1,0 +1,32 @@
+﻿PASS  / redirects to /login when logged out
+PASS  login page shows brand + demo hint
+PASS  empty login shows server field errors
+PASS  link goes to /register
+PASS  empty register shows errors under each field
+PASS  3 inline field errors rendered  -> 3
+PASS  typing clears that field's error  -> 2
+PASS  register redirects to dashboard
+PASS  dashboard greets the user
+PASS  token saved in localStorage
+PASS  reload keeps user logged in
+PASS  logged-in user on /login is redirected to /
+PASS  logged-in user on /register is redirected to /
+PASS  logout goes to /login
+PASS  logout clears token
+PASS  wrong password shows toast
+PASS  stays on /login after failed login
+PASS  submit button shows spinner + disabled while loading
+PASS  correct login reaches dashboard
+INFO element at Log-out click point: path insideLogoutButton=true insideToast=false
+PASS  second logout goes to /login
+PASS  register form renders after logout + reload
+PASS  duplicate email shows toast
+PASS  stays on /register after duplicate
+PASS  invalid token redirects to /login
+PASS  invalid token is cleared (401 handling)
+PASS  login: no horizontal overflow at 375px  -> overflow=0
+PASS  register: no horizontal overflow at 375px  -> overflow=0
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL BROWSER CHECKS PASSED
