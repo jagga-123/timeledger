@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { HttpError } from '../utils/httpError.js';
 
 export const notFound = (req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
@@ -22,8 +23,12 @@ export const errorHandler = (err, req, res, next) => {
     console.error(err);
   }
 
+  // The message of an unexpected server error can reveal internals, so it is hidden.
+  // An HttpError is thrown on purpose with a message written for the user, so that one is always shown.
+  const showMessage = status < 500 || err instanceof HttpError;
+
   res.status(status).json({
-    message: status >= 500 ? 'Internal server error' : err.message,
-    ...(status < 500 && err.errors && { errors: err.errors }),
+    message: showMessage ? err.message : 'Internal server error',
+    ...(showMessage && err.errors && { errors: err.errors }),
   });
 };

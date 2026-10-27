@@ -3,6 +3,7 @@ import TimeEntry from '../models/TimeEntry.js';
 import User from '../models/User.js';
 import { HttpError } from '../utils/httpError.js';
 import { roundToCents } from '../utils/money.js';
+import { usableZone } from '../utils/timezone.js';
 
 // The weekly timesheet: hours per project per day, Monday to Sunday.
 // Days are counted in the USER's saved time zone, never the server's, and every day is built with
@@ -30,8 +31,7 @@ const sum = (numbers) => numbers.reduce((total, n) => total + n, 0);
 
 export const getWeek = async (userId, { weekStart } = {}) => {
   const user = await User.findById(userId).select('timezone');
-  // A saved zone that luxon doesn't know would make every date invalid; UTC is a safe fallback
-  const zone = DateTime.local().setZone(user.timezone).isValid ? user.timezone : 'UTC';
+  const zone = usableZone(user.timezone);
 
   let first;
   if (weekStart) {

@@ -1,3 +1,8 @@
+import { DateTime } from 'luxon';
+
+// A saved zone that luxon doesn't know would make every date invalid; UTC is a safe fallback
+export const usableZone = (timezone) => (DateTime.local().setZone(timezone).isValid ? timezone : 'UTC');
+
 // Intl.supportedValuesOf('timeZone') only lists each zone's canonical name, so it leaves out common
 // names such as "Asia/Kolkata" (listed as "Asia/Calcutta") and "UTC". Resolving the name first
 // turns those into their canonical form, which is then checked against the list.
