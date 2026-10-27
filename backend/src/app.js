@@ -5,6 +5,7 @@ import clientRoutes from './routes/client.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import timerRoutes from './routes/timer.routes.js';
 import entryRoutes from './routes/entry.routes.js';
+import timesheetRoutes from './routes/timesheet.routes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -21,6 +22,7 @@ app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/timer', timerRoutes);
 app.use('/api/entries', entryRoutes);
+app.use('/api/timesheet', timesheetRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -72,14 +72,22 @@ const calculateTotals = (entries) => {
   };
 };
 
-// Stopped entries (the running timer is excluded), newest first, plus totals for the same entries
-export const list = async (userId, { from, to, clientId, projectId, billable, status = 'all' }) => {
+// Stopped entries (the running timer is excluded), newest first, plus totals for the same entries.
+// from/to normally match the day an entry STARTED. With overlap, they match every entry that touches
+// the range, including one that started before `from` or runs past `to` (used by the timesheet cells,
+// where an entry that crosses midnight has time in both days).
+export const list = async (userId, { from, to, clientId, projectId, billable, status = 'all', overlap = false }) => {
   const filter = { userId, endedAt: { $ne: null } };
 
   if (from || to) {
-    filter.startedAt = {};
-    if (from) filter.startedAt.$gte = from;
-    if (to) filter.startedAt.$lt = to;
+    if (overlap) {
+      if (to) filter.startedAt = { $lt: to };
+      if (from) filter.endedAt = { $ne: null, $gt: from };
+    } else {
+      filter.startedAt = {};
+      if (from) filter.startedAt.$gte = from;
+      if (to) filter.startedAt.$lt = to;
+    }
   }
   if (clientId) filter.clientId = clientId;
   if (projectId) filter.projectId = projectId;

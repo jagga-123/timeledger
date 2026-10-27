@@ -39,6 +39,10 @@ const idParam = (label) =>
 export const listEntriesQuerySchema = z.object({
   from: dateParam('from'),
   to: dateParam('to'),
+  overlap: z
+    .enum(['true', 'false'], { error: 'overlap must be true or false' })
+    .transform((value) => value === 'true')
+    .optional(),
   clientId: idParam('clientId'),
   projectId: idParam('projectId'),
   billable: z
