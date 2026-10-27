@@ -148,7 +148,8 @@ export const isMondayKey = (dateKey) => {
 };
 
 // formatWeekRange("2026-03-09", "2026-03-15") -> "9 – 15 Mar 2026"
-// ("2026-03-30", "2026-04-05") -> "30 Mar – 5 Apr 2026"; across a new year both years are shown
+// ("2026-03-30", "2026-04-05") -> "30 Mar – 5 Apr 2026"; across a new year both years are shown;
+// a single day is just "9 Mar 2026". Works for any two date keys (also used for invoice periods).
 export const formatWeekRange = (startKey, endKey) => {
   const part = (key, options) => {
     const { year, month, day } = parseDateKey(key);
@@ -157,6 +158,9 @@ export const formatWeekRange = (startKey, endKey) => {
   const start = parseDateKey(startKey);
   const end = parseDateKey(endKey);
 
+  if (startKey === endKey) {
+    return part(startKey, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
   if (start.year !== end.year) {
     return `${part(startKey, { day: 'numeric', month: 'short', year: 'numeric' })} – ${part(endKey, { day: 'numeric', month: 'short', year: 'numeric' })}`;
   }
@@ -164,6 +168,38 @@ export const formatWeekRange = (startKey, endKey) => {
     return `${part(startKey, { day: 'numeric', month: 'short' })} – ${part(endKey, { day: 'numeric', month: 'short' })} ${end.year}`;
   }
   return `${start.day} – ${part(endKey, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+};
+
+export const formatDateRange = formatWeekRange;
+
+// "27 Oct 2026" for a moment, as seen in a time zone
+export const formatDate = (date, timeZone) =>
+  new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(date));
+
+// Today's date key ("2026-10-27") in a time zone
+export const todayKey = (timeZone, now = new Date()) => dateKeyInZone(now, timeZone);
+
+// Quick date ranges for invoices, as inclusive date keys: "last-week" (Monday to Sunday),
+// "this-month" (the 1st up to today) and "last-month" (the whole previous month)
+export const quickRangeKeys = (preset, timeZone, now = new Date()) => {
+  const today = todayKey(timeZone, now);
+  const { year, month } = parseDateKey(today);
+  const toKey = (date) => `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+
+  if (preset === 'last-week') {
+    const monday = currentWeekKey(timeZone, now);
+    return { from: addDaysToDateKey(monday, -7), to: addDaysToDateKey(monday, -1) };
+  }
+  if (preset === 'this-month') {
+    return { from: `${year}-${pad(month)}-01`, to: today };
+  }
+  if (preset === 'last-month') {
+    return {
+      from: toKey(new Date(Date.UTC(year, month - 2, 1))),
+      to: toKey(new Date(Date.UTC(year, month - 1, 0))), // day 0 of this month = last day of the previous one
+    };
+  }
+  return null;
 };
 
 // Browsers and servers may use different names for the same zone ("Asia/Calcutta" and "Asia/Kolkata")

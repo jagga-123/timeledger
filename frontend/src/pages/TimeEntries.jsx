@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Clock, Lock, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/PageHeader';
@@ -79,7 +79,18 @@ function Filter({ label, htmlFor, children }) {
 }
 
 function EntryBadge({ entry }) {
-  if (entry.invoiceId) return <Badge tone="primary">Billed</Badge>;
+  // A billed entry's badge opens the invoice it is on
+  if (entry.invoiceId) {
+    return (
+      <Link
+        to={`/invoices/${entry.invoiceId}`}
+        title="Open the invoice"
+        className="rounded-full hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-primary/40"
+      >
+        <Badge tone="primary">Billed</Badge>
+      </Link>
+    );
+  }
   return entry.billable ? <Badge tone="success">Billable</Badge> : <Badge>Non-billable</Badge>;
 }
 

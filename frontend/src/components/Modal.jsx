@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 // Render it only while it should be open: {open && <Modal ...>}
-export default function Modal({ title, onClose, children }) {
+export default function Modal({ title, onClose, children, size = 'md' }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -29,7 +29,7 @@ export default function Modal({ title, onClose, children }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-xl"
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-white shadow-xl ${size === 'lg' ? 'max-w-xl' : 'max-w-md'}`}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h2 id="modal-title" className="text-lg font-semibold text-slate-900">

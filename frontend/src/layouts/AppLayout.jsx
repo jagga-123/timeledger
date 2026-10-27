@@ -36,7 +36,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-sidebar md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-sidebar md:flex print:hidden">
         <div className="px-6 py-6">
           <Logo />
         </div>
@@ -82,7 +82,7 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 md:hidden print:hidden">
         <Logo />
         <div className="flex items-center gap-1">
           <MiniTimer />
@@ -98,13 +98,13 @@ export default function AppLayout() {
         </div>
       </header>
 
-      <main className="md:pl-64">
-        <div className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-8 md:pb-8">
+      <main className="md:pl-64 print:pl-0">
+        <div className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-8 md:pb-8 print:max-w-none print:p-0">
           <Outlet />
         </div>
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-slate-200 bg-white md:hidden print:hidden">
         {navItems.map(({ to, label, shortLabel, icon: Icon, end }) => (
           <NavLink
             key={to}

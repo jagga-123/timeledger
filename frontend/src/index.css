@@ -15,3 +15,21 @@
 body {
   @apply bg-page font-sans text-slate-900 antialiased;
 }
+
+/* Printing / saving as PDF (used by the invoice page) */
+@page {
+  size: A4;
+  margin: 14mm;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  /* keep the status badge colours on paper */
+  .invoice-paper {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
