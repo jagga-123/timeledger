@@ -5,6 +5,7 @@ import app from '../app.js';
 import User from '../models/User.js';
 import Client from '../models/Client.js';
 import Project from '../models/Project.js';
+import TimeEntry from '../models/TimeEntry.js';
 
 let mongod;
 let tokenA;
@@ -25,7 +26,12 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await Promise.all([User.deleteMany({}), Client.deleteMany({}), Project.deleteMany({})]);
+  await Promise.all([
+    User.deleteMany({}),
+    Client.deleteMany({}),
+    Project.deleteMany({}),
+    TimeEntry.deleteMany({}),
+  ]);
 });
 
 afterAll(async () => {
@@ -196,6 +202,59 @@ describe('deleting', () => {
     expect((await api('delete', `/api/projects/${project._id}`, tokenA)).status).toBe(204);
     expect((await api('delete', `/api/clients/${client._id}`, tokenA)).status).toBe(204);
     expect((await api('get', '/api/clients', tokenA)).body.clients).toEqual([]);
+  });
+
+  it('returns 409 when deleting a project that has time entries', async () => {
+    const client = await createClient(tokenA);
+    const project = (await createProject(tokenA, client._id)).body.project;
+    const alice = await User.findOne({ email: 'alice@example.com' });
+    await TimeEntry.create({
+      userId: alice._id,
+      projectId: project._id,
+      clientId: client._id,
+      startedAt: new Date('2026-03-10T09:00:00Z'),
+      endedAt: new Date('2026-03-10T10:00:00Z'),
+      durationSeconds: 3600,
+    });
+
+    const res = await api('delete', `/api/projects/${project._id}`, tokenA);
+    expect(res.status).toBe(409);
+    expect(res.body.message).toBe('This project has time entries. Delete them first.');
+    expect(await Project.countDocuments()).toBe(1);
+
+    await TimeEntry.deleteMany({});
+    expect((await api('delete', `/api/projects/${project._id}`, tokenA)).status).toBe(204);
+  });
+});
+
+describe('moving a project to another client', () => {
+  it("moves the project's unbilled entries along, but not entries that are already on an invoice", async () => {
+    const acme = await createClient(tokenA, { name: 'Acme' });
+    const globex = await createClient(tokenA, { name: 'Globex' });
+    const project = (await createProject(tokenA, acme._id)).body.project;
+    const alice = await User.findOne({ email: 'alice@example.com' });
+
+    const entry = (extra) => ({
+      userId: alice._id,
+      projectId: project._id,
+      clientId: acme._id,
+      startedAt: new Date('2026-03-10T09:00:00Z'),
+      endedAt: new Date('2026-03-10T10:00:00Z'),
+      durationSeconds: 3600,
+      ...extra,
+    });
+    const unbilled = await TimeEntry.create(entry());
+    const billed = await TimeEntry.create(entry({ invoiceId: new mongoose.Types.ObjectId() }));
+
+    const res = await api('patch', `/api/projects/${project._id}`, tokenA, { clientId: globex._id });
+    expect(res.status).toBe(200);
+
+    expect(String((await TimeEntry.findById(unbilled._id)).clientId)).toBe(globex._id);
+    expect(String((await TimeEntry.findById(billed._id)).clientId)).toBe(acme._id);
+
+    // renaming alone doesn't touch entries
+    await api('patch', `/api/projects/${project._id}`, tokenA, { name: 'Renamed' });
+    expect(String((await TimeEntry.findById(unbilled._id)).clientId)).toBe(globex._id);
   });
 });
 

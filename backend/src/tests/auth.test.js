@@ -113,3 +113,44 @@ describe('GET /api/auth/me', () => {
     expect(res.body.user.passwordHash).toBeUndefined();
   });
 });
+
+describe('PATCH /api/auth/me (time zone)', () => {
+  const setTimezone = (token, timezone) =>
+    request(app).patch('/api/auth/me').set('Authorization', `Bearer ${token}`).send({ timezone });
+
+  it('saves a valid time zone, including names Intl.supportedValuesOf leaves out', async () => {
+    const { body } = await register();
+    expect(body.user.timezone).toBe('Asia/Kolkata'); // the default
+
+    for (const timezone of ['America/New_York', 'Asia/Kolkata', 'Asia/Calcutta', 'UTC', 'Europe/London']) {
+      const res = await setTimezone(body.token, timezone);
+      expect(res.status).toBe(200);
+      expect(res.body.user.timezone).toBe(timezone);
+      expect(res.body.user.passwordHash).toBeUndefined();
+    }
+
+    const saved = await User.findOne({ email: validUser.email });
+    expect(saved.timezone).toBe('Europe/London');
+  });
+
+  it('rejects an unknown time zone and a missing value', async () => {
+    const { body } = await register();
+
+    for (const timezone of ['Mars/Olympus_Mons', 'India', '+05:30', '']) {
+      const res = await setTimezone(body.token, timezone);
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toEqual([{ path: 'timezone', message: 'Unknown time zone' }]);
+    }
+
+    const missing = await request(app).patch('/api/auth/me').set('Authorization', `Bearer ${body.token}`).send({});
+    expect(missing.status).toBe(400);
+    expect(missing.body.errors).toEqual([{ path: 'timezone', message: 'Time zone is required' }]);
+
+    expect((await User.findOne({ email: validUser.email })).timezone).toBe('Asia/Kolkata');
+  });
+
+  it('requires a token', async () => {
+    const res = await request(app).patch('/api/auth/me').send({ timezone: 'UTC' });
+    expect(res.status).toBe(401);
+  });
+});
