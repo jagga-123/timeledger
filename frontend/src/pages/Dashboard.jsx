@@ -63,7 +63,7 @@ export default function Dashboard() {
 
       <TimerCard />
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section aria-labelledby="week-heading" className="lg:order-2">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 id="week-heading" className="text-sm font-medium text-slate-500">
