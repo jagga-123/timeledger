@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getClients } from '../api/clients';
 import { previewInvoice, createInvoice } from '../api/invoices';
 import { getErrorMessage } from '../utils/errors';
-import { formatCurrency, formatDateRange, quickRangeKeys, todayKey } from '../utils/time';
+import { formatCurrency, formatDateRange, formatDuration, quickRangeKeys, todayKey } from '../utils/time';
 
 const QUICK_PICKS = [
   { id: 'last-week', label: 'Last week' },
@@ -17,6 +17,8 @@ const QUICK_PICKS = [
   { id: 'last-month', label: 'Last month' },
   { id: 'custom', label: 'Custom' },
 ];
+
+const sumOf = (lines, field) => lines.reduce((total, line) => total + line[field], 0);
 
 // Pick a client and a period, see exactly what would be billed, then create the invoice.
 // Render it only while it should be open.
@@ -189,6 +191,12 @@ export default function InvoiceCreateModal({ onClose }) {
                     </li>
                   ))}
                 </ul>
+                {preview.roundingMinutes > 0 && (
+                  <p className="border-t border-slate-200 pt-2 text-xs text-slate-500" data-testid="rounding-note">
+                    Rounded up to {preview.roundingMinutes} min per entry: {formatDuration(sumOf(preview.lineItems, 'rawSeconds'))} tracked,{' '}
+                    {formatDuration(sumOf(preview.lineItems, 'billedSeconds'))} billed
+                  </p>
+                )}
                 <div className="mt-2 flex items-center justify-between border-t border-slate-300 pt-3">
                   <p className="text-sm text-slate-600">
                     {preview.entryCount} {preview.entryCount === 1 ? 'entry' : 'entries'} · {formatDateRange(form.from, form.to)}

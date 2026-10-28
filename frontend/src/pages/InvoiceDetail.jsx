@@ -233,6 +233,12 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
+        {invoice.roundingMinutes > 0 && (
+          <p className="mt-6 text-xs text-slate-500" data-testid="rounding-note">
+            Rounded up to {invoice.roundingMinutes} min per entry
+          </p>
+        )}
+
         {invoice.notes && (
           <section className="mt-10 break-inside-avoid">
             <h2 className={LABEL}>Notes</h2>
@@ -253,7 +259,12 @@ export default function InvoiceDetail() {
                 <span className="block truncate font-medium text-slate-900">{entry.projectName}</span>
                 <span className="block truncate text-slate-500">{entry.description || 'No description'}</span>
               </span>
-              <span className="shrink-0 font-mono text-slate-900">{formatDuration(entry.durationSeconds)}</span>
+              <span className="shrink-0 font-mono text-slate-900">
+                {formatDuration(entry.durationSeconds)}
+                {invoice.roundingMinutes > 0 && entry.billedSeconds !== entry.durationSeconds && (
+                  <span className="text-slate-500"> → {formatDuration(entry.billedSeconds)}</span>
+                )}
+              </span>
             </li>
           ))}
         </ul>

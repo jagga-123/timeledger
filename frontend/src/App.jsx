@@ -14,6 +14,7 @@ import TimeEntries from './pages/TimeEntries';
 import Timesheet from './pages/Timesheet';
 import Invoices from './pages/Invoices';
 import InvoiceDetail from './pages/InvoiceDetail';
+import Settings from './pages/Settings';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
                 <Route path="/timesheet" element={<Timesheet />} />
                 <Route path="/invoices" element={<Invoices />} />
                 <Route path="/invoices/:id" element={<InvoiceDetail />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
 

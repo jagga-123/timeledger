@@ -15,7 +15,7 @@ export default function MiniTimer() {
       <Link
         to="/"
         aria-label={`Timer running, ${time}. Go to the dashboard`}
-        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-l-lg px-3 py-2 transition hover:bg-white/10"
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-l-lg px-2.5 py-2 transition hover:bg-white/10"
       >
         <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden="true">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />

@@ -6,6 +6,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
+  Settings as SettingsIcon,
   Timer,
   Users,
 } from 'lucide-react';
@@ -21,10 +22,14 @@ const navItems = [
   { to: '/invoices', label: 'Invoices', icon: FileText },
 ];
 
-function Logo() {
+// Not in the phone's bottom bar (it has no room for a seventh tab); there it is a gear in the top bar
+const settingsItem = { to: '/settings', label: 'Settings', icon: SettingsIcon };
+
+// compact: a little smaller on phones, so the top bar still fits a running timer, Settings and Log out
+function Logo({ compact = false }) {
   return (
-    <div className="flex items-center gap-2 text-lg font-bold text-white">
-      <Clock size={24} />
+    <div className={`flex items-center gap-2 font-bold text-white ${compact ? 'text-base sm:text-lg' : 'text-lg'}`}>
+      <Clock size={24} className={compact ? 'h-5 w-5 sm:h-6 sm:w-6' : undefined} />
       TimeLedger
     </div>
   );
@@ -42,7 +47,7 @@ export default function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
+          {[...navItems, settingsItem].map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -83,9 +88,19 @@ export default function AppLayout() {
       </aside>
 
       <header className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-4 py-3 md:hidden print:hidden">
-        <Logo />
-        <div className="flex items-center gap-1">
+        <Logo compact />
+        <div className="flex items-center">
           <MiniTimer />
+          <NavLink
+            to="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className={({ isActive }) =>
+              `rounded-lg p-2 transition hover:bg-indigo-900 hover:text-white ${isActive ? 'bg-indigo-800 text-white' : 'text-indigo-200'}`
+            }
+          >
+            <SettingsIcon size={20} />
+          </NavLink>
           <button
             type="button"
             onClick={logout}

@@ -65,10 +65,17 @@ export function AuthProvider({ children }) {
     syncTimezone(data.user);
   };
 
+  // Saves the name, the time zone and/or the rounding rule (PATCH /auth/me) and keeps the logged-in user up to date
+  const updateProfile = async (changes) => {
+    const { data } = await api.patch('/auth/me', changes);
+    setUser(data.user);
+    return data.user;
+  };
+
   const logout = clearSession;
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, updateProfile, logout }}>
       {children}
     </AuthContext.Provider>
   );
