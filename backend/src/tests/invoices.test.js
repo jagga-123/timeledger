@@ -25,7 +25,7 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
 
-  replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ launchTimeout: 60_000 }] });
   await mongoose.connect(replSet.getUri());
   await Promise.all([User.init(), Client.init(), Project.init(), TimeEntry.init(), Invoice.init(), Counter.init()]);
 }, 120_000);
