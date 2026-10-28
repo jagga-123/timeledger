@@ -25,7 +25,7 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'test-secret';
   process.env.JWT_EXPIRES_IN = '1h';
 
-  replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ launchTimeout: 60_000 }] });
   await mongoose.connect(replSet.getUri());
   await Promise.all([User.init(), Client.init(), Project.init(), TimeEntry.init(), Invoice.init(), Counter.init()]);
 }, 120_000);
@@ -192,8 +192,8 @@ describe('line items and totals', () => {
     const { invoice } = body;
 
     expect(invoice.lineItems).toEqual([
-      { projectId: priya.app, projectName: 'App', hourlyRate: 60, seconds: 6600, hours: 1.83, amount: 110 },
-      { projectId: priya.website, projectName: 'Website', hourlyRate: 50, seconds: 10000, hours: 2.78, amount: 138.89 },
+      { projectId: priya.app, projectName: 'App', hourlyRate: 60, rawSeconds: 6600, billedSeconds: 6600, hours: 1.83, amount: 110 },
+      { projectId: priya.website, projectName: 'Website', hourlyRate: 50, rawSeconds: 10000, billedSeconds: 10000, hours: 2.78, amount: 138.89 },
     ]);
     expect(invoice.subtotal).toBe(248.89);
     expect(invoice.total).toBe(248.89); // 110 + 138.89
@@ -361,7 +361,7 @@ describe('concurrency: an entry is never on two invoices', () => {
     }
     // each invoice's lines match its own entries
     for (const invoice of [a, b]) {
-      expect(invoice.lineItems[0].seconds).toBe(invoice.entryIds.length * 3600);
+      expect(invoice.lineItems[0].billedSeconds).toBe(invoice.entryIds.length * 3600);
     }
     expect([a.number, b.number].sort()).toEqual(['INV-0001', 'INV-0002']);
   });
@@ -411,6 +411,97 @@ describe('all or nothing', () => {
     expect(res.status).toBe(503);
     expect(res.body.message).toMatch(/replica set/);
     expect((await TimeEntry.findOne({ userId: priya.id })).invoiceId).toBeNull();
+  });
+});
+
+// ---------- rounding: each entry is rounded up to 15 minutes when billing ----------
+
+const setRounding = (user, roundingMinutes) => User.updateOne({ _id: user.id }, { roundingMinutes });
+const minutes = (n) => n * 60 * 1000;
+const plusMinutes = (date, n) => new Date(date.getTime() + minutes(n));
+
+describe('rounding each entry up to 15 minutes', () => {
+  it('bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone', async () => {
+    await setRounding(priya, 15);
+    const short = await addEntry(priya, priya.website, ist('2026-03-09', '09:00'), plusMinutes(ist('2026-03-09', '09:00'), 7));
+    const longer = await addEntry(priya, priya.website, ist('2026-03-09', '10:00'), plusMinutes(ist('2026-03-09', '10:00'), 22));
+
+    const preview = await previewInvoice(priya, range(priya.acme, '2026-03-09', '2026-03-09'));
+    expect(preview.status).toBe(200);
+    expect(preview.body.preview.roundingMinutes).toBe(15);
+    expect(preview.body.preview.lineItems).toEqual([
+      { projectId: priya.website, projectName: 'Website', hourlyRate: 50, rawSeconds: 29 * 60, billedSeconds: 45 * 60, hours: 0.75, amount: 37.5 },
+    ]);
+    expect(preview.body.preview.total).toBe(37.5); // 0.75 h at $50, not 0.48 h
+
+    const { body } = await createInvoice(priya, range(priya.acme, '2026-03-09', '2026-03-09'));
+    expect(body.invoice.roundingMinutes).toBe(15);
+    expect(body.invoice.lineItems).toEqual(preview.body.preview.lineItems);
+    expect(body.invoice.total).toBe(37.5);
+
+    // the entries keep their real durations
+    expect((await TimeEntry.findById(short._id)).durationSeconds).toBe(7 * 60);
+    expect((await TimeEntry.findById(longer._id)).durationSeconds).toBe(22 * 60);
+
+    // the invoice page shows both, entry by entry
+    const page = await api('get', `/api/invoices/${body.invoice._id}`, priya.token);
+    expect(page.body.entries.map((e) => [e.durationSeconds, e.billedSeconds])).toEqual([
+      [7 * 60, 15 * 60],
+      [22 * 60, 30 * 60],
+    ]);
+  });
+
+  it('is off by default: the same entries are billed as tracked', async () => {
+    await addEntry(priya, priya.website, ist('2026-03-09', '09:00'), plusMinutes(ist('2026-03-09', '09:00'), 7));
+    await addEntry(priya, priya.website, ist('2026-03-09', '10:00'), plusMinutes(ist('2026-03-09', '10:00'), 22));
+
+    const { body } = await createInvoice(priya, range(priya.acme, '2026-03-09', '2026-03-09'));
+    expect(body.invoice.roundingMinutes).toBe(0);
+    expect(body.invoice.lineItems[0]).toMatchObject({ rawSeconds: 29 * 60, billedSeconds: 29 * 60, hours: 0.48, amount: 24.17 });
+    expect(body.invoice.total).toBe(24.17);
+  });
+
+  it('rounds every entry, not the total, and one project at a time', async () => {
+    await setRounding(priya, 15);
+    // Website: three entries of 5 min (15 min in total, but billed as 3 x 15 = 45 min)
+    for (const hour of ['09', '10', '11']) {
+      await addEntry(priya, priya.website, ist('2026-03-10', `${hour}:00`), plusMinutes(ist('2026-03-10', `${hour}:00`), 5));
+    }
+    // App: exactly 15 min (stays 15), 15 min 1 s (becomes 30) and an empty entry (stays 0)
+    const at = (time, seconds) => [ist('2026-03-11', time), new Date(ist('2026-03-11', time).getTime() + seconds * 1000)];
+    await addEntry(priya, priya.app, ...at('09:00', 900));
+    await addEntry(priya, priya.app, ...at('10:00', 901));
+    await addEntry(priya, priya.app, ...at('11:00', 0));
+
+    const { body } = await createInvoice(priya, range(priya.acme, '2026-03-09', '2026-03-13'));
+    expect(body.invoice.lineItems).toEqual([
+      { projectId: priya.app, projectName: 'App', hourlyRate: 60, rawSeconds: 1801, billedSeconds: 2700, hours: 0.75, amount: 45 }, // 15 + 30 + 0 min
+      { projectId: priya.website, projectName: 'Website', hourlyRate: 50, rawSeconds: 900, billedSeconds: 2700, hours: 0.75, amount: 37.5 },
+    ]);
+    expect(body.invoice.total).toBe(82.5);
+  });
+
+  it('never changes an invoice that already exists when the setting is changed later (either way)', async () => {
+    await addEntry(priya, priya.website, ist('2026-03-09', '09:00'), plusMinutes(ist('2026-03-09', '09:00'), 7));
+    await addEntry(priya, priya.website, ist('2026-03-10', '09:00'), plusMinutes(ist('2026-03-10', '09:00'), 22));
+
+    // an invoice made with rounding OFF, then rounding is switched on
+    const plain = (await createInvoice(priya, range(priya.acme, '2026-03-09', '2026-03-09'))).body.invoice;
+    await setRounding(priya, 15);
+    // an invoice made with rounding ON, then it is switched off again
+    const rounded = (await createInvoice(priya, range(priya.acme, '2026-03-10', '2026-03-10'))).body.invoice;
+    await setRounding(priya, 0);
+
+    const plainAgain = (await api('get', `/api/invoices/${plain._id}`, priya.token)).body;
+    const roundedAgain = (await api('get', `/api/invoices/${rounded._id}`, priya.token)).body;
+
+    expect(plainAgain.invoice).toMatchObject({ roundingMinutes: 0, total: plain.total });
+    expect(plainAgain.invoice.lineItems[0]).toMatchObject({ rawSeconds: 7 * 60, billedSeconds: 7 * 60, amount: 5.83 });
+    expect(plainAgain.entries.map((e) => e.billedSeconds)).toEqual([7 * 60]);
+
+    expect(roundedAgain.invoice).toMatchObject({ roundingMinutes: 15, total: 25 });
+    expect(roundedAgain.invoice.lineItems[0]).toMatchObject({ rawSeconds: 22 * 60, billedSeconds: 30 * 60, amount: 25 });
+    expect(roundedAgain.entries.map((e) => e.billedSeconds)).toEqual([30 * 60]);
   });
 });
 

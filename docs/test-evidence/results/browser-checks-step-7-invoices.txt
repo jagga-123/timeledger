@@ -3,14 +3,14 @@ PASS  empty state "Create your first invoice" with a button
 PASS  summary cards start at Outstanding $0.00, Paid $0.00, Invoices 0  -> outstanding $0.00 | paid $0.00 | invoices 0
 PASS  the status filter is hidden while there are no invoices
 PASS  "New invoice" opens the modal with a client select, quick picks, dates and notes
-PASS  it starts on "This month" (the 1st up to today)  -> {"from":"2026-10-01","to":"2026-10-27","pressed":"This month"}
+PASS  it starts on "This month" (the 1st up to today)  -> {"from":"2026-10-01","to":"2026-10-28","pressed":"This month"}
 PASS  "Create invoice" is disabled until there is something to bill
 PASS  ...and the preview asks for a client first
 PASS  quick pick "Last week" fills 2026-10-19 to 2026-10-25  -> {"from":"2026-10-19","to":"2026-10-25"}
 PASS  quick pick "Last month" fills 2026-09-01 to 2026-09-30  -> {"from":"2026-09-01","to":"2026-09-30"}
-PASS  quick pick "This month" fills 2026-10-01 to 2026-10-27  -> {"from":"2026-10-01","to":"2026-10-27"}
+PASS  quick pick "This month" fills 2026-10-01 to 2026-10-28  -> {"from":"2026-10-01","to":"2026-10-28"}
 PASS  typing a date switches the quick pick to "Custom"
-PASS  the end date cannot be picked after today  -> 2026-10-27
+PASS  the end date cannot be picked after today  -> 2026-10-28
 PASS  a client with its own unbilled time previews only that (Brand 1.00 h x $80.00 = $80.00)  -> Brand 1.00 h × $80.00 $80.00 1 entry · 9 – 13 Mar 2026 $80.00
 PASS  Acme preview: line items with hours, rate and amount, entry count and total  -> App 1.50 h × $60.00 $90.00 Website 2.78 h × $50.00 $138.89 4 entries · 9 – 13 Mar 2026 $228.89
 PASS  ...with the total $228.89 (non-billable, other client, outside the period and the 23:30 edge handled)
@@ -19,7 +19,7 @@ PASS  creating shows the toast "Invoice INV-0001 created"
 PASS  ...and opens the invoice page
 PASS  invoice page: logo, "INVOICE", number INV-0001 and a Draft badge  -> INV-0001 Draft
 PASS  From (the user) and Bill to (name, company, email)
-PASS  issue date is today and the due date is 14 days later (India time)  -> TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793114254594@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 27 Oct 2026 DUE DATE 10 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 N
+PASS  issue date is today and the due date is 14 days later (India time)  -> TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793190693888@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 28 Oct 2026 DUE DATE 11 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 N
 PASS  period "9 – 13 Mar 2026"
 PASS  line items table: Project, Hours, Rate, Amount  -> project | hours | rate | amount
 PASS  ...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89  -> [["App","1.50","$60.00","$90.00"],["Website","2.78","$50.00","$138.89"]]
@@ -36,10 +36,10 @@ PASS  ...and "Create invoice" stays disabled
 PASS  API: creating it again is refused with the same 400
 PASS  Time entries: the 4 invoiced entries show a "Billed" badge  -> 4
 PASS  ...and the others are still billable / non-billable  -> Website · Acme Corp Not billable 09:00–10:00 Non-billable 1h | Brand · Zeta Ltd Other client 14:00–15:00 Billable 1h
-PASS  the Billed badge links to its invoice  -> /invoices/6ae0c092fb765a66f7b3baf3
+PASS  the Billed badge links to its invoice  -> /invoices/6ae1eb2ba4a625db9e1531a3
 PASS  ...and clicking it opens that invoice
 PASS  both tabs see the same preview ($270.00, 3 entries)  -> App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00 || App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00
-PASS  exactly ONE of the two tabs got an invoice  -> /invoices/6ae0c09afb765a66f7b3baf6 / /invoices
+PASS  exactly ONE of the two tabs got an invoice  -> /invoices / /invoices/6ae1eb35a4a625db9e1531a6
 PASS  the other tab is told there is nothing left to bill, and stays on the form
 PASS  ...with "Create invoice" disabled again
 PASS  server: only one invoice exists for that period (INV-0002), not two  -> INV-0002,INV-0001
@@ -54,7 +54,7 @@ PASS  Mark as paid: toast, "Paid" badge in emerald, no more status buttons
 PASS  ...emerald colour and a paid date
 PASS  API: a paid invoice cannot go back (409 "Can't change status from paid to sent") or be deleted (409)
 PASS  after the project rate (50 -> 99) and the client name/email changed, the old invoice is exactly the same  -> App|1.50|$60.00|$90.00 ; Website|2.78|$50.00|$138.89
-PASS  list: 3 invoices, newest first, each with number, client, period, issued date, total and status  -> INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 27 Oct 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 27 Oct 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 27 Oct 2026 $228.89 Paid
+PASS  list: 3 invoices, newest first, each with number, client, period, issued date, total and status  -> INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 28 Oct 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 28 Oct 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 28 Oct 2026 $228.89 Paid
 PASS  badge colours: Paid emerald, Draft slate; amounts in JetBrains Mono  -> {"paid":"oklch(0.508 0.118 165.612)","draft":"oklch(0.372 0.044 257.287)","mono":"\"JetBrains Mono\", ui-monospace, SFMono-Regular, monospace"}
 PASS  summary: Outstanding $570.00 (the two drafts), Paid $228.89, Invoices 3  -> outstanding $570.00 | paid $228.89 | invoices 3
 PASS  status filter: All, Draft, Sent, Paid
@@ -71,7 +71,7 @@ PASS  print: the sidebar, top bar, bottom bar, action buttons and the entry list
 PASS  print: white background, no leftover sidebar space, no border or shadow  -> ["rgb(255, 255, 255)","0px","0px","rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"]
 PASS  print: the invoice fills the page width and nothing is cut off at the sides  -> [0,794,794,0]
 PASS  print: the line items show as a table (not the stacked phone layout)
-PASS  print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice)  -> {"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":116627}
+PASS  print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice)  -> {"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":122389}
 PASS  print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width  -> 3 pages, 36 lines
 PASS  another user opening my invoice sees "Invoice not found" (and none of my data)
 PASS  ...and their own list is empty

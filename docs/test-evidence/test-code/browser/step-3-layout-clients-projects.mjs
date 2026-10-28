@@ -53,7 +53,7 @@ const rows = () => page.$$eval('main li', (els) => els.map((e) => e.innerText.re
 // the toast shows as soon as the API answers, but the list refetches a moment later
 const waitRows = (n) =>
   page.waitForFunction((n) => document.querySelectorAll('main li').length === n, { timeout: 5000 }, n).then(() => true, () => false);
-const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 // click the first visible <button> whose text matches, optionally inside a container selector
 const clickButton = async (label, within = 'body') => {
@@ -112,7 +112,7 @@ const desktop = await page.evaluate(() => {
 // indigo-950 is reported as oklch(0.257 0.09 281.288) (same as rgb(30, 27, 75))
 const isIndigo950 = desktop.asideBg === 'rgb(30, 27, 75)' || /^oklch\(0\.257 0\.09 281/.test(desktop.asideBg);
 check('desktop: sidebar visible, 256px wide, indigo-950 background', desktop.asideShown && desktop.asideWidth === 256 && isIndigo950, `${desktop.asideWidth}px ${desktop.asideBg}`);
-check('desktop: 6 nav items in order', JSON.stringify(desktop.links) === JSON.stringify(['Dashboard', 'Clients', 'Projects', 'Time Entries', 'Timesheet', 'Invoices']), desktop.links.join(', '));
+check('desktop: 6 nav items in order, then Settings (added in Step 8)', JSON.stringify(desktop.links) === JSON.stringify(['Dashboard', 'Clients', 'Projects', 'Time Entries', 'Timesheet', 'Invoices', 'Settings']), desktop.links.join(', '));
 check('desktop: active item has indigo-800 background', desktop.activeClass);
 check('desktop: user name + logout at bottom of sidebar', desktop.userInSidebar && desktop.logoutInSidebar);
 check('desktop: mobile top bar and bottom tabs are hidden', desktop.bottomNavHidden && desktop.topBarHidden);

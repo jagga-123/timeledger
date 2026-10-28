@@ -19,7 +19,7 @@ PASS  running: description is editable and holds what I typed
 PASS  running: white Stop button  -> rgb(255, 255, 255)
 PASS  running: clock starts at (almost) zero  -> 00:00:00
 PASS  running: tab title is "HH:MM:SS · TimeLedger"  -> 00:00:00 · TimeLedger
-PASS  server: timer exists with the server-side start time (between click and response)  -> 32ms after the click
+PASS  server: timer exists with the server-side start time (between click and response)  -> 65ms after the click
 PASS  server: description and project saved
 PASS  clock ticks every second  -> 0s -> 3s
 PASS  mini timer in the sidebar: pulsing dot + time + stop icon  -> {"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"}
@@ -64,8 +64,8 @@ PASS  ...the link goes to /projects
 PASS  mobile idle: no horizontal scroll  -> overflow=0
 PASS  mobile: project dropdown fits the screen  -> {"left":33,"right":342}
 PASS  mobile: timer starts
-PASS  mobile: mini timer shows in the top bar next to the logo and log out  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
-PASS  mobile: top bar contents fit (nothing pushed off screen)  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
+PASS  mobile: mini timer shows in the top bar next to the logo and log out  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":287,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
+PASS  mobile: top bar contents fit (nothing pushed off screen)  -> {"miniInTopBar":true,"miniVisible":true,"miniRight":287,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"}
 PASS  mobile running: no horizontal scroll  -> overflow=0
 PASS  mobile: other pages have no horizontal scroll while a timer runs
 PASS  mobile: stop works

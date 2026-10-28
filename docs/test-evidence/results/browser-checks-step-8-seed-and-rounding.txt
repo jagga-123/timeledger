@@ -1,0 +1,65 @@
+PASS  npm run seed: exits cleanly and prints what it created  -> MongoDB connected: 127.0.0.1 | Demo data created for Alex Morgan (demo@timeledger.app, Asia/Kolkata, USD) |   Clients:   3
+PASS  npm run seed again: exactly the same summary (safe to run many times)
+PASS  NODE_ENV=production refuses to seed unless SEED_ALLOW=true  -> Seed failed: Refusing to seed: NODE_ENV is "production". Set SEED_ALLOW=true if you really mean it.
+PASS  the demo login works through the API (demo@timeledger.app / Demo@1234)
+PASS  the demo data: 3 clients, 4 projects with the rates from the brief
+PASS  the client names are Acme Corp, Globex Ltd and Initech
+PASS  about four weeks of entries, weekdays only, up to today  -> 69 entries from 2026-09-28
+PASS  2-4 entries on every full weekday, each 30 minutes to 3 hours  -> 22233323442233444442233
+PASS  mostly billable, a few non-billable, one entry that crosses midnight, none in the future
+PASS  no running timer
+PASS  two invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago)
+PASS  the last two weeks are left unbilled (so a reviewer can invoice them right away)
+PASS  every billed entry is billable and claimed by exactly one of the two invoices
+PASS  logging in as demo@timeledger.app / Demo@1234 opens the dashboard for Alex Morgan
+PASS  Dashboard: the "This week" card shows this week's tracked time  -> 9h 44m vs 9h 44m
+PASS  Dashboard: nothing is running (a Start button, no clock) and the sidebar shows the name
+PASS  Timesheet (last week): a row per project, and the total hours match the entries  -> total hours 22h 53m vs 22h 53m
+PASS  Time entries (all four weeks): every entry of INV-0001 and INV-0002 has a "Billed" badge that links to its own invoice  -> 31 badges
+PASS  ...every entry is listed and the non-billable ones are labelled  -> 69 entries, 4 non-billable
+PASS  Invoices: INV-0002 (Acme, Sent) above INV-0001 (Globex, Paid) with their totals  -> INV-0002 Acme Corp 5 – 18 Oct 2026 · issued 19 Oct 2026 $1,344.75 Sent || INV-0001 Globex Ltd 28 Sept – 4 Oct 2026 · issued 5 Oct 2026 $1,420.00 Paid
+PASS  Invoices: Outstanding = the sent invoice, Paid = the paid one, 2 invoices  -> outstanding $1,344.75 | paid $1,420.00 | invoices 2
+PASS  INV-0002: from Alex Morgan to Acme Corp, status Sent, total as listed, thank-you note, no rounding note
+PASS  the sidebar has a Settings item (gear) that opens /settings and stays highlighted
+PASS  Settings: Name is filled in, Time zone is Asia/Kolkata and read-only, rounding is off, Save is disabled until something changes  -> {"name":"Alex Morgan","timezone":"Asia/Kolkata","timezoneReadOnly":true,"on":false,"saveDisabled":true}
+PASS  Settings: the toggle is labelled "Round each entry up to 15 minutes"
+PASS  typing a different name enables Save
+PASS  a one-letter name is refused with the server's message under the field, and nothing changes
+PASS  a valid name is saved: toast, and the sidebar shows it straight away
+PASS  ...and it is still there after a reload
+PASS  Rounding off: the Initech preview bills exactly what was tracked (6 entries, $602.25)  -> API integration 10.95 h × $55.00 $602.25 6 entries · 28 Sept – 28 Oct 2026 $602.25
+PASS  ...and there is no rounding note
+PASS  toggling the switch enables Save
+PASS  Save: toast "Settings saved"
+PASS  ...and the rule is still on after a reload (saved on the server)
+PASS  Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time  -> API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 28 Sept – 28 Oct 2026 $632.50
+PASS  ...with the amounts worked out per entry: $632.50 instead of $602.25  -> API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 28 Sept – 28 Oct 2026 $632.50
+PASS  creating it: toast "Invoice INV-0003 created" and the invoice page opens
+PASS  INV-0003 shows "Rounded up to 15 min per entry", the billed hours and the rounded total  -> [["API integration","11.50","$55.00","$632.50"]]
+PASS  the entry list shows tracked → billed for the entries that were rounded (4 of 6)  -> 4 arrows
+PASS  ...e.g. "2h 52m → 3h"
+PASS  the entries themselves are untouched: every tracked duration is exactly what it was
+PASS  rounding switched off again
+PASS  INV-0003 is unchanged after switching the rule off: same note, same total
+PASS  INV-0001 (made before) has no rounding note and its total is unchanged
+PASS  Rounding off again: an Acme invoice for the unbilled time is exactly as tracked (15 entries, $1,361.50; the billed INV-0002 entries are not in it)  -> Mobile app 18.07 h × $60.00 $1,084.00 Website redesign 6.17 h × $45.00 $277.50 15 entries · 28 Sept – 28 Oct 2026 $1,361.50
+PASS  Print view of INV-0003: the sidebar is gone and the rounding note is part of the printed page
+PASS  npm run seed once more (with an extra invoice and rounding switched on): same clients, projects and invoices again
+PASS  the extra invoice INV-0003 is gone and numbering starts again at INV-0001/INV-0002
+PASS  the demo user is the same one (the session still works) and rounding is reset to off
+PASS  in the browser: still logged in after the re-seed, with the two seeded invoices
+PASS  Phone: the top bar has a Settings gear next to Log out, both inside the screen  -> {"gear":{"left":287,"right":323,"width":36},"logout":{"left":323,"right":359,"width":36},"bottomTabs":6}
+PASS  Phone: the bottom tab bar keeps its six tabs (no cramped seventh)
+PASS  Phone: the dashboard fits the screen: no horizontal scroll and no card wider than 375px  -> 0 elements past the edge
+PASS  Phone: the gear opens Settings, which fits the screen and shows the toggle  -> overflow=0
+PASS  a timer can be started on the demo user (a reviewer does exactly this)
+PASS  Phone 375px, timer running: logo, clock, gear and Log out are in this order, don't overlap and stay on screen  -> {"logo":{"left":16,"right":137.96875},"mini":{"left":147.796875,"right":287},"gear":{"left":287,"right":323},"logout":{"left":323,"right":359}}
+PASS  Phone 375px, timer running: the dashboard cards (running timer, This week, Today) fit the screen  -> 0 elements past the edge
+PASS  Phone 360px, timer running: logo, clock, gear and Log out are in this order, don't overlap and stay on screen  -> {"logo":{"left":16,"right":137.96875},"mini":{"left":137.96875,"right":277.171875},"gear":{"left":277.171875,"right":313.171875},"logout":{"left":313.171875,"right":349.171875}}
+PASS  Phone 360px, timer running: the dashboard cards (running timer, This week, Today) fit the screen  -> 0 elements past the edge
+PASS  Phone: the demo invoice has no horizontal scroll and stacks its lines
+PASS  Phone: the demo timesheet shows one card per day without sideways scrolling
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL STEP 8 BROWSER CHECKS PASSED

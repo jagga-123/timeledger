@@ -85,7 +85,7 @@ const waitGone = (page, sel, timeout = 6000) => page.waitForSelector(sel, { hidd
 const waitPath = (page, p, timeout = 6000) =>
   page.waitForFunction((s) => location.pathname === s, { timeout }, p).then(() => true, () => false);
 const shot = (page, name) => page.screenshot({ path: SHOTS + name + '.png' });
-const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const clickButton = async (page, label, within = 'body') => {
   const handle = await page.evaluateHandle(
     (label, within) =>

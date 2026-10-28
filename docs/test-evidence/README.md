@@ -1,13 +1,13 @@
-# TimeLedger: test evidence (Steps 1-7)
+# TimeLedger: test evidence (Steps 1-8)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-27 20:57.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-10-28 18:25.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 64 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 79 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
 | [sample-pdfs/](sample-pdfs) | Two invoices exactly as the browser's "Save as PDF" engine produced them (a one-page invoice, and a 36-project invoice over three pages). |
 | [test-code/](test-code) | The test files that were run. |
@@ -16,13 +16,15 @@ Everything that was run to check the app, in one folder: the results, every scre
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **140/140 passed** |
+| Backend tests (Jest + Supertest) | **157/157 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
 | Browser checks, Step 3 (layout, clients, projects) | **62/62 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
 | Browser checks, Step 5 (time entries) | **82/82 passed** |
 | Browser checks, Step 6 (timesheet) | **54/54 passed** |
 | Browser checks, Step 7 (invoices) | **85/85 passed** |
+| Browser checks, Step 8 (demo seed data, rounding, settings) | **63/63 passed** |
+| Mutation checks, Step 8 (rounding to nearest instead of up, a seed that deletes everybody's data) | **7 and 1 tests fail** ([results/mutation-checks-step-8.txt](results/mutation-checks-step-8.txt)); restored, all pass |
 | Mutation check: taking the "not billed yet" guard out of the claim | **5 tests fail** ([results/mutation-check-double-billing.txt](results/mutation-check-double-billing.txt)); with the guard restored 32/32 pass |
 | Frontend production build | passed |
 
@@ -33,6 +35,12 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - **Backend tests:** `cd backend && npm test`. Each test file starts its own throwaway in-memory MongoDB, so no real database is used (the invoice tests use an in-memory *replica set*, because invoices need MongoDB transactions).
 - **Browser checks:** a script drives Microsoft Edge (headless) like a real user: it clicks, types, reloads and takes screenshots. It runs against the production build of the frontend and the real backend (on an in-memory MongoDB replica set) on separate ports (5100 and 5273). Any request to the normal dev ports 5000/5173 is blocked, so a running `npm run dev` and its real database are never touched.
 - **What a "browser check" is:** one yes/no question about the running app, for example "after a wrong password a toast appears and we stay on /login". The full list is below.
+
+## Problems the checks found while building Step 8
+
+- **The phone top bar overflowed.** Adding the Settings gear next to Log out pushed Log out off a 375px screen while a timer was running (an existing Step 4 check failed). The logo and the mini timer are now a little more compact on phones; the Step 8 checks also test 360px.
+- **The dashboard cards were wider than a phone screen** (since Step 6): the This week and Today cards ran off the right edge. Looking at the new screenshots showed it; the old "no sideways scroll" check could not, because on a phone the page width grows with the content and the check compared the page with that grown width. It now compares with the real screen width and also looks at every element on the page. Fixed with one class (`grid-cols-1`).
+- **Test start-up was slow on a busy computer.** Every test file starts its own in-memory MongoDB; with nine files at once some did not start within the default 10 seconds. Jest now runs at most 4 files at a time with a 60 second limit.
 
 ## What was NOT tested
 
@@ -46,93 +54,37 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - Some of the Step 5 and Step 6 browser checks set up their data (an entry marked as billed, a timer entry with exact seconds) by writing to the throwaway test database directly, because invoices did not exist yet when those scripts were written. The Step 7 checks create everything through the API and the screens.
 - Invoices were tested on an in-memory MongoDB replica set and are written for MongoDB Atlas (also a replica set). A plain local MongoDB that is not a replica set cannot run transactions; the app then answers 503 with an explanation (a test simulates that error), but a real standalone mongod was not started to see it.
 - The printed invoice was checked by emulating print media in Edge, by the produced PDF files' page count and paper size (A4), and by screenshot. The PDF text itself was not extracted and no printer or other PDF viewer was used.
+- The seed was run against a throwaway in-memory MongoDB replica set only (through the real `npm run seed` command, and by the tests), not against MongoDB Atlas.
+- The demo data is placed relative to today (India time) and today only gets entries that have already finished, so the exact hours and amounts change from day to day. The tests check the rules (2-4 entries a day, 30 minutes to 3 hours, one entry across midnight, the invoices' periods and statuses, the last two weeks unbilled) and that two runs on the same day give identical data.
+- The rounding rule has two settings, off and 15 minutes. It is applied on invoices only: the estimates on Time entries and the Timesheet (and the unbilled amount) use the tracked time.
+- Phone layouts were checked at 375px, and at 360px for the top bar with a running timer.
 - Invoices only have a status you set by hand (Draft, Sent, Paid): nothing is e-mailed, and there is no online payment, tax, discount or currency conversion.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (140)
+## Backend tests (157)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
-### `health.test.js` (2 tests)
+### `rounding.test.js` (6 tests)
 
-**GET /api/health**
+**roundUp(seconds, minutes)**
 
-- ✅ returns status ok
-- ✅ returns a JSON error for unknown routes
+- ✅ rounds up to the next block of 15 minutes
+- ✅ keeps an exact multiple as it is, and goes up a whole block one second after it
+- ✅ keeps an empty entry at 0
+- ✅ does nothing when rounding is off (0 minutes or no value)
+- ✅ never goes below 0 and never rounds down
+- ✅ works for other block sizes too
 
-### `timesheet.test.js` (24 tests)
+### `seed.test.js` (3 tests)
 
-**GET /api/timesheet: days and rows**
+**seed**
 
-- ✅ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project
-- ✅ only lists projects that have time that week and returns zeros for an empty week
-- ✅ defaults to the current week in the user's own time zone
-
-**entries across midnight and at the edges of the week**
-
-- ✅ splits an entry that crosses midnight between the two days
-- ✅ clips entries to the edges of the week and ignores entries outside it
-- ✅ leaves out the running timer
-- ✅ counts whole seconds, so the days add up to exactly the entry's durationSeconds
-
-**days are counted in the user's time zone**
-
-- ✅ the same UTC entries land on different days for India and New York
-- ✅ uses each user's own zone even when two users look at the same week
-
-**daylight saving weeks (America/New_York)**
-
-- ✅ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long
-- ✅ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long
-- ✅ a normal week after the change (9 March 2026): days start at 04:00 UTC
-
-**totals**
-
-- ✅ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount
-- ✅ billed entries still count towards the week
-
-**validation and privacy**
-
-- ✅ rejects a weekStart that is not a Monday
-- ✅ rejects a weekStart that is not a date
-- ✅ never shows another user's entries
-- ✅ requires a login
-
-**splitIntoDays**
-
-- ✅ puts an entry that stays inside one day in that day
-- ✅ splits an entry that crosses midnight
-- ✅ spreads a very long entry over every day it touches
-- ✅ clips the parts before the week starts and after it ends
-- ✅ returns zeros for an entry outside the week or touching it only at an edge
-- ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
-
-### `auth.test.js` (11 tests)
-
-**POST /api/auth/register**
-
-- ✅ creates a user and returns { user, token } without the password hash
-- ✅ returns 409 for a duplicate email (case-insensitive)
-- ✅ returns 400 with field-wise errors for invalid input
-
-**POST /api/auth/login**
-
-- ✅ returns { user, token } for correct credentials
-- ✅ returns 401 for a wrong password
-
-**GET /api/auth/me**
-
-- ✅ returns 401 without a token
-- ✅ returns 401 for an invalid token
-- ✅ returns the current user with a valid token
-
-**PATCH /api/auth/me (time zone)**
-
-- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
-- ✅ rejects an unknown time zone and a missing value
-- ✅ requires a token
+- ✅ can be run again and again: same counts, same invoices, and the data looks like the brief
+- ✅ does not delete or change another user's data
+- ✅ refuses to run in production unless SEED_ALLOW=true
 
 ### `timer.test.js` (25 tests)
 
@@ -227,7 +179,7 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ with overlap=true, from/to also match entries that start before the range or run past it
 - ✅ rejects invalid filters
 
-### `invoices.test.js` (32 tests)
+### `invoices.test.js` (36 tests)
 
 **POST /api/invoices: which entries are billed**
 
@@ -257,6 +209,13 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 
 - ✅ if saving the invoice fails, the claimed entries are released and no number is used up
 - ✅ explains clearly when MongoDB has no transactions (a plain local server)
+
+**rounding each entry up to 15 minutes**
+
+- ✅ bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone
+- ✅ is off by default: the same entries are billed as tracked
+- ✅ rounds every entry, not the total, and one project at a time
+- ✅ never changes an invoice that already exists when the setting is changed later (either way)
 
 **the date range uses the user's time zone**
 
@@ -297,6 +256,53 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ user B cannot bill user A's entries, even by using A's client id
 - ✅ requires a login
 
+### `timesheet.test.js` (24 tests)
+
+**GET /api/timesheet: days and rows**
+
+- ✅ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project
+- ✅ only lists projects that have time that week and returns zeros for an empty week
+- ✅ defaults to the current week in the user's own time zone
+
+**entries across midnight and at the edges of the week**
+
+- ✅ splits an entry that crosses midnight between the two days
+- ✅ clips entries to the edges of the week and ignores entries outside it
+- ✅ leaves out the running timer
+- ✅ counts whole seconds, so the days add up to exactly the entry's durationSeconds
+
+**days are counted in the user's time zone**
+
+- ✅ the same UTC entries land on different days for India and New York
+- ✅ uses each user's own zone even when two users look at the same week
+
+**daylight saving weeks (America/New_York)**
+
+- ✅ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long
+- ✅ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long
+- ✅ a normal week after the change (9 March 2026): days start at 04:00 UTC
+
+**totals**
+
+- ✅ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount
+- ✅ billed entries still count towards the week
+
+**validation and privacy**
+
+- ✅ rejects a weekStart that is not a Monday
+- ✅ rejects a weekStart that is not a date
+- ✅ never shows another user's entries
+- ✅ requires a login
+
+**splitIntoDays**
+
+- ✅ puts an entry that stays inside one day in that day
+- ✅ splits an entry that crosses midnight
+- ✅ spreads a very long entry over every day it touches
+- ✅ clips the parts before the week starts and after it ends
+- ✅ returns zeros for an entry outside the week or touching it only at an edge
+- ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
+
 ### `clients-projects.test.js` (18 tests)
 
 **creating clients and projects**
@@ -334,6 +340,45 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ lets a client email be cleared with an empty string
 - ✅ returns 400 "Invalid id" for malformed ids
 - ✅ requires authentication
+
+### `health.test.js` (2 tests)
+
+**GET /api/health**
+
+- ✅ returns status ok
+- ✅ returns a JSON error for unknown routes
+
+### `auth.test.js` (15 tests)
+
+**POST /api/auth/register**
+
+- ✅ creates a user and returns { user, token } without the password hash
+- ✅ returns 409 for a duplicate email (case-insensitive)
+- ✅ returns 400 with field-wise errors for invalid input
+
+**POST /api/auth/login**
+
+- ✅ returns { user, token } for correct credentials
+- ✅ returns 401 for a wrong password
+
+**GET /api/auth/me**
+
+- ✅ returns 401 without a token
+- ✅ returns 401 for an invalid token
+- ✅ returns the current user with a valid token
+
+**PATCH /api/auth/me (time zone)**
+
+- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
+- ✅ rejects an unknown time zone and a missing value
+- ✅ requires a token
+
+**PATCH /api/auth/me (name and rounding rule)**
+
+- ✅ has rounding off by default and saves 15 and 0
+- ✅ rejects any other rounding value
+- ✅ changes the name (trimmed) with the same rules as when registering
+- ✅ changes several things at once, needs at least one, and ignores everything else
 
 ## Browser checks, Step 2: authentication (29)
 
@@ -374,7 +419,7 @@ Script: [test-code/browser/step-2-auth.mjs](test-code/browser/step-2-auth.mjs). 
 Script: [test-code/browser/step-3-layout-clients-projects.mjs](test-code/browser/step-3-layout-clients-projects.mjs). Raw output: [results/browser-checks-step-3-layout-clients-projects.txt](results/browser-checks-step-3-layout-clients-projects.txt).
 
 - ✅ desktop: sidebar visible, 256px wide, indigo-950 background (256px oklch(0.257 0.09 281.288))
-- ✅ desktop: 6 nav items in order (Dashboard, Clients, Projects, Time Entries, Timesheet, Invoices)
+- ✅ desktop: 6 nav items in order, then Settings (added in Step 8) (Dashboard, Clients, Projects, Time Entries, Timesheet, Invoices, Settings)
 - ✅ desktop: active item has indigo-800 background
 - ✅ desktop: user name + logout at bottom of sidebar
 - ✅ desktop: mobile top bar and bottom tabs are hidden
@@ -461,7 +506,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ running: white Stop button (rgb(255, 255, 255))
 - ✅ running: clock starts at (almost) zero (00:00:00)
 - ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
-- ✅ server: timer exists with the server-side start time (between click and response) (32ms after the click)
+- ✅ server: timer exists with the server-side start time (between click and response) (65ms after the click)
 - ✅ server: description and project saved
 - ✅ clock ticks every second (0s -> 3s)
 - ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
@@ -506,8 +551,8 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ mobile idle: no horizontal scroll (overflow=0)
 - ✅ mobile: project dropdown fits the screen ({"left":33,"right":342})
 - ✅ mobile: timer starts
-- ✅ mobile: mini timer shows in the top bar next to the logo and log out ({"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
-- ✅ mobile: top bar contents fit (nothing pushed off screen) ({"miniInTopBar":true,"miniVisible":true,"miniRight":319,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
+- ✅ mobile: mini timer shows in the top bar next to the logo and log out ({"miniInTopBar":true,"miniVisible":true,"miniRight":287,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
+- ✅ mobile: top bar contents fit (nothing pushed off screen) ({"miniInTopBar":true,"miniVisible":true,"miniRight":287,"logoutLeft":323,"logoutRight":359,"time":"00:00:01"})
 - ✅ mobile running: no horizontal scroll (overflow=0)
 - ✅ mobile: other pages have no horizontal scroll while a timer runs
 - ✅ mobile: stop works
@@ -521,7 +566,7 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ "Time Entries" in the sidebar opens the real page (not "Coming soon")
 - ✅ header: "Time entries" + "Add entry" button
 - ✅ default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time) (2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z)
-- ✅ this week shows today's entry under a "Today" heading (Today · Tue, 27 Oct 2026)
+- ✅ this week shows today's entry under a "Today" heading (Today · Wed, 28 Oct 2026)
 - ✅ ...but not last week's
 - ✅ "Last week" asks for the previous Monday-to-Monday range (2026-10-18T18:30:00.000Z -> 2026-10-25T18:30:00.000Z)
 - ✅ ...and shows last week's entry only
@@ -554,7 +599,7 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ Clear filters resets them and keeps the date range (rows=5 query={"from":"2026-03-08T18:30:00.000Z","to":"2026-03-13T18:30:00.000Z"})
 - ✅ an empty period shows "No time entries yet" with an Add entry button
 - ✅ ...and the summary is all zero (total hours 0s | billable hours 0s | unbilled amount $0.00)
-- ✅ "Add entry" opens the modal with today's date filled in (2026-10-27)
+- ✅ "Add entry" opens the modal with today's date filled in (2026-10-28)
 - ✅ the modal has project, description, date, start, end and a billable switch (on)
 - ✅ duration starts as "—"
 - ✅ submitting an empty form shows field errors, and sends nothing
@@ -626,14 +671,14 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ a refresh keeps the week from the URL
 - ✅ "This week" jumps to the current week (Monday in India time) (2026-10-26 (expected 2026-10-26))
 - ✅ on the current week "Next" and "This week" are disabled, "Previous" is not ({"nextDisabled":true,"thisWeekDisabled":true,"prevDisabled":false})
-- ✅ today's column is highlighted in light indigo (header and cells) ({"count":1,"text":"Tue 27","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"})
+- ✅ today's column is highlighted in light indigo (header and cells) ({"count":1,"text":"Wed 28","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"})
 - ✅ ...and today's 15 minutes show in it (15m)
 - ✅ a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL (2026-10-26)
 - ✅ a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL (2026-10-26)
 - ✅ a link with ?week=banana (not a date) shows the current week and fixes the URL (2026-10-26)
-- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6ae0c10cfb765a66f7b3bb84&from=2026-03-09&to=2026-03-09&overlap=1)
+- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6ae1eb13a4a625db9e153182&from=2026-03-09&to=2026-03-09&overlap=1)
 - ✅ Time entries starts with those filters already set (Custom range, that day, that project) ({"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"})
-- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae0c10cfb765a66f7b3bb84","overlap":"true"})
+- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae1eb13a4a625db9e153182","overlap":"true"})
 - ✅ the list shows exactly that entry (Homepage, 09:00–11:00, 2h) (Website · Acme Corp Homepage 09:00–11:00 Billable 2h)
 - ✅ Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
 - ✅ Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
@@ -651,7 +696,7 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ phone: Wednesday card shows its total and the projects with their hours (Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h)
 - ✅ phone: a day without time says "No time tracked" (Thu 12 — No time tracked)
 - ✅ phone: the entry across midnight shows on both Tuesday and Wednesday
-- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=334.171875)
+- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=340.765625)
 - ✅ phone: the summary cards are there (9h, 7h 30m, $410.00) (total hours 9h | billable hours 7h 30m | billable amount $410.00)
 - ✅ phone: tapping a project in a day card also opens Time entries for that day
 - ✅ phone: the dashboard "This week" card shows and nothing scrolls sideways
@@ -669,14 +714,14 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ summary cards start at Outstanding $0.00, Paid $0.00, Invoices 0 (outstanding $0.00 | paid $0.00 | invoices 0)
 - ✅ the status filter is hidden while there are no invoices
 - ✅ "New invoice" opens the modal with a client select, quick picks, dates and notes
-- ✅ it starts on "This month" (the 1st up to today) ({"from":"2026-10-01","to":"2026-10-27","pressed":"This month"})
+- ✅ it starts on "This month" (the 1st up to today) ({"from":"2026-10-01","to":"2026-10-28","pressed":"This month"})
 - ✅ "Create invoice" is disabled until there is something to bill
 - ✅ ...and the preview asks for a client first
 - ✅ quick pick "Last week" fills 2026-10-19 to 2026-10-25 ({"from":"2026-10-19","to":"2026-10-25"})
 - ✅ quick pick "Last month" fills 2026-09-01 to 2026-09-30 ({"from":"2026-09-01","to":"2026-09-30"})
-- ✅ quick pick "This month" fills 2026-10-01 to 2026-10-27 ({"from":"2026-10-01","to":"2026-10-27"})
+- ✅ quick pick "This month" fills 2026-10-01 to 2026-10-28 ({"from":"2026-10-01","to":"2026-10-28"})
 - ✅ typing a date switches the quick pick to "Custom"
-- ✅ the end date cannot be picked after today (2026-10-27)
+- ✅ the end date cannot be picked after today (2026-10-28)
 - ✅ a client with its own unbilled time previews only that (Brand 1.00 h x $80.00 = $80.00) (Brand 1.00 h × $80.00 $80.00 1 entry · 9 – 13 Mar 2026 $80.00)
 - ✅ Acme preview: line items with hours, rate and amount, entry count and total (App 1.50 h × $60.00 $90.00 Website 2.78 h × $50.00 $138.89 4 entries · 9 – 13 Mar 2026 $228.89)
 - ✅ ...with the total $228.89 (non-billable, other client, outside the period and the 23:30 edge handled)
@@ -685,7 +730,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ ...and opens the invoice page
 - ✅ invoice page: logo, "INVOICE", number INV-0001 and a Draft badge (INV-0001 Draft)
 - ✅ From (the user) and Bill to (name, company, email)
-- ✅ issue date is today and the due date is 14 days later (India time) (TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793114254594@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 27 Oct 2026 DUE DATE 10 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 N)
+- ✅ issue date is today and the due date is 14 days later (India time) (TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793190693888@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 28 Oct 2026 DUE DATE 11 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 N)
 - ✅ period "9 – 13 Mar 2026"
 - ✅ line items table: Project, Hours, Rate, Amount (project | hours | rate | amount)
 - ✅ ...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89 ([["App","1.50","$60.00","$90.00"],["Website","2.78","$50.00","$138.89"]])
@@ -702,10 +747,10 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ API: creating it again is refused with the same 400
 - ✅ Time entries: the 4 invoiced entries show a "Billed" badge (4)
 - ✅ ...and the others are still billable / non-billable (Website · Acme Corp Not billable 09:00–10:00 Non-billable 1h | Brand · Zeta Ltd Other client 14:00–15:00 Billable 1h)
-- ✅ the Billed badge links to its invoice (/invoices/6ae0c092fb765a66f7b3baf3)
+- ✅ the Billed badge links to its invoice (/invoices/6ae1eb2ba4a625db9e1531a3)
 - ✅ ...and clicking it opens that invoice
 - ✅ both tabs see the same preview ($270.00, 3 entries) (App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00 || App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00)
-- ✅ exactly ONE of the two tabs got an invoice (/invoices/6ae0c09afb765a66f7b3baf6 / /invoices)
+- ✅ exactly ONE of the two tabs got an invoice (/invoices / /invoices/6ae1eb35a4a625db9e1531a6)
 - ✅ the other tab is told there is nothing left to bill, and stays on the form
 - ✅ ...with "Create invoice" disabled again
 - ✅ server: only one invoice exists for that period (INV-0002), not two (INV-0002,INV-0001)
@@ -720,7 +765,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ ...emerald colour and a paid date
 - ✅ API: a paid invoice cannot go back (409 "Can't change status from paid to sent") or be deleted (409)
 - ✅ after the project rate (50 -> 99) and the client name/email changed, the old invoice is exactly the same (App|1.50|$60.00|$90.00 ; Website|2.78|$50.00|$138.89)
-- ✅ list: 3 invoices, newest first, each with number, client, period, issued date, total and status (INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 27 Oct 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 27 Oct 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 27 Oct 2026 $228.89 Paid)
+- ✅ list: 3 invoices, newest first, each with number, client, period, issued date, total and status (INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 28 Oct 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 28 Oct 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 28 Oct 2026 $228.89 Paid)
 - ✅ badge colours: Paid emerald, Draft slate; amounts in JetBrains Mono ({"paid":"oklch(0.508 0.118 165.612)","draft":"oklch(0.372 0.044 257.287)","mono":"\"JetBrains Mono\", ui-monospace, SFMono-Regular, monospace"})
 - ✅ summary: Outstanding $570.00 (the two drafts), Paid $228.89, Invoices 3 (outstanding $570.00 | paid $228.89 | invoices 3)
 - ✅ status filter: All, Draft, Sent, Paid
@@ -737,7 +782,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ print: white background, no leftover sidebar space, no border or shadow (["rgb(255, 255, 255)","0px","0px","rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"])
 - ✅ print: the invoice fills the page width and nothing is cut off at the sides ([0,794,794,0])
 - ✅ print: the line items show as a table (not the stacked phone layout)
-- ✅ print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice) ({"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":116627})
+- ✅ print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice) ({"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":122389})
 - ✅ print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width (3 pages, 36 lines)
 - ✅ another user opening my invoice sees "Invoice not found" (and none of my data)
 - ✅ ...and their own list is empty
@@ -747,6 +792,74 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ phone: the new-invoice modal fits the screen without sideways scroll ({"left":16,"right":359,"top":33.34375,"bottom":633.640625})
 - ✅ phone: the line items become stacked rows (project, amount, hours × rate) (App $90.00 1.50 h × $60.00 Website $138.89 2.78 h × $50.00)
 - ✅ phone: the invoice page has no horizontal scroll and the buttons fit (overflow=0 paper=359 actions=300.921875)
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
+## Browser checks, Step 8: demo seed data, rounding, settings (63)
+
+Script: [test-code/browser/step-8-seed-and-rounding.mjs](test-code/browser/step-8-seed-and-rounding.mjs). Raw output: [results/browser-checks-step-8-seed-and-rounding.txt](results/browser-checks-step-8-seed-and-rounding.txt). The script runs the real `npm run seed` command (output: [results/seed-cli-output.txt](results/seed-cli-output.txt)) and works out the expected invoice amounts itself from the raw entries and the project rates, so they are not just compared with the app's own numbers.
+
+- ✅ npm run seed: exits cleanly and prints what it created (MongoDB connected: 127.0.0.1 | Demo data created for Alex Morgan (demo@timeledger.app, Asia/Kolkata, USD) |   Clients:   3)
+- ✅ npm run seed again: exactly the same summary (safe to run many times)
+- ✅ NODE_ENV=production refuses to seed unless SEED_ALLOW=true (Seed failed: Refusing to seed: NODE_ENV is "production". Set SEED_ALLOW=true if you really mean it.)
+- ✅ the demo login works through the API (demo@timeledger.app / Demo@1234)
+- ✅ the demo data: 3 clients, 4 projects with the rates from the brief
+- ✅ the client names are Acme Corp, Globex Ltd and Initech
+- ✅ about four weeks of entries, weekdays only, up to today (69 entries from 2026-09-28)
+- ✅ 2-4 entries on every full weekday, each 30 minutes to 3 hours (22233323442233444442233)
+- ✅ mostly billable, a few non-billable, one entry that crosses midnight, none in the future
+- ✅ no running timer
+- ✅ two invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago)
+- ✅ the last two weeks are left unbilled (so a reviewer can invoice them right away)
+- ✅ every billed entry is billable and claimed by exactly one of the two invoices
+- ✅ logging in as demo@timeledger.app / Demo@1234 opens the dashboard for Alex Morgan
+- ✅ Dashboard: the "This week" card shows this week's tracked time (9h 44m vs 9h 44m)
+- ✅ Dashboard: nothing is running (a Start button, no clock) and the sidebar shows the name
+- ✅ Timesheet (last week): a row per project, and the total hours match the entries (total hours 22h 53m vs 22h 53m)
+- ✅ Time entries (all four weeks): every entry of INV-0001 and INV-0002 has a "Billed" badge that links to its own invoice (31 badges)
+- ✅ ...every entry is listed and the non-billable ones are labelled (69 entries, 4 non-billable)
+- ✅ Invoices: INV-0002 (Acme, Sent) above INV-0001 (Globex, Paid) with their totals (INV-0002 Acme Corp 5 – 18 Oct 2026 · issued 19 Oct 2026 $1,344.75 Sent || INV-0001 Globex Ltd 28 Sept – 4 Oct 2026 · issued 5 Oct 2026 $1,420.00 Paid)
+- ✅ Invoices: Outstanding = the sent invoice, Paid = the paid one, 2 invoices (outstanding $1,344.75 | paid $1,420.00 | invoices 2)
+- ✅ INV-0002: from Alex Morgan to Acme Corp, status Sent, total as listed, thank-you note, no rounding note
+- ✅ the sidebar has a Settings item (gear) that opens /settings and stays highlighted
+- ✅ Settings: Name is filled in, Time zone is Asia/Kolkata and read-only, rounding is off, Save is disabled until something changes ({"name":"Alex Morgan","timezone":"Asia/Kolkata","timezoneReadOnly":true,"on":false,"saveDisabled":true})
+- ✅ Settings: the toggle is labelled "Round each entry up to 15 minutes"
+- ✅ typing a different name enables Save
+- ✅ a one-letter name is refused with the server's message under the field, and nothing changes
+- ✅ a valid name is saved: toast, and the sidebar shows it straight away
+- ✅ ...and it is still there after a reload
+- ✅ Rounding off: the Initech preview bills exactly what was tracked (6 entries, $602.25) (API integration 10.95 h × $55.00 $602.25 6 entries · 28 Sept – 28 Oct 2026 $602.25)
+- ✅ ...and there is no rounding note
+- ✅ toggling the switch enables Save
+- ✅ Save: toast "Settings saved"
+- ✅ ...and the rule is still on after a reload (saved on the server)
+- ✅ Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 28 Sept – 28 Oct 2026 $632.50)
+- ✅ ...with the amounts worked out per entry: $632.50 instead of $602.25 (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 28 Sept – 28 Oct 2026 $632.50)
+- ✅ creating it: toast "Invoice INV-0003 created" and the invoice page opens
+- ✅ INV-0003 shows "Rounded up to 15 min per entry", the billed hours and the rounded total ([["API integration","11.50","$55.00","$632.50"]])
+- ✅ the entry list shows tracked → billed for the entries that were rounded (4 of 6) (4 arrows)
+- ✅ ...e.g. "2h 52m → 3h"
+- ✅ the entries themselves are untouched: every tracked duration is exactly what it was
+- ✅ rounding switched off again
+- ✅ INV-0003 is unchanged after switching the rule off: same note, same total
+- ✅ INV-0001 (made before) has no rounding note and its total is unchanged
+- ✅ Rounding off again: an Acme invoice for the unbilled time is exactly as tracked (15 entries, $1,361.50; the billed INV-0002 entries are not in it) (Mobile app 18.07 h × $60.00 $1,084.00 Website redesign 6.17 h × $45.00 $277.50 15 entries · 28 Sept – 28 Oct 2026 $1,361.50)
+- ✅ Print view of INV-0003: the sidebar is gone and the rounding note is part of the printed page
+- ✅ npm run seed once more (with an extra invoice and rounding switched on): same clients, projects and invoices again
+- ✅ the extra invoice INV-0003 is gone and numbering starts again at INV-0001/INV-0002
+- ✅ the demo user is the same one (the session still works) and rounding is reset to off
+- ✅ in the browser: still logged in after the re-seed, with the two seeded invoices
+- ✅ Phone: the top bar has a Settings gear next to Log out, both inside the screen ({"gear":{"left":287,"right":323,"width":36},"logout":{"left":323,"right":359,"width":36},"bottomTabs":6})
+- ✅ Phone: the bottom tab bar keeps its six tabs (no cramped seventh)
+- ✅ Phone: the dashboard fits the screen: no horizontal scroll and no card wider than 375px (0 elements past the edge)
+- ✅ Phone: the gear opens Settings, which fits the screen and shows the toggle (overflow=0)
+- ✅ a timer can be started on the demo user (a reviewer does exactly this)
+- ✅ Phone 375px, timer running: logo, clock, gear and Log out are in this order, don't overlap and stay on screen ({"logo":{"left":16,"right":137.96875},"mini":{"left":147.796875,"right":287},"gear":{"left":287,"right":323},"logout":{"left":323,"right":359}})
+- ✅ Phone 375px, timer running: the dashboard cards (running timer, This week, Today) fit the screen (0 elements past the edge)
+- ✅ Phone 360px, timer running: logo, clock, gear and Log out are in this order, don't overlap and stay on screen ({"logo":{"left":16,"right":137.96875},"mini":{"left":137.96875,"right":277.171875},"gear":{"left":277.171875,"right":313.171875},"logout":{"left":313.171875,"right":349.171875}})
+- ✅ Phone 360px, timer running: the dashboard cards (running timer, This week, Today) fit the screen (0 elements past the edge)
+- ✅ Phone: the demo invoice has no horizontal scroll and stacks its lines
+- ✅ Phone: the demo timesheet shows one card per day without sideways scrolling
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
@@ -1020,10 +1133,72 @@ Printed as PDF: [sample-pdfs/invoice-INV-0001.pdf](sample-pdfs/invoice-INV-0001.
 
 ![Time entries: invoiced entries show a "Billed" badge (a link to the invoice) and a lock instead of edit/delete](screenshots/step-7-invoices/12-time-entries-billed-badges-desktop.png)
 
+## Screenshots, Step 8: demo seed data, rounding, settings
+
+**The demo user (Alex Morgan) right after logging in: nothing running, today's entries and the This week card**
+
+![The demo user (Alex Morgan) right after logging in: nothing running, today's entries and the This week card](screenshots/step-8-seed-and-rounding/01-demo-dashboard-desktop.png)
+
+**Demo data: last week's timesheet, a row per project (it includes the late-night release that crosses midnight)**
+
+![Demo data: last week's timesheet, a row per project (it includes the late-night release that crosses midnight)](screenshots/step-8-seed-and-rounding/02-demo-timesheet-desktop.png)
+
+**Demo data: time entries over the four weeks, with the totals and the $3,494.42 that is unbilled and ready to invoice**
+
+![Demo data: time entries over the four weeks, with the totals and the $3,494.42 that is unbilled and ready to invoice](screenshots/step-8-seed-and-rounding/03-demo-time-entries-desktop.png)
+
+**Demo data: a PAID invoice for Globex and a SENT invoice for Acme, both made by the real invoice service**
+
+![Demo data: a PAID invoice for Globex and a SENT invoice for Acme, both made by the real invoice service](screenshots/step-8-seed-and-rounding/04-demo-invoices-desktop.png)
+
+**The SENT invoice for Acme (INV-0002)**
+
+![The SENT invoice for Acme (INV-0002)](screenshots/step-8-seed-and-rounding/05-demo-invoice-sent-desktop.png)
+
+**Settings: name, time zone (read-only) and the rounding switch, off by default**
+
+![Settings: name, time zone (read-only) and the rounding switch, off by default](screenshots/step-8-seed-and-rounding/06-settings-desktop.png)
+
+**Settings: a one-letter name is refused with the server's message under the field**
+
+![Settings: a one-letter name is refused with the server's message under the field](screenshots/step-8-seed-and-rounding/07-settings-name-error-desktop.png)
+
+**Settings after switching "Round each entry up to 15 minutes" on and saving**
+
+![Settings after switching "Round each entry up to 15 minutes" on and saving](screenshots/step-8-seed-and-rounding/08-settings-rounding-on-desktop.png)
+
+**New invoice with rounding on: "Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed", and the total worked out per entry**
+
+![New invoice with rounding on: "Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed", and the total worked out per entry](screenshots/step-8-seed-and-rounding/09-new-invoice-rounding-preview-desktop.png)
+
+**The invoice made with rounding on: billed hours, the rounding note on the paper, and the entry list below**
+
+![The invoice made with rounding on: billed hours, the rounding note on the paper, and the entry list below](screenshots/step-8-seed-and-rounding/10-invoice-rounded-desktop.png)
+
+**Phone (375px): the demo dashboard, with the new Settings gear next to Log out**
+
+![Phone (375px): the demo dashboard, with the new Settings gear next to Log out](screenshots/step-8-seed-and-rounding/11-demo-dashboard-mobile.png)
+
+**Phone: Settings opened from the gear in the top bar**
+
+![Phone: Settings opened from the gear in the top bar](screenshots/step-8-seed-and-rounding/12-settings-mobile.png)
+
+**Phone: the demo invoice with stacked line items**
+
+![Phone: the demo invoice with stacked line items](screenshots/step-8-seed-and-rounding/13-demo-invoice-mobile.png)
+
+**Phone: the demo timesheet, one card per day**
+
+![Phone: the demo timesheet, one card per day](screenshots/step-8-seed-and-rounding/14-demo-timesheet-mobile.png)
+
+**Phone: with a timer running, the top bar holds the logo, the clock, Settings and Log out, and the dashboard cards fit the screen**
+
+![Phone: with a timer running, the top bar holds the logo, the clock, Settings and Log out, and the dashboard cards fit the screen](screenshots/step-8-seed-and-rounding/15-running-timer-top-bar-mobile.png)
+
 ## Re-running the browser checks
 
 The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
 2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, as a replica set, port 5100).
-3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs`, `node step-6-timesheet.mjs` and `node step-7-invoices.mjs`. (Step 5 also needs the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs`, `node step-6-timesheet.mjs`, `node step-7-invoices.mjs` and `node step-8-seed-and-rounding.mjs`. (Steps 5 and 8 also need the in-memory database's address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.

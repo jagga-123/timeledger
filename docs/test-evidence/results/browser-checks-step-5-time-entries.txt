@@ -1,7 +1,7 @@
 PASS  "Time Entries" in the sidebar opens the real page (not "Coming soon")
 PASS  header: "Time entries" + "Add entry" button
 PASS  default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time)  -> 2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z
-PASS  this week shows today's entry under a "Today" heading  -> Today · Tue, 27 Oct 2026
+PASS  this week shows today's entry under a "Today" heading  -> Today · Wed, 28 Oct 2026
 PASS  ...but not last week's
 PASS  "Last week" asks for the previous Monday-to-Monday range  -> 2026-10-18T18:30:00.000Z -> 2026-10-25T18:30:00.000Z
 PASS  ...and shows last week's entry only
@@ -34,7 +34,7 @@ PASS  filters with no match show "No entries match these filters" and a Clear bu
 PASS  Clear filters resets them and keeps the date range  -> rows=5 query={"from":"2026-03-08T18:30:00.000Z","to":"2026-03-13T18:30:00.000Z"}
 PASS  an empty period shows "No time entries yet" with an Add entry button
 PASS  ...and the summary is all zero  -> total hours 0s | billable hours 0s | unbilled amount $0.00
-PASS  "Add entry" opens the modal with today's date filled in  -> 2026-10-27
+PASS  "Add entry" opens the modal with today's date filled in  -> 2026-10-28
 PASS  the modal has project, description, date, start, end and a billable switch (on)
 PASS  duration starts as "—"
 PASS  submitting an empty form shows field errors, and sends nothing

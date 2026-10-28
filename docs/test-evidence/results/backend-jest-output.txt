@@ -2,219 +2,238 @@
 > timeledger-backend@0.1.0 test
 > node --experimental-vm-modules node_modules/jest/bin/jest.js --reporters=default --verbose --json --outputFile=C:\Users\sande\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json
 
-(node:31168) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:28280) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/tests/health.test.js
-  GET /api/health
-    √ returns status ok (70 ms)
-    √ returns a JSON error for unknown routes (20 ms)
+PASS src/tests/rounding.test.js
+  roundUp(seconds, minutes)
+    √ rounds up to the next block of 15 minutes (8 ms)
+    √ keeps an exact multiple as it is, and goes up a whole block one second after it (2 ms)
+    √ keeps an empty entry at 0 (1 ms)
+    √ does nothing when rounding is off (0 minutes or no value) (1 ms)
+    √ never goes below 0 and never rounds down (39 ms)
+    √ works for other block sizes too (1 ms)
 
-(node:27520) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:17696) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:8308) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:6720) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:8032) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:17008) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:26296) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:29304) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:25788) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
-(Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/tests/timesheet.test.js (10.248 s)
-  GET /api/timesheet: days and rows
-    √ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project (666 ms)
-    √ only lists projects that have time that week and returns zeros for an empty week (168 ms)
-    √ defaults to the current week in the user's own time zone (86 ms)
-  entries across midnight and at the edges of the week
-    √ splits an entry that crosses midnight between the two days (118 ms)
-    √ clips entries to the edges of the week and ignores entries outside it (123 ms)
-    √ leaves out the running timer (84 ms)
-    √ counts whole seconds, so the days add up to exactly the entry's durationSeconds (99 ms)
-  days are counted in the user's time zone
-    √ the same UTC entries land on different days for India and New York (190 ms)
-    √ uses each user's own zone even when two users look at the same week (145 ms)
-  daylight saving weeks (America/New_York)
-    √ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long (162 ms)
-    √ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long (122 ms)
-    √ a normal week after the change (9 March 2026): days start at 04:00 UTC (97 ms)
-  totals
-    √ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount (106 ms)
-    √ billed entries still count towards the week (80 ms)
-  validation and privacy
-    √ rejects a weekStart that is not a Monday (108 ms)
-    √ rejects a weekStart that is not a date (114 ms)
-    √ never shows another user's entries (110 ms)
-    √ requires a login (51 ms)
-  splitIntoDays
-    √ puts an entry that stays inside one day in that day (50 ms)
-    √ splits an entry that crosses midnight (46 ms)
-    √ spreads a very long entry over every day it touches (43 ms)
-    √ clips the parts before the week starts and after it ends (46 ms)
-    √ returns zeros for an entry outside the week or touching it only at an edge (46 ms)
-    √ accepts Date objects as well as timestamps, and always returns 7 numbers (44 ms)
+PASS src/tests/seed.test.js (11.625 s)
+  seed
+    √ can be run again and again: same counts, same invoices, and the data looks like the brief (2010 ms)
+    √ does not delete or change another user's data (1400 ms)
+    √ refuses to run in production unless SEED_ALLOW=true (282 ms)
 
-PASS src/tests/auth.test.js (10.597 s)
-  POST /api/auth/register
-    √ creates a user and returns { user, token } without the password hash (783 ms)
-    √ returns 409 for a duplicate email (case-insensitive) (510 ms)
-    √ returns 400 with field-wise errors for invalid input (30 ms)
-  POST /api/auth/login
-    √ returns { user, token } for correct credentials (474 ms)
-    √ returns 401 for a wrong password (498 ms)
-  GET /api/auth/me
-    √ returns 401 without a token (28 ms)
-    √ returns 401 for an invalid token (22 ms)
-    √ returns the current user with a valid token (350 ms)
-  PATCH /api/auth/me (time zone)
-    √ saves a valid time zone, including names Intl.supportedValuesOf leaves out (461 ms)
-    √ rejects an unknown time zone and a missing value (339 ms)
-    √ requires a token (13 ms)
-
-PASS src/tests/timer.test.js (10.678 s)
+PASS src/tests/timer.test.js (13.269 s)
   POST /api/timer/start and GET /api/timer
-    √ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it (588 ms)
-    √ returns { timer: null, serverTime } when nothing is running (72 ms)
-    √ defaults to billable with an empty description (97 ms)
-    √ returns 409 when a timer is already running (172 ms)
-    √ lets exactly one of two simultaneous start requests win (125 ms)
-    √ still allows only one when many requests arrive at once (410 ms)
-    √ allows different users to run timers at the same time (130 ms)
-    √ rejects another user's project with 400 'Project not found' (70 ms)
-    √ rejects an archived project and a project that does not exist (100 ms)
-    √ validates the body (75 ms)
+    √ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it (383 ms)
+    √ returns { timer: null, serverTime } when nothing is running (76 ms)
+    √ defaults to billable with an empty description (107 ms)
+    √ returns 409 when a timer is already running (149 ms)
+    √ lets exactly one of two simultaneous start requests win (118 ms)
+    √ still allows only one when many requests arrive at once (283 ms)
+    √ allows different users to run timers at the same time (138 ms)
+    √ rejects another user's project with 400 'Project not found' (68 ms)
+    √ rejects an archived project and a project that does not exist (85 ms)
+    √ validates the body (66 ms)
   one running timer per user is enforced by the database
-    √ has a partial unique index on userId for entries with endedAt: null (41 ms)
-    √ rejects a second running entry even when the service is bypassed (62 ms)
+    √ has a partial unique index on userId for entries with endedAt: null (40 ms)
+    √ rejects a second running entry even when the service is bypassed (57 ms)
   POST /api/timer/stop
-    √ calculates durationSeconds from startedAt and endedAt (137 ms)
-    √ keeps very short entries (duration can be 0) (106 ms)
-    √ returns 404 'No timer is running' when nothing is running (61 ms)
-    √ lets only one of two simultaneous stop requests succeed (122 ms)
-    √ lets the user start a new timer after stopping (170 ms)
+    √ calculates durationSeconds from startedAt and endedAt (136 ms)
+    √ keeps very short entries (duration can be 0) (92 ms)
+    √ returns 404 'No timer is running' when nothing is running (48 ms)
+    √ lets only one of two simultaneous stop requests succeed (101 ms)
+    √ lets the user start a new timer after stopping (130 ms)
   PATCH /api/timer
-    √ updates description and billable of the running timer (120 ms)
-    √ can move the running timer to another of my projects (clientId follows) (115 ms)
-    √ rejects another user's project, bad input, and an empty patch is harmless (146 ms)
-    √ returns 404 when no timer is running and never edits a stopped entry (160 ms)
+    √ updates description and billable of the running timer (87 ms)
+    √ can move the running timer to another of my projects (clientId follows) (88 ms)
+    √ rejects another user's project, bad input, and an empty patch is harmless (98 ms)
+    √ returns 404 when no timer is running and never edits a stopped entry (122 ms)
   users can't touch each other's timers
-    √ user A cannot see, stop or edit user B's timer (153 ms)
-    √ requires authentication (87 ms)
+    √ user A cannot see, stop or edit user B's timer (151 ms)
+    √ requires authentication (84 ms)
   GET /api/entries
-    √ lists only my stopped entries inside the range, newest first, with project and client names (129 ms)
-    √ rejects a malformed date (49 ms)
+    √ lists only my stopped entries inside the range, newest first, with project and client names (100 ms)
+    √ rejects a malformed date (45 ms)
 
-PASS src/tests/entries.test.js (11.132 s)
+PASS src/tests/entries.test.js (8.66 s)
   POST /api/entries
-    √ creates a manual entry with the right duration and the project's client (383 ms)
-    √ is billable by default, copies the client of whichever project is chosen, and stores UTC (108 ms)
-    √ validates required fields, date formats and field lengths (111 ms)
-    √ rejects another user's project and an archived project (109 ms)
+    √ creates a manual entry with the right duration and the project's client (315 ms)
+    √ is billable by default, copies the client of whichever project is chosen, and stores UTC (90 ms)
+    √ validates required fields, date formats and field lengths (100 ms)
+    √ rejects another user's project and an archived project (91 ms)
     time rules
-      √ rejects an end before the start, and a zero-length entry (136 ms)
-      √ rejects an entry longer than 24 hours but accepts exactly 24 hours (115 ms)
-      √ rejects an end time in the future, with 1 minute of clock difference allowed (111 ms)
+      √ rejects an end before the start, and a zero-length entry (91 ms)
+      √ rejects an entry longer than 24 hours but accepts exactly 24 hours (95 ms)
+      √ rejects an end time in the future, with 1 minute of clock difference allowed (97 ms)
   PATCH /api/entries/:id
-    √ recalculates the duration when the times change (137 ms)
-    √ checks the new time against the existing one when only one time is sent (103 ms)
-    √ copies the new project's client when the project changes (121 ms)
-    √ can change just the description and billable flag, leaving the times alone (127 ms)
-    √ rejects another user's project, and edits stopped timer entries like any other (136 ms)
-    √ returns 409 for a billed entry and leaves it unchanged (66 ms)
-    √ returns 409 "Stop the timer first" for the running timer (63 ms)
-    √ returns 404 for an unknown id and 400 for a malformed one (68 ms)
+    √ recalculates the duration when the times change (112 ms)
+    √ checks the new time against the existing one when only one time is sent (100 ms)
+    √ copies the new project's client when the project changes (100 ms)
+    √ can change just the description and billable flag, leaving the times alone (86 ms)
+    √ rejects another user's project, and edits stopped timer entries like any other (106 ms)
+    √ returns 409 for a billed entry and leaves it unchanged (59 ms)
+    √ returns 409 "Stop the timer first" for the running timer (66 ms)
+    √ returns 404 for an unknown id and 400 for a malformed one (71 ms)
   DELETE /api/entries/:id
-    √ deletes an entry (127 ms)
-    √ returns 409 for a billed entry (83 ms)
-    √ returns 409 "Stop the timer first" for the running timer (77 ms)
+    √ deletes an entry (115 ms)
+    √ returns 409 for a billed entry (64 ms)
+    √ returns 409 "Stop the timer first" for the running timer (62 ms)
   users can't touch each other's entries
-    √ user A cannot see, edit or delete user B's entries (404) (152 ms)
-    √ user A cannot create an entry on user B's project (61 ms)
-    √ requires authentication (128 ms)
+    √ user A cannot see, edit or delete user B's entries (404) (133 ms)
+    √ user A cannot create an entry on user B's project (58 ms)
+    √ requires authentication (77 ms)
   GET /api/entries
-    √ lists finished entries newest first, without the running timer or other users' entries (114 ms)
-    √ calculates totals, including the billable amount from each project rate (109 ms)
-    √ filters by billable (125 ms)
-    √ filters by status (unbilled, billed, all) (211 ms)
-    √ combines filters and filters by client, project and date range (182 ms)
-    √ with overlap=true, from/to also match entries that start before the range or run past it (207 ms)
-    √ rejects invalid filters (154 ms)
+    √ lists finished entries newest first, without the running timer or other users' entries (125 ms)
+    √ calculates totals, including the billable amount from each project rate (99 ms)
+    √ filters by billable (144 ms)
+    √ filters by status (unbilled, billed, all) (198 ms)
+    √ combines filters and filters by client, project and date range (185 ms)
+    √ with overlap=true, from/to also match entries that start before the range or run past it (213 ms)
+    √ rejects invalid filters (194 ms)
 
-PASS src/tests/invoices.test.js (14.893 s)
+PASS src/tests/invoices.test.js (22.472 s)
   POST /api/invoices: which entries are billed
-    √ bills billable, unbilled, finished entries of that client inside the range, and nothing else (787 ms)
-    √ shows the same entries in a preview without saving anything (199 ms)
+    √ bills billable, unbilled, finished entries of that client inside the range, and nothing else (663 ms)
+    √ shows the same entries in a preview without saving anything (172 ms)
     √ answers a preview and a create with "nothing to bill" when no entry matches (180 ms)
   line items and totals
-    √ makes one line per project with hours, rate and amount rounded to cents, and a total that adds up (269 ms)
-    √ the total is the sum of the rounded lines, not the rounded sum of the exact amounts (199 ms)
-    √ snapshots the client, the sender, the period, the time zone, the dates and the notes (203 ms)
-    √ later changes to a rate, a project, the client or the user never change an existing invoice (241 ms)
+    √ makes one line per project with hours, rate and amount rounded to cents, and a total that adds up (188 ms)
+    √ the total is the sum of the rounded lines, not the rounded sum of the exact amounts (153 ms)
+    √ snapshots the client, the sender, the period, the time zone, the dates and the notes (270 ms)
+    √ later changes to a rate, a project, the client or the user never change an existing invoice (207 ms)
   billed entries
-    √ become billed, cannot be edited or deleted, and cannot be invoiced a second time (362 ms)
+    √ become billed, cannot be edited or deleted, and cannot be invoiced a second time (335 ms)
   concurrency: an entry is never on two invoices
-    √ two identical requests at the same time: one invoice, every entry on exactly that one (326 ms)
-    √ eight requests at once: exactly one wins (529 ms)
-    √ overlapping ranges at the same time: every entry still ends up on exactly one invoice (343 ms)
-    √ two users invoicing at the same time do not affect each other (149 ms)
+    √ two identical requests at the same time: one invoice, every entry on exactly that one (297 ms)
+    √ eight requests at once: exactly one wins (567 ms)
+    √ overlapping ranges at the same time: every entry still ends up on exactly one invoice (418 ms)
+    √ two users invoicing at the same time do not affect each other (174 ms)
   all or nothing
-    √ if saving the invoice fails, the claimed entries are released and no number is used up (175 ms)
-    √ explains clearly when MongoDB has no transactions (a plain local server) (80 ms)
+    √ if saving the invoice fails, the claimed entries are released and no number is used up (210 ms)
+    √ explains clearly when MongoDB has no transactions (a plain local server) (107 ms)
+  rounding each entry up to 15 minutes
+    √ bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone (228 ms)
+    √ is off by default: the same entries are billed as tracked (136 ms)
+    √ rounds every entry, not the total, and one project at a time (165 ms)
+    √ never changes an invoice that already exists when the setting is changed later (either way) (322 ms)
   the date range uses the user's time zone
-    √ India: 23:30 on the last day is in, 00:15 the next morning is out (136 ms)
-    √ New York (UTC-4 in March): the day starts at 04:00 UTC (149 ms)
+    √ India: 23:30 on the last day is in, 00:15 the next morning is out (180 ms)
+    √ New York (UTC-4 in March): the day starts at 04:00 UTC (196 ms)
   validation
-    √ rejects a client that isn't the user's, or missing (100 ms)
-    √ rejects bad dates, from after to, ranges over 366 days and an end date after today (187 ms)
-    √ rejects notes over 500 characters (71 ms)
+    √ rejects a client that isn't the user's, or missing (147 ms)
+    √ rejects bad dates, from after to, ranges over 366 days and an end date after today (624 ms)
+    √ rejects notes over 500 characters (406 ms)
   invoice numbers
-    √ count up per user (INV-0001, INV-0002, ...) and are never reused (242 ms)
-    √ are unique per user in the database too (47 ms)
+    √ count up per user (INV-0001, INV-0002, ...) and are never reused (378 ms)
+    √ are unique per user in the database too (68 ms)
   PATCH /api/invoices/:id/status
-    √ allows draft to sent, sent to paid, and draft to paid, and records when (178 ms)
-    √ rejects every other change with 409 "Can't change status from X to Y" (292 ms)
-    √ rejects a status that does not exist (97 ms)
+    √ allows draft to sent, sent to paid, and draft to paid, and records when (274 ms)
+    √ rejects every other change with 409 "Can't change status from X to Y" (524 ms)
+    √ rejects a status that does not exist (168 ms)
   DELETE /api/invoices/:id
-    √ deletes a draft and gives its entries back so they can be invoiced again (186 ms)
-    √ refuses to delete a sent or a paid invoice (409) and keeps its entries billed (186 ms)
-    √ returns 404 for an invoice that does not exist and 400 for a malformed id (58 ms)
+    √ deletes a draft and gives its entries back so they can be invoiced again (342 ms)
+    √ refuses to delete a sent or a paid invoice (409) and keeps its entries billed (323 ms)
+    √ returns 404 for an invoice that does not exist and 400 for a malformed id (145 ms)
   GET /api/invoices and /api/invoices/:id
-    √ lists my invoices newest first with filters, without the heavy fields (236 ms)
-    √ returns one invoice with its lines, and the entries on it in time order (95 ms)
+    √ lists my invoices newest first with filters, without the heavy fields (437 ms)
+    √ returns one invoice with its lines, and the entries on it in time order (198 ms)
   users can't touch each other's invoices
-    √ user B cannot see, change or delete user A's invoice (404) and it is not in B's list (119 ms)
-    √ user B cannot bill user A's entries, even by using A's client id (55 ms)
-    √ requires a login (62 ms)
+    √ user B cannot see, change or delete user A's invoice (404) and it is not in B's list (227 ms)
+    √ user B cannot bill user A's entries, even by using A's client id (104 ms)
+    √ requires a login (143 ms)
 
-PASS src/tests/clients-projects.test.js (15.929 s)
+PASS src/tests/timesheet.test.js (8.941 s)
+  GET /api/timesheet: days and rows
+    √ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project (439 ms)
+    √ only lists projects that have time that week and returns zeros for an empty week (150 ms)
+    √ defaults to the current week in the user's own time zone (77 ms)
+  entries across midnight and at the edges of the week
+    √ splits an entry that crosses midnight between the two days (94 ms)
+    √ clips entries to the edges of the week and ignores entries outside it (120 ms)
+    √ leaves out the running timer (73 ms)
+    √ counts whole seconds, so the days add up to exactly the entry's durationSeconds (96 ms)
+  days are counted in the user's time zone
+    √ the same UTC entries land on different days for India and New York (163 ms)
+    √ uses each user's own zone even when two users look at the same week (178 ms)
+  daylight saving weeks (America/New_York)
+    √ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long (148 ms)
+    √ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long (118 ms)
+    √ a normal week after the change (9 March 2026): days start at 04:00 UTC (109 ms)
+  totals
+    √ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount (122 ms)
+    √ billed entries still count towards the week (79 ms)
+  validation and privacy
+    √ rejects a weekStart that is not a Monday (100 ms)
+    √ rejects a weekStart that is not a date (113 ms)
+    √ never shows another user's entries (106 ms)
+    √ requires a login (50 ms)
+  splitIntoDays
+    √ puts an entry that stays inside one day in that day (45 ms)
+    √ splits an entry that crosses midnight (39 ms)
+    √ spreads a very long entry over every day it touches (37 ms)
+    √ clips the parts before the week starts and after it ends (42 ms)
+    √ returns zeros for an entry outside the week or touching it only at an edge (43 ms)
+    √ accepts Date objects as well as timestamps, and always returns 7 numbers (39 ms)
+
+PASS src/tests/clients-projects.test.js (23.416 s)
   creating clients and projects
-    √ creates a client and a project, and lists them with projectCount and client name (1149 ms)
-    √ filters projects by clientId (733 ms)
-    √ allows the same project name under different clients but not under the same client (623 ms)
+    √ creates a client and a project, and lists them with projectCount and client name (1047 ms)
+    √ filters projects by clientId (641 ms)
+    √ allows the same project name under different clients but not under the same client (530 ms)
   duplicate client names
-    √ returns 409 for a duplicate name (case-insensitive) for the same user (638 ms)
-    √ allows another user to use the same name (554 ms)
-    √ returns 409 when renaming a client to an existing name (515 ms)
+    √ returns 409 for a duplicate name (case-insensitive) for the same user (487 ms)
+    √ allows another user to use the same name (431 ms)
+    √ returns 409 when renaming a client to an existing name (537 ms)
   data isolation between users
-    √ user A cannot see, edit or delete user B's client (567 ms)
-    √ user A cannot see, edit or delete user B's project (464 ms)
-    √ rejects a project that uses another user's clientId with 400 (463 ms)
+    √ user A cannot see, edit or delete user B's client (612 ms)
+    √ user A cannot see, edit or delete user B's project (547 ms)
+    √ rejects a project that uses another user's clientId with 400 (509 ms)
   deleting
-    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (435 ms)
-    √ returns 409 when deleting a project that has time entries (387 ms)
+    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (607 ms)
+    √ returns 409 when deleting a project that has time entries (545 ms)
   moving a project to another client
-    √ moves the project's unbilled entries along, but not entries that are already on an invoice (412 ms)
+    √ moves the project's unbilled entries along, but not entries that are already on an invoice (608 ms)
   validation
-    √ rejects invalid hourlyRate values with a field error (349 ms)
-    √ accepts the boundary rates 0 and 10000 (329 ms)
-    √ validates client and project fields (477 ms)
-    √ lets a client email be cleared with an empty string (322 ms)
-    √ returns 400 "Invalid id" for malformed ids (283 ms)
-    √ requires authentication (255 ms)
+    √ rejects invalid hourlyRate values with a field error (776 ms)
+    √ accepts the boundary rates 0 and 10000 (981 ms)
+    √ validates client and project fields (851 ms)
+    √ lets a client email be cleared with an empty string (553 ms)
+    √ returns 400 "Invalid id" for malformed ids (730 ms)
+    √ requires authentication (797 ms)
 
-Test Suites: 7 passed, 7 total
-Tests:       140 passed, 140 total
+PASS src/tests/health.test.js
+  GET /api/health
+    √ returns status ok (54 ms)
+    √ returns a JSON error for unknown routes (18 ms)
+
+PASS src/tests/auth.test.js (8.283 s)
+  POST /api/auth/register
+    √ creates a user and returns { user, token } without the password hash (360 ms)
+    √ returns 409 for a duplicate email (case-insensitive) (357 ms)
+    √ returns 400 with field-wise errors for invalid input (12 ms)
+  POST /api/auth/login
+    √ returns { user, token } for correct credentials (306 ms)
+    √ returns 401 for a wrong password (281 ms)
+  GET /api/auth/me
+    √ returns 401 without a token (10 ms)
+    √ returns 401 for an invalid token (9 ms)
+    √ returns the current user with a valid token (150 ms)
+  PATCH /api/auth/me (time zone)
+    √ saves a valid time zone, including names Intl.supportedValuesOf leaves out (217 ms)
+    √ rejects an unknown time zone and a missing value (208 ms)
+    √ requires a token (10 ms)
+  PATCH /api/auth/me (name and rounding rule)
+    √ has rounding off by default and saves 15 and 0 (186 ms)
+    √ rejects any other rounding value (210 ms)
+    √ changes the name (trimmed) with the same rules as when registering (167 ms)
+    √ changes several things at once, needs at least one, and ignores everything else (184 ms)
+
+Test Suites: 9 passed, 9 total
+Tests:       157 passed, 157 total
 Snapshots:   0 total
-Time:        16.456 s, estimated 17 s
+Time:        30.716 s, estimated 47 s
 Ran all test suites.
 Test results written to: ..\..\..\..\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json

@@ -1,0 +1,25 @@
+Mutation checks for Step 8 (do the new tests really catch a mistake?)
+
+Each change below was made temporarily to the code, the tests were run, and the file was then put back
+(checked byte for byte with a hash of the original) and the same tests pass again.
+
+1. Rounding that rounds to the NEAREST block instead of UP
+   backend/src/utils/rounding.js:  Math.ceil(seconds / block)  ->  Math.round(seconds / block)
+   npm test -- src/tests/rounding.test.js src/tests/invoices.test.js
+   Result: Tests: 7 failed, 35 passed, 42 total
+     x rounds up to the next block of 15 minutes
+     x keeps an exact multiple as it is, and goes up a whole block one second after it
+     x never goes below 0 and never rounds down
+     x works for other block sizes too
+     x bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone
+     x rounds every entry, not the total, and one project at a time
+     x never changes an invoice that already exists when the setting is changed later (either way)
+
+2. A seed that wipes everybody's data instead of only the demo user's
+   backend/src/services/seed.service.js:  const own = { userId }  ->  const own = {}
+   npm test -- src/tests/seed.test.js
+   Result: Tests: 1 failed, 2 passed, 3 total
+     x does not delete or change another user's data
+
+(The Step 7 mutation check, taking the "not billed yet" condition out of the claim, is in
+mutation-check-double-billing.txt.)

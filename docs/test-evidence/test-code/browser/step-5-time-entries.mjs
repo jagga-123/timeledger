@@ -129,7 +129,7 @@ const gone = (page, t, timeout = 6000) =>
 const waitSel = (page, sel, timeout = 6000) => page.waitForSelector(sel, { timeout }).then(() => true, () => false);
 const waitGone = (page, sel, timeout = 6000) => page.waitForSelector(sel, { hidden: true, timeout }).then(() => true, () => false);
 const shot = (page, name) => page.screenshot({ path: SHOTS + name + '.png' });
-const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const settled = (page) => page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), { timeout: 8000 }).catch(() => {});
 const clickButton = async (page, label, within = 'body', exact = true) => {
   const handle = await page.evaluateHandle(

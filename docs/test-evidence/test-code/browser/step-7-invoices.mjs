@@ -125,7 +125,7 @@ const waitGone = (page, sel, timeout = 6000) => page.waitForSelector(sel, { hidd
 const waitUrl = (page, predicateSource, timeout = 8000) =>
   page.waitForFunction(`(${predicateSource})()`, { timeout }).then(() => true, () => false);
 const shot = (page, name, options = {}) => page.screenshot({ path: SHOTS + name + '.png', ...options });
-const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const path = (page) => page.evaluate(() => location.pathname);
 const clickButton = async (page, text, within = 'main', exact = true) => {
   const handle = await page.evaluateHandle(
@@ -450,7 +450,7 @@ const printed = await A.evaluate(() => {
     bodyBg: getComputedStyle(document.body).backgroundColor,
     paperVisible: box.width > 0 && box.height > 0,
     paperLeft: Math.round(box.left), paperRight: Math.round(box.right), viewport: window.innerWidth,
-    scrollOverflow: document.documentElement.scrollWidth - window.innerWidth,
+    scrollOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     paperBorder: getComputedStyle(paper).borderTopWidth, paperShadow: getComputedStyle(paper).boxShadow,
     mainPadding: getComputedStyle(document.querySelector('main')).paddingLeft,
     tableShown: display('[data-testid="line-items-table"]'), stackedShown: display('[data-testid="line-items-stacked"]'),
@@ -492,7 +492,7 @@ await sleep(300);
 const bigPdfBytes = await B.pdf({ preferCSSPageSize: true, printBackground: true });
 writeFileSync(SHOTS + 'invoice-long-36-projects.pdf', bigPdfBytes);
 const bigPages = pdfInfo(bigPdfBytes).pages;
-const bigBox = await B.evaluate(() => { const r = document.querySelector('article.invoice-paper').getBoundingClientRect(); return { right: r.right, height: r.height, overflow: document.documentElement.scrollWidth - window.innerWidth, rows: document.querySelectorAll('[data-testid="line-items-table"] tbody tr').length }; });
+const bigBox = await B.evaluate(() => { const r = document.querySelector('article.invoice-paper').getBoundingClientRect(); return { right: r.right, height: r.height, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, rows: document.querySelectorAll('[data-testid="line-items-table"] tbody tr').length }; });
 check('print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width', bigPages >= 2 && bigBox.rows === 36 && bigBox.right <= 794 && bigBox.overflow <= 0, `${bigPages} pages, ${bigBox.rows} lines`);
 await B.browserContext().close();
 

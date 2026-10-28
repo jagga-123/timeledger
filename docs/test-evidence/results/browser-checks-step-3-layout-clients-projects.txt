@@ -1,5 +1,5 @@
 PASS  desktop: sidebar visible, 256px wide, indigo-950 background  -> 256px oklch(0.257 0.09 281.288)
-PASS  desktop: 6 nav items in order  -> Dashboard, Clients, Projects, Time Entries, Timesheet, Invoices
+PASS  desktop: 6 nav items in order, then Settings (added in Step 8)  -> Dashboard, Clients, Projects, Time Entries, Timesheet, Invoices, Settings
 PASS  desktop: active item has indigo-800 background
 PASS  desktop: user name + logout at bottom of sidebar
 PASS  desktop: mobile top bar and bottom tabs are hidden

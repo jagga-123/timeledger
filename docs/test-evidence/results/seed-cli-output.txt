@@ -1,0 +1,47 @@
+$ npm run seed   (exit code 0)
+MongoDB connected: 127.0.0.1
+Demo data created for Alex Morgan (demo@timeledger.app, Asia/Kolkata, USD)
+  Clients:   3
+  Projects:  4
+  Entries:   69 from 2026-09-28 to 2026-10-28 (65 billable, 4 non-billable, 104h 22m tracked)
+  Invoices:
+    INV-0001  Globex Ltd  2026-09-28 to 2026-10-04  $1,420.00  PAID  (11 entries)
+    INV-0002  Acme Corp  2026-10-05 to 2026-10-18  $1,344.75  SENT  (20 entries)
+  Unbilled:  34 billable entries, 54h 19m, $3,494.42 ready to invoice
+  Running timer: none
+
+Log in with demo@timeledger.app / Demo@1234
+
+$ npm run seed   (again)   (exit code 0)
+MongoDB connected: 127.0.0.1
+Demo data created for Alex Morgan (demo@timeledger.app, Asia/Kolkata, USD)
+  Clients:   3
+  Projects:  4
+  Entries:   69 from 2026-09-28 to 2026-10-28 (65 billable, 4 non-billable, 104h 22m tracked)
+  Invoices:
+    INV-0001  Globex Ltd  2026-09-28 to 2026-10-04  $1,420.00  PAID  (11 entries)
+    INV-0002  Acme Corp  2026-10-05 to 2026-10-18  $1,344.75  SENT  (20 entries)
+  Unbilled:  34 billable entries, 54h 19m, $3,494.42 ready to invoice
+  Running timer: none
+
+Log in with demo@timeledger.app / Demo@1234
+
+Second run printed exactly the same summary: true
+
+$ NODE_ENV=production npm run seed   (exit code 1)
+Seed failed: Refusing to seed: NODE_ENV is "production". Set SEED_ALLOW=true if you really mean it.
+
+$ NODE_ENV=production SEED_ALLOW=true npm run seed   (exit code 0)
+MongoDB connected: 127.0.0.1
+Demo data created for Alex Morgan (demo@timeledger.app, Asia/Kolkata, USD)
+  Clients:   3
+  Projects:  4
+  Entries:   69 from 2026-09-28 to 2026-10-28 (65 billable, 4 non-billable, 104h 22m tracked)
+  Invoices:
+    INV-0001  Globex Ltd  2026-09-28 to 2026-10-04  $1,420.00  PAID  (11 entries)
+    INV-0002  Acme Corp  2026-10-05 to 2026-10-18  $1,344.75  SENT  (20 entries)
+  Unbilled:  34 billable entries, 54h 19m, $3,494.42 ready to invoice
+  Running timer: none
+
+Log in with demo@timeledger.app / Demo@1234
+

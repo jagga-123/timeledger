@@ -179,14 +179,14 @@ check('invalid token is cleared (401 handling)', (await token()) === null);
 await page.setViewport({ width: 375, height: 667, isMobile: true, hasTouch: true });
 await page.goto(BASE + '/login');
 await hasText('Welcome back');
-const overflowLogin = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflowLogin = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check('login: no horizontal overflow at 375px', overflowLogin <= 0, `overflow=${overflowLogin}`);
 await shot('06-login-mobile');
 await page.goto(BASE + '/register');
 await hasText('Create your account');
 await submit();
 await hasText('Name must be at least 2 characters');
-const overflowReg = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflowReg = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check('register: no horizontal overflow at 375px', overflowReg <= 0, `overflow=${overflowReg}`);
 await shot('07-register-errors-mobile');
 

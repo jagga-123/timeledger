@@ -117,7 +117,7 @@ const waitSel = (page, sel, timeout = 6000) => page.waitForSelector(sel, { timeo
 const waitUrl = (page, predicateSource, timeout = 6000) =>
   page.waitForFunction(`(${predicateSource})()`, { timeout }).then(() => true, () => false);
 const shot = (page, name, options = {}) => page.screenshot({ path: SHOTS + name + '.png', ...options });
-const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+const overflow = (page) => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 const settled = (page) =>
   page.waitForFunction(() => !document.querySelector('[aria-busy="true"]') && !document.querySelector('.animate-spin'), { timeout: 8000 }).catch(() => {});
 const search = (page) => page.evaluate(() => location.search);
