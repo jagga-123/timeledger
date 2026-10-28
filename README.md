@@ -33,28 +33,30 @@ The demo user, Alex Morgan (time zone Asia/Kolkata, USD), has 3 clients (Acme Co
 
 ## Features
 
-**Core**
+**Core features**
 
-- [x] **Accounts**: register and log in (bcrypt-hashed passwords, JWT), protected routes, the session survives a reload
-- [x] **Clients** and **projects** (hourly rate, colour); every record belongs to one user and someone else's record answers `404`
-- [x] **Timer**: start and stop on a project, with a running indicator in the sidebar (top bar on phones) and in the browser tab title
-- [x] **Time entries**: add by hand (billable or not), edit and delete; filters (date range, client, project, billable, billed/unbilled) with totals, grouped by day
-- [x] **Invoices**: pick a client and a period (quick picks or custom dates), see a live preview of exactly what will be billed, create it; entries on an invoice are locked
-- [x] **Printable invoice**: a white A4-style page, **Print / Save as PDF** hides the sidebar, bars and buttons
-- [x] **Invoice status**: Draft → Sent → Paid; delete a draft to give its entries back (invoice numbers are never reused)
-- [x] **Time zones**: everything is stored in UTC and days, weeks and invoice periods follow your own time zone (daylight saving included)
-- [x] **Responsive**: sidebar on desktop, top bar and bottom tab bar on phones (checked at 375px)
-- [x] **Settings** page and **demo seed data** (`npm run seed`)
+- [x] **Clients and projects** with an hourly rate (and a colour); every record belongs to one user and someone else's record answers `404`
+- [x] **Start/stop timer**: only one at a time, and it survives a refresh and closing the browser; a running indicator shows in the sidebar (top bar on phones) and in the browser tab title
+- [x] **Manual time entries**: add and edit entries by hand, marked billable or not (they can also be deleted; the Time entries page has filters and totals)
+- [x] **Weekly timesheet**: hours per project per day, Monday to Sunday, with daily and weekly totals; an entry that crosses midnight is split between the days
+- [x] **Invoices**: for a client and a date range, made from the unbilled billable entries, with a live preview of exactly what will be billed; a **printable page / PDF** (Print / Save as PDF hides the sidebar, bars and buttons); the entries **become billed** and are locked
 
 **The two points that were evaluated closely**
 
-- [x] **The timer lives on the server**: correct after a refresh, after closing the browser and on another device; only one timer per user, guaranteed by the database
-- [x] **An entry can never be on two invoices**, not even when two requests arrive at the same moment (claim-first update inside a transaction; concurrency tests and a mutation check)
+- [x] **The running timer is stored on the server**: it is correct across devices and after a refresh (and after closing the browser); only one timer per user, guaranteed by the database
+- [x] **An entry can never appear on two invoices**, not even when two requests arrive at the same moment (claim-first update inside a transaction; concurrency tests and a mutation check)
 
-**Stretch features**
+**Stretch features** (both done)
 
 - [x] **Rounding rule**: optionally round each entry up to 15 minutes, only when billing
-- [x] **Weekly timesheet**: hours per project per day, Monday to Sunday, with daily and weekly totals; an entry that crosses midnight is split between the days
+- [x] **Mark invoices as sent or paid**: Draft → Sent → Paid; delete a draft to give its entries back (invoice numbers are never reused)
+
+**Also in the app** (supporting the above, not part of the brief)
+
+- Accounts: register and log in (bcrypt-hashed passwords, JWT), protected routes, the session survives a reload
+- Time zones: everything is stored in UTC and days, weeks and invoice periods follow your own time zone (daylight saving included)
+- Responsive layout: sidebar on desktop, top bar and bottom tab bar on phones (checked at 375px)
+- A Settings page (name, time zone, the rounding switch) and demo seed data (`npm run seed`)
 
 ### Rounding each entry up to 15 minutes
 
