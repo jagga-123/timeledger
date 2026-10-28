@@ -9,9 +9,10 @@ const lineItemSchema = new mongoose.Schema(
     projectId: { type: ObjectId, ref: 'Project', required: true },
     projectName: { type: String, required: true },
     hourlyRate: { type: Number, required: true },
-    seconds: { type: Number, required: true },
-    hours: { type: Number, required: true }, // seconds / 3600, 2 decimals
-    amount: { type: Number, required: true }, // seconds / 3600 * hourlyRate, 2 decimals
+    rawSeconds: { type: Number, required: true }, // the time that was tracked
+    billedSeconds: { type: Number, required: true }, // what is billed: rawSeconds, with each entry rounded up if rounding was on
+    hours: { type: Number, required: true }, // billedSeconds / 3600, 2 decimals
+    amount: { type: Number, required: true }, // billedSeconds / 3600 * hourlyRate, 2 decimals
   },
   { _id: false }
 );
@@ -43,6 +44,8 @@ const invoiceSchema = new mongoose.Schema(
       name: { type: String, required: true },
       email: { type: String, required: true },
     },
+    // The rounding rule that was on when the invoice was created (0 = none); changing the setting later never changes it
+    roundingMinutes: { type: Number, enum: [0, 15], default: 0 },
     lineItems: [lineItemSchema],
     entryIds: [{ type: ObjectId, ref: 'TimeEntry' }],
 

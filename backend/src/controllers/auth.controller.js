@@ -34,7 +34,8 @@ export const getMe = (req, res) => {
 };
 
 export const updateMe = async (req, res) => {
-  req.user.timezone = req.body.timezone;
+  // The schema only lets name, timezone and roundingMinutes through, and only the ones that were sent
+  req.user.set(req.body);
   await req.user.save();
   res.json({ user: req.user });
 };

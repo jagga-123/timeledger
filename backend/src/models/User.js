@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema(
     // Used later to decide which day a time entry belongs to in the weekly timesheet
     timezone: { type: String, default: 'Asia/Kolkata' },
     currency: { type: String, default: 'USD' },
+    // 0 = bill the exact time; 15 = each entry is rounded up to the next 15 minutes when an invoice is created
+    roundingMinutes: { type: Number, enum: [0, 15], default: 0 },
   },
   {
     timestamps: true,

@@ -8,6 +8,7 @@ import TimeEntry from '../models/TimeEntry.js';
 import User from '../models/User.js';
 import { HttpError } from '../utils/httpError.js';
 import { roundToCents } from '../utils/money.js';
+import { roundUp } from '../utils/rounding.js';
 import { usableZone } from '../utils/timezone.js';
 
 // Invoices bill unbilled, billable time for one client and one date range.
@@ -41,7 +42,7 @@ const inTransaction = async (work) => {
 
 // Checks the request and turns the two dates into [start, end) in the user's own time zone
 const prepare = async (userId, { clientId, from, to }) => {
-  const user = await User.findById(userId).select('name email timezone currency');
+  const user = await User.findById(userId).select('name email timezone currency roundingMinutes');
   const zone = usableZone(user.timezone);
 
   const client = await Client.findOne({ _id: clientId, userId });
@@ -63,7 +64,8 @@ const prepare = async (userId, { clientId, from, to }) => {
 
   // Both dates are included: from 00:00 on the first day up to (not including) 00:00 the day after the last.
   // plus({ days }) keeps this right across daylight saving changes.
-  return { user, zone, client, start: first, end: last.plus({ days: 1 }) };
+  // The rounding rule is the one the user has switched on right now; the invoice remembers it
+  return { user, zone, client, roundingMinutes: user.roundingMinutes ?? 0, start: first, end: last.plus({ days: 1 }) };
 };
 
 // Which entries an invoice for this client and period would take
@@ -76,8 +78,9 @@ const billableFilter = (userId, clientId, start, end) => ({
   startedAt: { $gte: start.toJSDate(), $lt: end.toJSDate() },
 });
 
-// One line per project, with amounts rounded to cents
-const buildLineItems = async (entries, session) => {
+// One line per project, with amounts rounded to cents. With rounding on, every ENTRY is first rounded up
+// (7 min and 22 min become 15 + 30 = 45 min); the entries themselves keep their real duration.
+const buildLineItems = async (entries, { roundingMinutes = 0, session } = {}) => {
   const projectIds = [...new Set(entries.map((entry) => String(entry.projectId)))];
   const projects = await Project.find({ _id: { $in: projectIds } }).session(session ?? null);
   const projectById = new Map(projects.map((project) => [String(project._id), project]));
@@ -85,18 +88,22 @@ const buildLineItems = async (entries, session) => {
   const secondsByProject = new Map();
   for (const entry of entries) {
     const key = String(entry.projectId);
-    secondsByProject.set(key, (secondsByProject.get(key) ?? 0) + entry.durationSeconds);
+    const totals = secondsByProject.get(key) ?? { rawSeconds: 0, billedSeconds: 0 };
+    totals.rawSeconds += entry.durationSeconds;
+    totals.billedSeconds += roundUp(entry.durationSeconds, roundingMinutes);
+    secondsByProject.set(key, totals);
   }
 
-  const lineItems = [...secondsByProject].map(([projectId, seconds]) => {
+  const lineItems = [...secondsByProject].map(([projectId, { rawSeconds, billedSeconds }]) => {
     const project = projectById.get(projectId);
     return {
       projectId: project._id,
       projectName: project.name,
       hourlyRate: project.hourlyRate,
-      seconds,
-      hours: roundToCents(seconds / 3600),
-      amount: roundToCents((seconds / 3600) * project.hourlyRate),
+      rawSeconds,
+      billedSeconds,
+      hours: roundToCents(billedSeconds / 3600),
+      amount: roundToCents((billedSeconds / 3600) * project.hourlyRate),
     };
   });
   lineItems.sort((a, b) => a.projectName.localeCompare(b.projectName));
@@ -106,8 +113,8 @@ const buildLineItems = async (entries, session) => {
   return { lineItems, total, projectById };
 };
 
-// The entries as shown on a preview or an invoice page
-const describeEntries = (entries, projectById) =>
+// The entries as shown on a preview or an invoice page (durationSeconds is what was tracked, billedSeconds what is billed)
+const describeEntries = (entries, projectById, roundingMinutes = 0) =>
   entries
     .slice()
     .sort((a, b) => a.startedAt - b.startedAt)
@@ -119,37 +126,39 @@ const describeEntries = (entries, projectById) =>
       startedAt: entry.startedAt,
       endedAt: entry.endedAt,
       durationSeconds: entry.durationSeconds,
+      billedSeconds: roundUp(entry.durationSeconds, roundingMinutes),
     }));
 
 // ----- preview: what an invoice would contain, without saving anything -----
 
 export const preview = async (userId, { clientId, from, to }) => {
-  const { user, zone, client, start, end } = await prepare(userId, { clientId, from, to });
+  const { user, zone, client, roundingMinutes, start, end } = await prepare(userId, { clientId, from, to });
 
   const entries = await TimeEntry.find(billableFilter(userId, clientId, start, end));
   if (entries.length === 0) {
     throw nothingToBill();
   }
 
-  const { lineItems, total, projectById } = await buildLineItems(entries);
+  const { lineItems, total, projectById } = await buildLineItems(entries, { roundingMinutes });
   return {
     client: { _id: client._id, name: client.name, email: client.email ?? '', company: client.company ?? '' },
     from,
     to,
     timezone: zone,
     currency: user.currency,
+    roundingMinutes,
     lineItems,
     subtotal: total,
     total,
     entryCount: entries.length,
-    entries: describeEntries(entries, projectById),
+    entries: describeEntries(entries, projectById, roundingMinutes),
   };
 };
 
 // ----- create -----
 
 export const create = async (userId, { clientId, from, to, notes }) => {
-  const { user, zone, client, start, end } = await prepare(userId, { clientId, from, to });
+  const { user, zone, client, roundingMinutes, start, end } = await prepare(userId, { clientId, from, to });
 
   return inTransaction(async (session) => {
     // The work below can run more than once (MongoDB retries a transaction that hit a write conflict),
@@ -171,7 +180,7 @@ export const create = async (userId, { clientId, from, to, notes }) => {
 
     // c) Read back ONLY what this request claimed, and build the invoice from exactly that
     const entries = await TimeEntry.find({ userId, invoiceId }).session(session);
-    const { lineItems, total } = await buildLineItems(entries, session);
+    const { lineItems, total } = await buildLineItems(entries, { roundingMinutes, session });
 
     const counter = await Counter.findOneAndUpdate(
       { userId, name: 'invoice' },
@@ -202,6 +211,7 @@ export const create = async (userId, { clientId, from, to, notes }) => {
           subtotal: total,
           total,
           currency: user.currency,
+          roundingMinutes,
           notes,
         },
       ],
@@ -234,7 +244,8 @@ export const getOne = async (userId, id) => {
     (await Project.find({ _id: { $in: entries.map((entry) => entry.projectId) } })).map((project) => [String(project._id), project])
   );
 
-  return { invoice, entries: describeEntries(entries, projectById) };
+  // Entries on an invoice are locked, so working the billed time out again gives what was billed
+  return { invoice, entries: describeEntries(entries, projectById, invoice.roundingMinutes ?? 0) };
 };
 
 // ----- status -----

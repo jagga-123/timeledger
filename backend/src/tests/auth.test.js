@@ -144,7 +144,7 @@ describe('PATCH /api/auth/me (time zone)', () => {
 
     const missing = await request(app).patch('/api/auth/me').set('Authorization', `Bearer ${body.token}`).send({});
     expect(missing.status).toBe(400);
-    expect(missing.body.errors).toEqual([{ path: 'timezone', message: 'Time zone is required' }]);
+    expect(missing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone or roundingMinutes' }]);
 
     expect((await User.findOne({ email: validUser.email })).timezone).toBe('Asia/Kolkata');
   });
@@ -152,5 +152,70 @@ describe('PATCH /api/auth/me (time zone)', () => {
   it('requires a token', async () => {
     const res = await request(app).patch('/api/auth/me').send({ timezone: 'UTC' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('PATCH /api/auth/me (name and rounding rule)', () => {
+  const patchMe = (token, body) => request(app).patch('/api/auth/me').set('Authorization', `Bearer ${token}`).send(body);
+
+  it('has rounding off by default and saves 15 and 0', async () => {
+    const { body } = await register();
+    expect(body.user.roundingMinutes).toBe(0);
+
+    const on = await patchMe(body.token, { roundingMinutes: 15 });
+    expect(on.status).toBe(200);
+    expect(on.body.user.roundingMinutes).toBe(15);
+    expect((await User.findOne({ email: validUser.email })).roundingMinutes).toBe(15);
+
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${body.token}`);
+    expect(me.body.user.roundingMinutes).toBe(15);
+
+    const off = await patchMe(body.token, { roundingMinutes: 0 });
+    expect(off.body.user.roundingMinutes).toBe(0);
+  });
+
+  it('rejects any other rounding value', async () => {
+    const { body } = await register();
+
+    for (const roundingMinutes of [10, 30, -15, 15.5, '15', null, true]) {
+      const res = await patchMe(body.token, { roundingMinutes });
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toEqual([{ path: 'roundingMinutes', message: 'Rounding must be 0 (off) or 15 minutes' }]);
+    }
+    expect((await User.findOne({ email: validUser.email })).roundingMinutes).toBe(0);
+  });
+
+  it('changes the name (trimmed) with the same rules as when registering', async () => {
+    const { body } = await register();
+
+    const ok = await patchMe(body.token, { name: '  Asha R. Rao  ' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.name).toBe('Asha R. Rao');
+
+    const short = await patchMe(body.token, { name: 'A' });
+    expect(short.body.errors).toEqual([{ path: 'name', message: 'Name must be at least 2 characters' }]);
+    const long = await patchMe(body.token, { name: 'x'.repeat(51) });
+    expect(long.body.errors).toEqual([{ path: 'name', message: 'Name must be at most 50 characters' }]);
+
+    expect((await User.findOne({ email: validUser.email })).name).toBe('Asha R. Rao');
+  });
+
+  it('changes several things at once, needs at least one, and ignores everything else', async () => {
+    const { body } = await register();
+
+    const several = await patchMe(body.token, { name: 'New Name', timezone: 'Europe/London', roundingMinutes: 15 });
+    expect(several.status).toBe(200);
+    expect(several.body.user).toMatchObject({ name: 'New Name', timezone: 'Europe/London', roundingMinutes: 15 });
+
+    const nothing = await patchMe(body.token, {});
+    expect(nothing.status).toBe(400);
+    expect(nothing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone or roundingMinutes' }]);
+
+    // fields that are not meant to be changed here are dropped, not saved
+    const sneaky = await patchMe(body.token, { name: 'Still Me', email: 'hacker@example.com', passwordHash: 'x', currency: 'EUR' });
+    expect(sneaky.status).toBe(200);
+    const saved = await User.findOne({ name: 'Still Me' });
+    expect(saved).toMatchObject({ email: validUser.email, currency: 'USD' });
+    expect(saved.passwordHash).not.toBe('x');
   });
 });

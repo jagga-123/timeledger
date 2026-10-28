@@ -185,7 +185,7 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
   const passwordHash = await bcrypt.hash(DEMO_USER.password, 10);
   const user = await User.findOneAndUpdate(
     { email: DEMO_USER.email },
-    { $set: { name: DEMO_USER.name, passwordHash, timezone: zone, currency: DEMO_USER.currency } },
+    { $set: { name: DEMO_USER.name, passwordHash, timezone: zone, currency: DEMO_USER.currency, roundingMinutes: 0 } },
     { upsert: true, returnDocument: 'after' }
   );
   const userId = user._id;

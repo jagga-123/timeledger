@@ -50,6 +50,9 @@ describe('seed', () => {
     const countsAfterFirst = await countAll();
     const demoId = (await User.findOne({ email: DEMO_USER.email }))._id;
 
+    // whatever happened to the demo user in between (a new name, rounding switched on) is reset by the next run
+    await User.updateOne({ email: DEMO_USER.email }, { name: 'Someone Else', roundingMinutes: 15 });
+
     const second = await seedDemo({ now: NOW });
     expect(await countAll()).toEqual(countsAfterFirst);
     expect(second).toEqual(first);
@@ -60,7 +63,7 @@ describe('seed', () => {
 
     // the user
     const user = await User.findOne({ email: DEMO_USER.email });
-    expect(user).toMatchObject({ name: 'Alex Morgan', timezone: 'Asia/Kolkata', currency: 'USD' });
+    expect(user).toMatchObject({ name: 'Alex Morgan', timezone: 'Asia/Kolkata', currency: 'USD', roundingMinutes: 0 });
     expect(await bcrypt.compare('Demo@1234', user.passwordHash)).toBe(true);
 
     // clients and project rates
