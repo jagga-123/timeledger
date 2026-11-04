@@ -25,6 +25,17 @@ export const updateInvoiceStatusSchema = z.object({
 
 // GET /api/invoices?status=&clientId=
 export const listInvoicesQuerySchema = z.object({
-  status: z.enum(['draft', 'sent', 'paid'], { error: 'status must be draft, sent or paid' }).optional(),
+  status: z.enum(['draft', 'sent', 'overdue', 'paid'], { error: 'status must be draft, sent, overdue or paid' }).optional(),
   clientId: z.string().regex(OBJECT_ID_REGEX, 'clientId is not a valid id').optional(),
+});
+
+// POST /api/invoices/:id/send. Empty strings count as "not given" (a form sends them for empty fields).
+const emptyToUndefined = (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value);
+const emailAddress = (label) =>
+  z.string({ error: `${label} must be an email address` }).trim().pipe(z.email(`${label} must be a valid email address`));
+
+export const sendInvoiceSchema = z.object({
+  to: z.preprocess(emptyToUndefined, emailAddress('Recipient').optional()),
+  cc: z.array(emailAddress('CC address'), { error: 'CC must be a list of email addresses' }).max(5, 'At most 5 people can be copied').optional(),
+  message: z.preprocess(emptyToUndefined, z.string({ error: 'The message must be text' }).trim().max(1000, 'The message must be at most 1000 characters').optional()),
 });

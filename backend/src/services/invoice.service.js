@@ -10,6 +10,8 @@ import { HttpError } from '../utils/httpError.js';
 import { roundToCents } from '../utils/money.js';
 import { roundUp } from '../utils/rounding.js';
 import { usableZone } from '../utils/timezone.js';
+import { shareUrlFor } from '../utils/appUrl.js';
+import { startOfToday, userZone, withDisplayStatus } from './invoiceStatus.js';
 
 // Invoices bill unbilled, billable time for one client and one date range.
 //
@@ -160,7 +162,7 @@ export const preview = async (userId, { clientId, from, to }) => {
 export const create = async (userId, { clientId, from, to, notes }) => {
   const { user, zone, client, roundingMinutes, start, end } = await prepare(userId, { clientId, from, to });
 
-  return inTransaction(async (session) => {
+  const created = await inTransaction(async (session) => {
     // The work below can run more than once (MongoDB retries a transaction that hit a write conflict),
     // so everything it needs is created inside.
     const invoiceId = new mongoose.Types.ObjectId();
@@ -220,17 +222,27 @@ export const create = async (userId, { clientId, from, to, notes }) => {
 
     return invoice;
   });
+
+  return withDisplayStatus(created, zone);
 };
 
 // ----- reading -----
 
-export const list = (userId, { status, clientId }) => {
+// status is what the user sees: "sent" means sent and not overdue yet, "overdue" means sent and due before today
+// (in the user's time zone); draft and paid are the stored statuses.
+export const list = async (userId, { status, clientId }) => {
+  const zone = await userZone(userId);
+  const today = startOfToday(zone).toJSDate();
+
   const filter = { userId };
-  if (status) filter.status = status;
+  if (status === 'overdue') Object.assign(filter, { status: 'sent', dueDate: { $lt: today } });
+  else if (status === 'sent') Object.assign(filter, { status: 'sent', dueDate: { $gte: today } });
+  else if (status) filter.status = status;
   if (clientId) filter.clientId = clientId;
 
   // The list doesn't need the lines and entries of every invoice
-  return Invoice.find(filter).select('-lineItems -entryIds').sort({ issuedAt: -1, number: -1 });
+  const invoices = await Invoice.find(filter).select('-lineItems -entryIds').sort({ issuedAt: -1, number: -1 });
+  return invoices.map((invoice) => withDisplayStatus(invoice, zone));
 };
 
 export const getOne = async (userId, id) => {
@@ -244,8 +256,18 @@ export const getOne = async (userId, id) => {
     (await Project.find({ _id: { $in: entries.map((entry) => entry.projectId) } })).map((project) => [String(project._id), project])
   );
 
-  // Entries on an invoice are locked, so working the billed time out again gives what was billed
-  return { invoice, entries: describeEntries(entries, projectById, invoice.roundingMinutes ?? 0) };
+  // Who an email would go to by default: the client's address as it is now (it may have been corrected since)
+  const client = await Client.findOne({ _id: invoice.clientId, userId }).select('email');
+
+  return {
+    invoice: {
+      ...withDisplayStatus(invoice, await userZone(userId)),
+      shareUrl: shareUrlFor(invoice.publicToken), // null until the invoice is sent or a link is asked for
+      defaultRecipient: client?.email || invoice.client.email || '',
+    },
+    // Entries on an invoice are locked, so working the billed time out again gives what was billed
+    entries: describeEntries(entries, projectById, invoice.roundingMinutes ?? 0),
+  };
 };
 
 // ----- status -----
@@ -265,7 +287,7 @@ export const updateStatus = async (userId, id, status) => {
     { $set: changes },
     { returnDocument: 'after' }
   ).select('-lineItems -entryIds');
-  if (invoice) return invoice;
+  if (invoice) return withDisplayStatus(invoice, await userZone(userId));
 
   const current = await Invoice.findOne({ _id: id, userId }).select('status');
   if (!current) {

@@ -1,4 +1,6 @@
 import * as invoiceService from '../services/invoice.service.js';
+import { sendInvoice as sendInvoiceEmail } from '../services/invoiceSend.service.js';
+import { getShareUrl, regenerateShareUrl } from '../services/invoiceShare.service.js';
 import { listInvoicesQuerySchema } from '../validators/invoice.validator.js';
 
 export const previewInvoice = async (req, res) => {
@@ -28,4 +30,19 @@ export const updateInvoiceStatus = async (req, res) => {
 export const deleteInvoice = async (req, res) => {
   await invoiceService.remove(req.user.id, req.params.id);
   res.status(204).end();
+};
+
+// Emails the invoice to the client and marks it as sent
+export const sendInvoice = async (req, res) => {
+  res.json(await sendInvoiceEmail(req.user.id, req.params.id, req.body)); // { invoice, sentTo, shareUrl }
+};
+
+// The link the client opens without logging in (made now if the invoice has none yet)
+export const getShareLink = async (req, res) => {
+  res.json({ shareUrl: await getShareUrl(req.user.id, req.params.id) });
+};
+
+// A new link; the old one stops working
+export const regenerateShareLink = async (req, res) => {
+  res.json({ shareUrl: await regenerateShareUrl(req.user.id, req.params.id) });
 };

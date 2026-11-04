@@ -31,8 +31,17 @@ const invoiceSchema = new mongoose.Schema(
     status: { type: String, enum: ['draft', 'sent', 'paid'], default: 'draft' },
     issuedAt: { type: Date, required: true },
     dueDate: { type: Date, required: true },
-    sentAt: { type: Date, default: null },
+    sentAt: { type: Date, default: null }, // the first time it was sent (by email here, or marked as sent by hand)
     paidAt: { type: Date, default: null },
+
+    // Sending and sharing. publicToken is the secret part of the link /i/:token that lets the client see the
+    // invoice without logging in. It is made when the invoice is first sent (or a share link is asked for) and is
+    // left out of every owner response (see toJSON): the link is given as shareUrl instead.
+    publicToken: { type: String },
+    viewedAt: { type: Date, default: null }, // the first time the client opened the link; never overwritten
+    lastSentAt: { type: Date, default: null }, // the latest email (an invoice can be sent again)
+    sentTo: { type: String, default: '' },
+    sentCc: [{ type: String }],
 
     // Snapshots
     client: {
@@ -59,6 +68,7 @@ const invoiceSchema = new mongoose.Schema(
     toJSON: {
       transform(doc, ret) {
         delete ret.__v;
+        delete ret.publicToken;
         return ret;
       },
     },
@@ -68,5 +78,7 @@ const invoiceSchema = new mongoose.Schema(
 // An invoice number is unique per user
 invoiceSchema.index({ userId: 1, number: 1 }, { unique: true });
 invoiceSchema.index({ userId: 1, issuedAt: -1 });
+// A share token identifies exactly one invoice (most invoices have none, so only strings are indexed)
+invoiceSchema.index({ publicToken: 1 }, { unique: true, partialFilterExpression: { publicToken: { $type: 'string' } } });
 
 export default mongoose.model('Invoice', invoiceSchema);
