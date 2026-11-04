@@ -1,28 +1,49 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, FileText, Printer, Send, CheckCircle2, Trash2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, FileText, Link2, Printer, RefreshCw, Send, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
-import InvoiceStatusBadge from '../components/InvoiceStatusBadge';
-import { getInvoice, updateInvoiceStatus, deleteInvoice } from '../api/invoices';
+import InvoicePaper from '../components/InvoicePaper';
+import InvoiceTimeline from '../components/InvoiceTimeline';
+import SendInvoiceModal from '../components/SendInvoiceModal';
+import { getInvoice, updateInvoiceStatus, deleteInvoice, getShareLink, regenerateShareLink } from '../api/invoices';
 import { getErrorMessage } from '../utils/errors';
-import { formatCurrency, formatDate, formatDateRange, formatDuration } from '../utils/time';
+import { formatDate, formatDuration } from '../utils/time';
 
-const LABEL = 'text-xs font-semibold uppercase tracking-wide text-slate-500';
+// Puts text on the clipboard. The Clipboard API only exists on secure pages, so fall back to the old way.
+const copyText = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const box = document.createElement('textarea');
+    box.value = text;
+    box.style.position = 'fixed';
+    box.style.opacity = '0';
+    document.body.appendChild(box);
+    box.select();
+    const copied = document.execCommand('copy');
+    box.remove();
+    return copied;
+  }
+};
 
-// The invoice itself: a white "paper" card that is also what gets printed or saved as a PDF.
-// Everything around it (sidebar, bars, the action buttons, the entry list) is hidden when printing.
+// The owner's page for one invoice: what happened to it so far, what can be done with it, and the invoice itself
+// (a white "paper" card that is also what gets printed or saved as a PDF). Everything else is hidden when printing.
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [data, setData] = useState(null); // { invoice, entries }
   const [notFound, setNotFound] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [sending, setSending] = useState(false); // the Send invoice modal is open
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingNewLink, setConfirmingNewLink] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,21 +79,52 @@ export default function InvoiceDetail() {
   if (!data) return <PageLoader compact />;
 
   const { invoice, entries } = data;
-  const money = (amount) => formatCurrency(amount, invoice.currency);
-  const date = (value) => formatDate(value, invoice.timezone);
   const canDelete = invoice.status === 'draft';
+  const mergeInvoice = (changes) => setData((current) => ({ ...current, invoice: { ...current.invoice, ...changes } }));
 
   const changeStatus = async (status) => {
     setChanging(true);
     try {
-      const updated = await updateInvoiceStatus(invoice._id, status);
       // the response has the new status and dates but not the lines, so merge it into what we have
-      setData((current) => ({ ...current, invoice: { ...current.invoice, ...updated } }));
+      mergeInvoice(await updateInvoiceStatus(invoice._id, status));
       toast.success(status === 'sent' ? 'Marked as sent' : 'Marked as paid');
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setChanging(false);
+    }
+  };
+
+  const handleSent = ({ invoice: updated, shareUrl }) => {
+    mergeInvoice({ ...updated, shareUrl });
+    setSending(false);
+  };
+
+  const copyShareLink = async () => {
+    setLinkBusy(true);
+    try {
+      const url = invoice.shareUrl ?? (await getShareLink(invoice._id));
+      if (!invoice.shareUrl) mergeInvoice({ shareUrl: url });
+      if (await copyText(url)) toast.success('Share link copied');
+      else toast.error('Could not copy it. Select the link in the box and copy it.');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const makeNewLink = async () => {
+    setLinkBusy(true);
+    try {
+      const url = await regenerateShareLink(invoice._id);
+      mergeInvoice({ shareUrl: url, viewedAt: null }); // the new link has not been opened yet
+      toast.success('New link made. The old one no longer works.');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setLinkBusy(false);
+      setConfirmingNewLink(false);
     }
   };
 
@@ -102,14 +154,19 @@ export default function InvoiceDetail() {
         </Button>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {invoice.status === 'draft' && (
-            <Button onClick={() => changeStatus('sent')} loading={changing}>
+          {invoice.status !== 'paid' && (
+            <Button onClick={() => setSending(true)} disabled={changing}>
               <Send size={16} />
+              {invoice.sentAt ? 'Resend invoice' : 'Send invoice'}
+            </Button>
+          )}
+          {invoice.status === 'draft' && (
+            <Button variant="secondary" onClick={() => changeStatus('sent')} loading={changing} title="I sent it myself, outside TimeLedger">
               Mark as sent
             </Button>
           )}
           {invoice.status !== 'paid' && (
-            <Button variant={invoice.status === 'sent' ? 'primary' : 'secondary'} onClick={() => changeStatus('paid')} disabled={changing}>
+            <Button variant="secondary" onClick={() => changeStatus('paid')} disabled={changing}>
               <CheckCircle2 size={16} />
               Mark as paid
             </Button>
@@ -123,129 +180,40 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      <article
-        className="invoice-paper mx-auto max-w-3xl rounded-xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm sm:p-10 print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none"
-        aria-label={`Invoice ${invoice.number}`}
-      >
-        <header className="flex flex-wrap items-start justify-between gap-6">
-          <div className="flex items-center gap-2 text-primary">
-            <Clock size={28} />
-            <span className="text-xl font-bold">TimeLedger</span>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold tracking-widest">INVOICE</p>
-            <p className="font-mono text-lg" data-testid="invoice-number">
-              {invoice.number}
-            </p>
-            <div className="mt-1 flex justify-end" data-testid="invoice-status">
-              <InvoiceStatusBadge status={invoice.status} />
+      <section aria-label="History and sharing" className="mx-auto mb-6 max-w-3xl space-y-5 rounded-xl border border-slate-200 bg-white p-4 sm:p-6 print:hidden" data-testid="invoice-activity">
+        <InvoiceTimeline invoice={invoice} />
+
+        <div className="border-t border-slate-200 pt-4" data-testid="share-link">
+          <p className="text-sm font-semibold text-slate-900">Share link</p>
+          <p className="mt-0.5 text-xs text-slate-500">Anyone with the link can see this invoice without logging in.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            {invoice.shareUrl && (
+              <input
+                readOnly
+                aria-label="Share link"
+                value={invoice.shareUrl}
+                onFocus={(e) => e.target.select()}
+                className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 outline-none"
+              />
+            )}
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={copyShareLink} loading={linkBusy && !confirmingNewLink}>
+                <Link2 size={16} />
+                Copy share link
+              </Button>
+              {invoice.shareUrl && (
+                <Button variant="secondary" onClick={() => setConfirmingNewLink(true)} disabled={linkBusy}>
+                  <RefreshCw size={16} />
+                  Regenerate link
+                </Button>
+              )}
             </div>
           </div>
-        </header>
-
-        <section className="mt-8 grid gap-6 sm:grid-cols-2">
-          <div>
-            <h2 className={LABEL}>From</h2>
-            <p className="mt-1 font-semibold">{invoice.from.name}</p>
-            <p className="text-sm text-slate-600">{invoice.from.email}</p>
-          </div>
-          <div>
-            <h2 className={LABEL}>Bill to</h2>
-            <p className="mt-1 font-semibold">{invoice.client.name}</p>
-            {invoice.client.company && <p className="text-sm text-slate-600">{invoice.client.company}</p>}
-            {invoice.client.email && <p className="text-sm text-slate-600">{invoice.client.email}</p>}
-          </div>
-        </section>
-
-        <dl className="mt-6 grid grid-cols-2 gap-4 border-y border-slate-200 py-4 text-sm sm:grid-cols-3">
-          <div>
-            <dt className={LABEL}>Issue date</dt>
-            <dd className="mt-1">{date(invoice.issuedAt)}</dd>
-          </div>
-          <div>
-            <dt className={LABEL}>Due date</dt>
-            <dd className="mt-1">{date(invoice.dueDate)}</dd>
-          </div>
-          <div className="col-span-2 sm:col-span-1">
-            <dt className={LABEL}>Period</dt>
-            <dd className="mt-1">{formatDateRange(invoice.periodStart, invoice.periodEnd)}</dd>
-          </div>
-          {invoice.sentAt && (
-            <div>
-              <dt className={LABEL}>Sent</dt>
-              <dd className="mt-1">{date(invoice.sentAt)}</dd>
-            </div>
-          )}
-          {invoice.paidAt && (
-            <div>
-              <dt className={LABEL}>Paid</dt>
-              <dd className="mt-1">{date(invoice.paidAt)}</dd>
-            </div>
-          )}
-        </dl>
-
-        {/* Line items: a table from tablet width up, stacked rows on a phone */}
-        <table className="mt-8 hidden w-full text-sm sm:table" data-testid="line-items-table">
-          <thead>
-            <tr className="border-b-2 border-slate-900 text-left">
-              <th className={`${LABEL} pb-2`}>Project</th>
-              <th className={`${LABEL} pb-2 text-right`}>Hours</th>
-              <th className={`${LABEL} pb-2 text-right`}>Rate</th>
-              <th className={`${LABEL} pb-2 text-right`}>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoice.lineItems.map((line) => (
-              <tr key={line.projectId} className="break-inside-avoid border-b border-slate-200">
-                <td className="py-3 pr-4 font-medium">{line.projectName}</td>
-                <td className="py-3 text-right font-mono">{line.hours.toFixed(2)}</td>
-                <td className="py-3 text-right font-mono">{money(line.hourlyRate)}</td>
-                <td className="py-3 text-right font-mono font-medium">{money(line.amount)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <ul className="mt-8 divide-y divide-slate-200 border-y border-slate-200 sm:hidden" data-testid="line-items-stacked">
-          {invoice.lineItems.map((line) => (
-            <li key={line.projectId} className="py-3">
-              <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 font-medium">{line.projectName}</p>
-                <p className="shrink-0 font-mono font-medium">{money(line.amount)}</p>
-              </div>
-              <p className="mt-0.5 font-mono text-xs text-slate-500">
-                {line.hours.toFixed(2)} h × {money(line.hourlyRate)}
-              </p>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 ml-auto max-w-xs space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-600">Subtotal</span>
-            <span className="font-mono">{money(invoice.subtotal)}</span>
-          </div>
-          <div className="flex items-center justify-between border-t-2 border-slate-900 pt-2 text-lg font-bold">
-            <span>Total</span>
-            <span className="font-mono" data-testid="invoice-total">
-              {money(invoice.total)}
-            </span>
-          </div>
+          {!invoice.shareUrl && <p className="mt-2 text-xs text-slate-500">There is no link yet. It is made when you send the invoice, or when you copy it here.</p>}
         </div>
+      </section>
 
-        {invoice.roundingMinutes > 0 && (
-          <p className="mt-6 text-xs text-slate-500" data-testid="rounding-note">
-            Rounded up to {invoice.roundingMinutes} min per entry
-          </p>
-        )}
-
-        {invoice.notes && (
-          <section className="mt-10 break-inside-avoid">
-            <h2 className={LABEL}>Notes</h2>
-            <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{invoice.notes}</p>
-          </section>
-        )}
-      </article>
+      <InvoicePaper invoice={invoice} />
 
       <details className="mx-auto mt-6 max-w-3xl rounded-xl border border-slate-200 bg-white print:hidden" data-testid="entries-included">
         <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900 sm:px-6">
@@ -254,7 +222,7 @@ export default function InvoiceDetail() {
         <ul className="divide-y divide-slate-200 border-t border-slate-200">
           {entries.map((entry) => (
             <li key={entry._id} className="flex items-center gap-3 px-4 py-3 text-sm sm:px-6">
-              <span className="w-24 shrink-0 text-slate-500">{date(entry.startedAt)}</span>
+              <span className="w-24 shrink-0 text-slate-500">{formatDate(entry.startedAt, invoice.timezone)}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-slate-900">{entry.projectName}</span>
                 <span className="block truncate text-slate-500">{entry.description || 'No description'}</span>
@@ -269,6 +237,19 @@ export default function InvoiceDetail() {
           ))}
         </ul>
       </details>
+
+      {sending && <SendInvoiceModal invoice={invoice} onClose={() => setSending(false)} onSent={handleSent} />}
+
+      {confirmingNewLink && (
+        <ConfirmDialog
+          title="Regenerate the share link?"
+          message="The current link stops working at once. Anyone you sent it to will need the new one."
+          confirmLabel="Regenerate"
+          loading={linkBusy}
+          onConfirm={makeNewLink}
+          onCancel={() => setConfirmingNewLink(false)}
+        />
+      )}
 
       {confirmingDelete && (
         <ConfirmDialog
