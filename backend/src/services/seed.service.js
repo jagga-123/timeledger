@@ -8,6 +8,7 @@ import TimeEntry from '../models/TimeEntry.js';
 import User from '../models/User.js';
 import { roundToCents } from '../utils/money.js';
 import * as invoiceService from './invoice.service.js';
+import { ensureShareToken } from './invoiceShare.service.js';
 
 // Demo data for reviewers: one user, three clients, about four weeks of time entries and two invoices.
 // Running it again wipes and recreates ONLY this user's data; nobody else's data is ever touched.
@@ -154,7 +155,7 @@ const buildEntries = ({ now, userId, projectByKey }) => {
 
 // Invoices are created by the real invoice service (so their entries are claimed exactly like in the app).
 // Only the dates are then set to when such an invoice would realistically have been issued and paid.
-const createInvoice = async ({ userId, clientId, from, to, notes, statuses, paidAfterDays }) => {
+const createInvoice = async ({ userId, clientId, from, to, notes, statuses, paidAfterDays, sentTo, viewed }) => {
   const invoice = await invoiceService.create(userId, { clientId, from: dateKey(from), to: dateKey(to), notes });
   for (const status of statuses) {
     await invoiceService.updateStatus(userId, invoice._id, status);
@@ -168,10 +169,15 @@ const createInvoice = async ({ userId, clientId, from, to, notes, statuses, paid
         issuedAt: issuedAt.toJSDate(),
         dueDate: issuedAt.plus({ days: 14 }).toJSDate(),
         sentAt: statuses.includes('sent') ? issuedAt.plus({ minutes: 30 }).toJSDate() : null,
+        // as if it had been emailed: to whom, when, and whether the client opened the link
+        lastSentAt: statuses.includes('sent') ? issuedAt.plus({ minutes: 30 }).toJSDate() : null,
+        sentTo: statuses.includes('sent') ? sentTo : '',
+        viewedAt: viewed ? issuedAt.plus({ hours: 20 }).toJSDate() : null,
         paidAt: statuses.includes('paid') ? issuedAt.plus({ days: paidAfterDays, hours: 5 }).toJSDate() : null,
       },
     }
   );
+  if (statuses.includes('sent')) await ensureShareToken(userId, invoice._id); // so the demo invoice has a share link
   return invoice._id;
 };
 
@@ -223,6 +229,8 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
     notes: 'Thank you for your business. Payment by bank transfer within 14 days.',
     statuses: ['sent', 'paid'],
     paidAfterDays: 9,
+    sentTo: CLIENTS.find((client) => client.key === 'globex').email,
+    viewed: true,
   });
   await createInvoice({
     userId,
@@ -231,6 +239,8 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
     to: weekStart(2).plus({ days: 6 }),
     notes: 'Thank you for your business. Payment by bank transfer within 14 days.',
     statuses: ['sent'],
+    sentTo: CLIENTS.find((client) => client.key === 'acme').email,
+    viewed: false, // not opened yet: the reviewer can open the link and see "Viewed" appear
   });
 
   return summarize({ user, zone });
