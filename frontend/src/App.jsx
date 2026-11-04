@@ -15,6 +15,7 @@ import Timesheet from './pages/Timesheet';
 import Invoices from './pages/Invoices';
 import InvoiceDetail from './pages/InvoiceDetail';
 import Settings from './pages/Settings';
+import PublicInvoice from './pages/PublicInvoice';
 
 export default function App() {
   return (
@@ -23,6 +24,9 @@ export default function App() {
         <TimerProvider>
           <Toaster position="top-center" />
           <Routes>
+            {/* What a client opens from an email: no login and no app layout */}
+            <Route path="/i/:token" element={<PublicInvoice />} />
+
             <Route element={<GuestRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
