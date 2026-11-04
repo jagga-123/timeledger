@@ -1,6 +1,6 @@
 # TimeLedger: test evidence (Steps 1-8 and Phase 1A)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-11-04 09:23.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-11-04 10:23.
 
 ## Start here
 
@@ -16,7 +16,7 @@ Everything that was run to check the app, in one folder: the results, every scre
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **195/195 passed** |
+| Backend tests (Jest + Supertest) | **198/198 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
 | Browser checks, Step 3 (layout, clients, projects) | **62/62 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
@@ -26,6 +26,7 @@ Everything that was run to check the app, in one folder: the results, every scre
 | Browser checks, Step 8 (demo seed data, rounding, settings) | **63/63 passed** |
 | Browser checks, Phase 1A (send by e-mail, public link, overdue) | **63/63 passed** |
 | Mutation checks, Phase 1A (a private field leaking, a view overwritten, a paid invoice overdue, a failed e-mail changing the status, a link that is not replaced) | **5 of 5 caught** ([results/mutation-checks-phase-1a.txt](results/mutation-checks-phase-1a.txt)); restored, all pass |
+| Mutation checks, trust proxy (the setting removed; the setting changed to trust every address) | **both caught** (3 and 2 tests fail; [results/mutation-checks-trust-proxy.txt](results/mutation-checks-trust-proxy.txt)); restored, all pass |
 | Mutation checks, Step 8 (rounding to nearest instead of up, a seed that deletes everybody's data) | **7 and 1 tests fail** ([results/mutation-checks-step-8.txt](results/mutation-checks-step-8.txt)); restored, all pass |
 | Mutation check: taking the "not billed yet" guard out of the claim | **5 tests fail** ([results/mutation-check-double-billing.txt](results/mutation-check-double-billing.txt)); with the guard restored 32/32 pass |
 | Frontend production build | passed |
@@ -63,18 +64,26 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - **Brevo was never called for real.** The Brevo provider is tested with a faked network (the exact request, the failures, the production guard). No real e-mail was sent or received, so delivery, the spam folder and how a real mail program (Gmail, Outlook) draws the HTML e-mail were not checked; the HTML e-mail was only rendered in Edge.
 - The e-mail checks in the browser read what the `console` provider printed in the backend's output.
 - To get an overdue invoice in the browser, the due date of one demo invoice was moved back in the throwaway database (no screen can change a due date). The overdue rule itself is checked by the backend tests (due yesterday, due today, paid, draft, New York).
-- The rate limit on the public link (60 requests a minute per address) is tested directly. Behind a proxy or load balancer the address seen by the server is the proxy's, so a deployment needs `app.set('trust proxy', ...)` first; that was not set up or tested.
+- The rate limit on the public link (60 requests a minute per address) is tested directly, and behind one proxy (`app.set('trust proxy', 1)`: each visitor is counted by the address the proxy reports, and faking `X-Forwarded-For` doesn't help). A real proxy or load balancer, and a setup with two proxies in front (the setting trusts one hop), were not tested.
 - Copying the share link to the clipboard was checked in headless Edge (the clipboard could be read there); other browsers use the same code with a fallback for pages that are not HTTPS, which was not tested.
 - Invoices only have a status you set by hand (Draft, Sent, Paid): nothing is e-mailed, and there is no online payment, tax, discount or currency conversion.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
 - `npm run seed` is still a placeholder.
 
-## Backend tests (195)
+## Backend tests (198)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
-### `public-invoice.test.js` (17 tests)
+### `seed.test.js` (3 tests)
+
+**seed**
+
+- ✅ can be run again and again: same counts, same invoices, and the data looks like the brief
+- ✅ does not delete or change another user's data
+- ✅ refuses to run in production unless SEED_ALLOW=true
+
+### `public-invoice.test.js` (20 tests)
 
 **GET /api/public/invoices/:token**
 
@@ -105,13 +114,11 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 
 - ✅ answers 429 after 60 requests in a minute from one address, and only for this route
 
-### `seed.test.js` (3 tests)
+**trust proxy (the app runs behind one proxy or load balancer)**
 
-**seed**
-
-- ✅ can be run again and again: same counts, same invoices, and the data looks like the brief
-- ✅ does not delete or change another user's data
-- ✅ refuses to run in production unless SEED_ALLOW=true
+- ✅ is set to 1 proxy hop
+- ✅ the rate limit counts each visitor by the address the proxy reports, not by the proxy
+- ✅ a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts
 
 ### `invoices.test.js` (36 tests)
 
@@ -228,51 +235,6 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns 400 "Invalid id" for malformed ids
 - ✅ requires authentication
 
-### `timer.test.js` (25 tests)
-
-**POST /api/timer/start and GET /api/timer**
-
-- ✅ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it
-- ✅ returns { timer: null, serverTime } when nothing is running
-- ✅ defaults to billable with an empty description
-- ✅ returns 409 when a timer is already running
-- ✅ lets exactly one of two simultaneous start requests win
-- ✅ still allows only one when many requests arrive at once
-- ✅ allows different users to run timers at the same time
-- ✅ rejects another user's project with 400 'Project not found'
-- ✅ rejects an archived project and a project that does not exist
-- ✅ validates the body
-
-**one running timer per user is enforced by the database**
-
-- ✅ has a partial unique index on userId for entries with endedAt: null
-- ✅ rejects a second running entry even when the service is bypassed
-
-**POST /api/timer/stop**
-
-- ✅ calculates durationSeconds from startedAt and endedAt
-- ✅ keeps very short entries (duration can be 0)
-- ✅ returns 404 'No timer is running' when nothing is running
-- ✅ lets only one of two simultaneous stop requests succeed
-- ✅ lets the user start a new timer after stopping
-
-**PATCH /api/timer**
-
-- ✅ updates description and billable of the running timer
-- ✅ can move the running timer to another of my projects (clientId follows)
-- ✅ rejects another user's project, bad input, and an empty patch is harmless
-- ✅ returns 404 when no timer is running and never edits a stopped entry
-
-**users can't touch each other's timers**
-
-- ✅ user A cannot see, stop or edit user B's timer
-- ✅ requires authentication
-
-**GET /api/entries**
-
-- ✅ lists only my stopped entries inside the range, newest first, with project and client names
-- ✅ rejects a malformed date
-
 ### `entries.test.js` (28 tests)
 
 **POST /api/entries**
@@ -320,6 +282,38 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ combines filters and filters by client, project and date range
 - ✅ with overlap=true, from/to also match entries that start before the range or run past it
 - ✅ rejects invalid filters
+
+### `auth.test.js` (15 tests)
+
+**POST /api/auth/register**
+
+- ✅ creates a user and returns { user, token } without the password hash
+- ✅ returns 409 for a duplicate email (case-insensitive)
+- ✅ returns 400 with field-wise errors for invalid input
+
+**POST /api/auth/login**
+
+- ✅ returns { user, token } for correct credentials
+- ✅ returns 401 for a wrong password
+
+**GET /api/auth/me**
+
+- ✅ returns 401 without a token
+- ✅ returns 401 for an invalid token
+- ✅ returns the current user with a valid token
+
+**PATCH /api/auth/me (time zone)**
+
+- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
+- ✅ rejects an unknown time zone and a missing value
+- ✅ requires a token
+
+**PATCH /api/auth/me (name and rounding rule)**
+
+- ✅ has rounding off by default and saves 15 and 0
+- ✅ rejects any other rounding value
+- ✅ changes the name (trimmed) with the same rules as when registering
+- ✅ changes several things at once, needs at least one, and ignores everything else
 
 ### `health.test.js` (2 tests)
 
@@ -386,6 +380,51 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns zeros for an entry outside the week or touching it only at an edge
 - ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
 
+### `timer.test.js` (25 tests)
+
+**POST /api/timer/start and GET /api/timer**
+
+- ✅ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it
+- ✅ returns { timer: null, serverTime } when nothing is running
+- ✅ defaults to billable with an empty description
+- ✅ returns 409 when a timer is already running
+- ✅ lets exactly one of two simultaneous start requests win
+- ✅ still allows only one when many requests arrive at once
+- ✅ allows different users to run timers at the same time
+- ✅ rejects another user's project with 400 'Project not found'
+- ✅ rejects an archived project and a project that does not exist
+- ✅ validates the body
+
+**one running timer per user is enforced by the database**
+
+- ✅ has a partial unique index on userId for entries with endedAt: null
+- ✅ rejects a second running entry even when the service is bypassed
+
+**POST /api/timer/stop**
+
+- ✅ calculates durationSeconds from startedAt and endedAt
+- ✅ keeps very short entries (duration can be 0)
+- ✅ returns 404 'No timer is running' when nothing is running
+- ✅ lets only one of two simultaneous stop requests succeed
+- ✅ lets the user start a new timer after stopping
+
+**PATCH /api/timer**
+
+- ✅ updates description and billable of the running timer
+- ✅ can move the running timer to another of my projects (clientId follows)
+- ✅ rejects another user's project, bad input, and an empty patch is harmless
+- ✅ returns 404 when no timer is running and never edits a stopped entry
+
+**users can't touch each other's timers**
+
+- ✅ user A cannot see, stop or edit user B's timer
+- ✅ requires authentication
+
+**GET /api/entries**
+
+- ✅ lists only my stopped entries inside the range, newest first, with project and client names
+- ✅ rejects a malformed date
+
 ### `invoice-send.test.js` (21 tests)
 
 **POST /api/invoices/:id/send**
@@ -417,38 +456,6 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ uses the user's own time zone: 23:00 yesterday in New York is overdue for a New York user
 - ✅ GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it
 - ✅ marking it paid ends the overdue state
-
-### `auth.test.js` (15 tests)
-
-**POST /api/auth/register**
-
-- ✅ creates a user and returns { user, token } without the password hash
-- ✅ returns 409 for a duplicate email (case-insensitive)
-- ✅ returns 400 with field-wise errors for invalid input
-
-**POST /api/auth/login**
-
-- ✅ returns { user, token } for correct credentials
-- ✅ returns 401 for a wrong password
-
-**GET /api/auth/me**
-
-- ✅ returns 401 without a token
-- ✅ returns 401 for an invalid token
-- ✅ returns the current user with a valid token
-
-**PATCH /api/auth/me (time zone)**
-
-- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
-- ✅ rejects an unknown time zone and a missing value
-- ✅ requires a token
-
-**PATCH /api/auth/me (name and rounding rule)**
-
-- ✅ has rounding off by default and saves 15 and 0
-- ✅ rejects any other rounding value
-- ✅ changes the name (trimmed) with the same rules as when registering
-- ✅ changes several things at once, needs at least one, and ignores everything else
 
 ## Browser checks, Step 2: authentication (29)
 

@@ -1,0 +1,18 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+6. The trust proxy setting is removed from the app (every visitor behind the proxy would share one rate limit)
+  file: app.js
+  change: app.set('trust proxy', 1);  ->  (removed)
+  Tests:       3 failed, 17 passed, 20 total
+    x is set to 1 proxy hop
+    x the rate limit counts each visitor by the address the proxy reports, not by the proxy
+    x a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts
+  file restored identical: yes
+
+7. Every forwarded address is believed (trust proxy true), so a visitor can fake X-Forwarded-For
+  file: app.js
+  change: app.set('trust proxy', 1);  ->  app.set('trust proxy', true);
+  Tests:       2 failed, 18 passed, 20 total
+    x is set to 1 proxy hop
+    x a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts
+  file restored identical: yes
