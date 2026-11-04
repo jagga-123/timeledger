@@ -51,6 +51,12 @@ The demo user, Alex Morgan (time zone Asia/Kolkata, USD), has 3 clients (Acme Co
 - [x] **Rounding rule**: optionally round each entry up to 15 minutes, only when billing
 - [x] **Mark invoices as sent or paid**: Draft → Sent → Paid; delete a draft to give its entries back (invoice numbers are never reused)
 
+**Phase 1A (the SaaS version, on the `saas` branch)**
+
+- [x] **Send an invoice by e-mail**: *Send invoice* on the invoice page (To filled in with the client's e-mail, CC, a personal message); the e-mail has a big **View invoice** button, and the invoice becomes *Sent*. Local development only logs the e-mail ([how to try it](#sending-invoices-by-e-mail)); Brevo sends real ones.
+- [x] **Public invoice link**: the client opens `/i/<token>` without logging in and sees the invoice (Download PDF, no sidebar). The owner can copy or regenerate the link (the old one stops working) and sees a timeline: Created, Sent (when, to whom), Viewed, Paid.
+- [x] **Overdue**: an invoice that was sent and is past its due date is shown as **Overdue** (red, "5 days overdue"), with an Overdue filter and the overdue amount under Outstanding. It is worked out each time, never stored.
+
 **Also in the app** (supporting the above, not part of the brief)
 
 - Accounts: register and log in (bcrypt-hashed passwords, JWT), protected routes, the session survives a reload
@@ -116,6 +122,11 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | `JWT_SECRET` | yes | `replace-with-a-long-random-string` | Long random string used to sign tokens |
 | `JWT_EXPIRES_IN` | no | `7d` | How long a login lasts |
 | `FRONTEND_URL` | no | `http://localhost:5173` | Allowed CORS origin: the address of the frontend |
+| `APP_URL` | no | *(empty)* | The address of the app in the links inside e-mails (`<APP_URL>/i/<token>`); empty means `FRONTEND_URL` |
+| `EMAIL_PROVIDER` | no | `console` | `console` logs e-mails and sends nothing (the default while developing); `brevo` sends them through Brevo |
+| `BREVO_API_KEY` | with `brevo` | `replace-with-your-brevo-api-key` | Your Brevo API key |
+| `EMAIL_FROM` | with `brevo` | `replace-with-your-verified-sender@example.com` | The sender address you verified in Brevo |
+| `EMAIL_FROM_NAME` | no | `TimeLedger` | The name shown with the sender address (an e-mail says "Alex Morgan via TimeLedger") |
 | `DNS_SERVERS` | no | *(empty)* | Comma-separated DNS servers used to look up `mongodb+srv://` hosts; empty means `8.8.8.8,1.1.1.1` |
 
 `frontend/.env` (the same variable as `frontend/.env.example`)
@@ -137,6 +148,29 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | `frontend/` | `npm run dev` | Start the Vite dev server |
 | `frontend/` | `npm run build` | Production build into `dist/` |
 | `frontend/` | `npm run preview` | Serve the production build locally |
+
+### Sending invoices by e-mail
+
+**Locally (the `console` provider, the default).** Nothing is sent. Start the backend, open an invoice, press **Send invoice** and then **Send**. The e-mail is printed in the terminal where the backend runs (to, CC, subject and the text version with the link), and the invoice becomes *Sent*. Open the printed link `http://localhost:5173/i/<token>` (or press *Copy share link* on the invoice page) in a private window to see what the client sees. A `.env` without `EMAIL_PROVIDER` does the same in development.
+
+**Real e-mails with Brevo** (free tier, no domain needed, but a verified sender address):
+
+1. Make a free account at [brevo.com](https://www.brevo.com).
+2. Verify a sender: *Senders, Domains & Dedicated IPs* → *Senders* → *Add a sender*, use your own e-mail address and click the link Brevo sends you. (E-mails sent from a free address such as Gmail may land in spam; for real use, authenticate a domain.)
+3. Make an API key: your name (top right) → *SMTP & API* → *API Keys* → *Generate a new API key*. Copy it once; it is not shown again.
+4. In `backend/.env` set:
+
+   ```
+   EMAIL_PROVIDER=brevo
+   BREVO_API_KEY=<your API key>
+   EMAIL_FROM=<the sender address you verified>
+   EMAIL_FROM_NAME=TimeLedger
+   APP_URL=<where the app is open, for example http://localhost:5173>
+   ```
+
+5. Restart the backend and send an invoice to **your own address** first. Replies from the client go to the freelancer's address (Reply-To), not to the sender address.
+
+If Brevo answers `401` about an unrecognised IP address, add your server's IP under *Security* → *Authorised IPs* or turn IP blocking off. The app then shows "Couldn't send the email. Try again." and leaves the invoice unchanged; the reason is in the backend's output (never the API key). In production an unset `EMAIL_PROVIDER` is an error rather than a silent log, so an invoice is never marked as sent by an e-mail that was only logged.
 
 ## Data model
 
@@ -200,6 +234,11 @@ erDiagram
         date issuedAt
         date dueDate
         number roundingMinutes "the rule it was made with"
+        string publicToken "the secret in the share link, never sent to the owner"
+        date sentAt "first time sent"
+        date lastSentAt "latest e-mail"
+        string sentTo
+        date viewedAt "first time the client opened the link"
         object client "snapshot: name, email, company"
         object from "snapshot: name, email"
         array lineItems "per project: rate, rawSeconds, billedSeconds, hours, amount"
@@ -218,7 +257,7 @@ erDiagram
 - **User**: the account and its settings: time zone (follows the device), currency and the rounding rule.
 - **Client** and **Project**: what the time is for. A project has the hourly rate; a client name is unique per user and a project name unique per client (case-insensitive).
 - **TimeEntry**: one block of time. A **running timer is an entry with `endedAt: null`**; `invoiceId` is `null` until the entry is billed, and an entry with an invoice cannot be edited or deleted.
-- **Invoice**: the bill. It stores a **snapshot** (client, sender, rates, lines, period, time zone, rounding rule), so later changes to a client or a rate never change it, plus the ids of the entries it contains.
+- **Invoice**: the bill. It stores a **snapshot** (client, sender, rates, lines, period, time zone, rounding rule), so later changes to a client or a rate never change it, plus the ids of the entries it contains, and how it was sent and shared (`publicToken`, `sentAt`, `lastSentAt`, `sentTo`, `viewedAt`). "Overdue" is not stored: it is worked out from `status` and `dueDate`.
 - **Counter**: one per user, the last invoice number handed out.
 
 ## Main design decisions
@@ -227,6 +266,7 @@ erDiagram
 - **No double billing.** Creating an invoice first **claims** the entries with one `updateMany` whose filter only matches entries that are still unbilled (`invoiceId: null`) and sets their `invoiceId`; then it builds the invoice from exactly the entries it claimed. The claim, the next invoice number and the invoice are saved in **one MongoDB transaction**, so it is all or nothing. Why not "read the entries, then mark them"? Two simultaneous requests would read the same entries and both bill them; with the claim, one of them finds nothing left (`400`). Billed entries are locked. This is covered by concurrency tests (two identical requests, eight at once, overlapping periods) and a mutation check, see [Tests](#tests).
 - **Time zones.** Times are stored in UTC; days, weeks and invoice periods are computed in the user's own time zone with Luxon's calendar arithmetic (not "24 hours × days"), so a daylight saving day is correctly 23 or 25 hours long and an entry that crosses midnight is split between the two days in the timesheet. The server never uses its own zone for this.
 - **Invoices are snapshots; numbers come from a counter; rounding happens at billing time.** Invoices copy the client, the sender, the rates and the lines, so history never changes. Numbers (`INV-0001`...) come from a per-user counter incremented inside the same transaction, so they are never reused, even after a draft is deleted. Each line is `hours × rate` rounded to cents and the total is the sum of those rounded lines, so the printed lines always add up. The rounding rule is applied only when an invoice is created: the entries keep their real durations, and the invoice stores the rule plus `rawSeconds` and `billedSeconds` per line.
+- **Public share links.** The client must see an invoice without an account, so the link carries the proof: a token of 24 random bytes (192 bits, impossible to guess) that identifies one invoice. The public answer is built field by field from a short list of what the client needs, so a field added to the invoice later can't leak by accident; no user id, entry id or other internal id is ever in it. The route is rate limited, answers `404` for anything unknown, is not cached or indexed, and the first view is recorded without ever being overwritten. Regenerating replaces the token, so the old link dies at once. **Overdue** is computed from the due date in the owner's own time zone each time (a stored flag would be wrong the next morning), and an e-mail that fails changes nothing: the invoice is marked as sent only after the provider accepted it.
 - **Validation and privacy.** Every route validates its input with Zod and answers errors in one shape, `{ message, errors? }`. Every record has an owner and a record that is someone else's looks like a missing one (`404`), so nobody can find out what exists.
 
 ## Tests
@@ -235,7 +275,7 @@ erDiagram
 cd backend && npm test
 ```
 
-**157 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
+**195 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
 
 | File | Tests | Covers |
 | --- | --- | --- |
@@ -248,8 +288,10 @@ cd backend && npm test
 | `invoices.test.js` | 36 | which entries are billed, line items and rounding, snapshots, **an entry never on two invoices (two identical requests, eight at once, overlapping periods, two users)**, all or nothing, the `503` without transactions, time zone day boundaries, numbering, the status flow, deleting a draft, privacy; the rounding rule on invoices |
 | `rounding.test.js` | 6 | `roundUp`: 1 s → 15 min, 15 min → 15 min, 15 min 1 s → 30 min, 0 stays 0, never rounds down |
 | `seed.test.js` | 3 | running the seed twice gives identical data, it leaves another user's data untouched, the production guard |
+| `invoice-send.test.js` | 21 | sending (draft to sent, the e-mail the provider gets, typed recipient, CC, message escaped, the client's current address), no client e-mail `400`, validation, paid `409`, a failing provider `502` with the invoice untouched, sending again, privacy; the Brevo request and failures (network faked); overdue (due yesterday in Asia/Kolkata, due today, N days, paid and draft never, New York, the list and its filters) |
+| `public-invoice.test.js` | 17 | the public answer holds only what the client needs, no private data anywhere, not cached or indexed, real states, every kind of unknown token `404`, `viewedAt` set once, one token even for simultaneous requests, regenerate kills the old link, privacy between users, the rate limit |
 
-**448 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), and the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule). Per step: 29 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings).
+**511 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule), and the Phase 1A checks (sending an invoice and reading the e-mail the backend prints, a failed send, the timeline, the share link, the client's view without a login, regenerating, overdue, phone layouts). Per step: 29 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings), 63 (Phase 1A).
 
 **Mutation checks** show the tests can actually fail. For each one I temporarily broke the code on purpose, ran the tests, and put the file back (checked against a hash of the original):
 
@@ -258,8 +300,9 @@ cd backend && npm test
 | Take `invoiceId: null` out of the invoice claim (so entries could be claimed twice) | 5 invoice tests fail, including all three concurrency tests |
 | Round to the *nearest* 15 minutes instead of *up* (`Math.ceil` → `Math.round`) | 7 tests fail |
 | Make the seed delete everybody's data instead of only the demo user's | 1 test fails (the other user's data test) |
+| Phase 1A, five changes: add a private field (`entryIds`) to the public invoice answer; let a later view overwrite the first; let a paid or draft invoice be overdue; let a failed e-mail still mark the invoice as sent; keep the old token when regenerating | 1, 1, 4, 2 and 1 tests fail (all five caught) |
 
-The results, 79 screenshots, two sample invoice PDFs and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
+The results, 97 screenshots, sample invoice PDFs and e-mails and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
 
 ## What is finished and what is not
 
@@ -268,7 +311,8 @@ The results, 79 screenshots, two sample invoice PDFs and the test code are in [d
 **Not done**
 
 - No deployment yet (see the live demo line at the top).
-- Invoices are not e-mailed; "Sent" and "Paid" are set by hand. There is no online payment.
+- Sending works through Brevo (or just logs in development), but **Brevo was never called for real here** (its request is tested with a faked network), so real delivery and how Gmail or Outlook draw the e-mail were not checked. "Paid" is set by hand: there is no online payment and no reminder e-mail for overdue invoices.
+- The public link's rate limit counts per address; behind a proxy or load balancer the server sees the proxy's address until `trust proxy` is configured when deploying.
 - A draft invoice cannot be edited: delete it and create it again.
 - The PDF comes from the browser's *Print / Save as PDF*, not from the server.
 - One currency per user (USD by default), no tax, discounts or multi-currency.
@@ -280,7 +324,7 @@ The results, 79 screenshots, two sample invoice PDFs and the test code are in [d
 **With more time I would**
 
 - deploy it (Atlas, a Node host and a static frontend) and add a health check and logging;
-- send invoices by e-mail with a payment link, and generate the PDF on the server so it looks the same everywhere;
+- add a payment link to the invoice e-mail and send reminders for overdue invoices, and generate the PDF on the server so it looks the same everywhere;
 - let a draft be edited, add tax and discount lines and several currencies;
 - add team accounts (a workspace with several members and roles);
 - add pagination, search and CSV export, and a password reset by e-mail;
@@ -319,10 +363,14 @@ I used **Claude** (Anthropic) as an AI coding assistant: to plan the build as ei
 | `PATCH /entries/:id` | yes | Change any of those fields. `409 This entry is on an invoice and can't be changed` for a billed entry, `409 Stop the timer first` for the running timer |
 | `DELETE /entries/:id` | yes | Returns `204`. Same `409` rules as editing |
 | `GET /timesheet` | yes | Optional `weekStart` (a Monday, `YYYY-MM-DD`; defaults to the current week in your time zone, `400 Week must start on a Monday` otherwise). Returns `{ weekStart, weekEnd, timezone, days, rows, dayTotals, weekTotalSeconds, billableSeconds, billableAmount }`: `days` are 7 `{ date, label }`, each row has a project, its client and 7 `seconds` (one per day, an entry across midnight is split) plus `totalSeconds` and `billableSeconds`. The running timer is left out |
-| `GET /invoices` | yes | Returns `{ invoices }`, newest first, without their lines. Optional `?status=draft\|sent\|paid` and `?clientId=` |
-| `GET /invoices/:id` | yes | Returns `{ invoice, entries }`: the invoice with its lines, and the time entries on it in time order (each with `durationSeconds` tracked and `billedSeconds` billed) |
+| `GET /invoices` | yes | Returns `{ invoices }`, newest first, without their lines; each has `displayStatus` (`draft`, `sent`, `overdue` or `paid`) and `daysOverdue`. Optional `?status=draft\|sent\|overdue\|paid` (`sent` means sent and not overdue yet) and `?clientId=` |
+| `GET /invoices/:id` | yes | Returns `{ invoice, entries }`: the invoice with its lines, `displayStatus`, `shareUrl` (or `null`), `defaultRecipient` and when it was sent and viewed, and the time entries on it in time order (each with `durationSeconds` tracked and `billedSeconds` billed) |
 | `POST /invoices/preview` | yes | Body: `clientId`, `from`, `to` (`YYYY-MM-DD`, both days included, in your time zone). Returns `{ preview }` with the lines, total, `roundingMinutes` and entries that an invoice would contain, and saves nothing. `400` for a client that isn't yours, `from` after `to`, a period over 366 days or an end date after today, and `400 No unbilled billable time for this client in this period` when nothing matches |
 | `POST /invoices` | yes | Same body plus optional `notes` (max 500). Bills the matching entries and returns `201 { invoice }` (`INV-0001`, ...). The same `400`s as the preview, which is also what a second, simultaneous request for the same entries gets. `503` if MongoDB has no transactions (a local server that isn't a replica set) |
+| `POST /invoices/:id/send` | yes | Body: optional `to` (defaults to the client's current e-mail; `400 Add the client's email first` if there is none), `cc` (up to 5 addresses), `message` (max 1000). E-mails the invoice with a link, moves draft to sent (`sentAt`, `lastSentAt`, `sentTo`) and returns `{ invoice, sentTo, shareUrl }`. Sending again is allowed and only updates `lastSentAt`. `409 This invoice is already paid`; `502 Couldn't send the email. Try again.` (nothing changes) |
+| `POST /invoices/:id/share-link` | yes | Returns `{ shareUrl }` (`<APP_URL>/i/<token>`), making the link first if there is none; asking twice gives the same link |
+| `POST /invoices/:id/share-link/regenerate` | yes | Returns `{ shareUrl }` with a new token; the old link stops working and "viewed" starts again |
+| `GET /public/invoices/:token` | **no** | What the client sees: number, `displayStatus`, `daysOverdue`, dates, period, `from`, `client`, line items (project name, rate, hours, amount), totals, currency, rounding note and notes; nothing else (no ids). Records the first view. `404` for an unknown token, `429` after 60 requests a minute from one address. Not cached, not indexed |
 | `PATCH /invoices/:id/status` | yes | Body: `status` (`sent` or `paid`). Draft to sent, sent to paid or draft to paid; anything else is `409 Can't change status from X to Y`. Returns `{ invoice }` |
 | `DELETE /invoices/:id` | yes | Returns `204` and makes the invoice's entries unbilled again. Only drafts: `409 Only draft invoices can be deleted` |
 
@@ -344,9 +392,9 @@ timeledger/
 │       ├── seed.js                   npm run seed (the command; the work is in services/seed.service.js)
 │       ├── config/                   MongoDB connection
 │       ├── models/                   User, Client, Project, TimeEntry, Invoice, Counter (invoice numbers)
-│       ├── routes/                   auth, clients, projects, timer, entries, timesheet, invoices
+│       ├── routes/                   auth, clients, projects, timer, entries, timesheet, invoices, public (no login)
 │       ├── controllers/              request handlers
-│       ├── services/                 timer, entries, timesheet, invoice (preview, create, status, delete), seed
+│       ├── services/                 timer, entries, timesheet, invoice (preview, create, status, delete), invoiceSend, invoiceShare (links and the public view), invoiceStatus (overdue), email (console and Brevo providers) with emailTemplates, seed
 │       ├── middleware/               auth, validation, error handling
 │       ├── validators/               Zod schemas
 │       ├── utils/                    tokens, errors, money, ids, time zones, rounding (roundUp)
@@ -358,7 +406,7 @@ timeledger/
 │       ├── components/               shared UI (Modal, Button, FormField, ...)
 │       ├── context/, hooks/          auth and timer state
 │       ├── layouts/                  AuthLayout, AppLayout (sidebar / top bar and tab bar)
-│       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries, Timesheet, Invoices, InvoiceDetail, Settings
+│       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries, Timesheet, Invoices, InvoiceDetail, PublicInvoice (/i/:token), Settings
 │       └── utils/                    formatting and error helpers
 └── docs/
     └── test-evidence/                test report, screenshots, raw results, test code
@@ -369,6 +417,7 @@ timeledger/
 ## Troubleshooting
 
 - **`503 Invoices need MongoDB transactions` when creating or deleting an invoice:** your MongoDB is a plain standalone server. Use MongoDB Atlas, or run a local MongoDB as a single-node replica set (`mongod --replSet rs0`, `rs.initiate()` once in `mongosh`, and `?replicaSet=rs0` on `MONGODB_URI`).
+- **"Couldn't send the email. Try again." when sending an invoice:** the e-mail provider refused it; the reason is in the backend's output. With Brevo check `BREVO_API_KEY`, that `EMAIL_FROM` is a sender you verified, and Brevo's *Authorised IPs*. Without any e-mail setup, leave `EMAIL_PROVIDER` unset (or `console`) while developing.
 - **`querySrv ECONNREFUSED` when connecting to Atlas:** Node's DNS lookup failed. The app already uses public DNS servers by default. If your network blocks them, set `DNS_SERVERS` in `backend/.env` to your network's DNS.
 - **`JWT_SECRET is not defined`:** copy `backend/.env.example` to `backend/.env` and set a long random value.
 - **Browser shows a CORS error:** make sure `FRONTEND_URL` in `backend/.env` matches the address of the frontend (default `http://localhost:5173`).
