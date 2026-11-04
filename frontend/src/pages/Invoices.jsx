@@ -18,6 +18,7 @@ const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'draft', label: 'Draft' },
   { id: 'sent', label: 'Sent' },
+  { id: 'overdue', label: 'Overdue' },
   { id: 'paid', label: 'Paid' },
 ];
 
@@ -43,11 +44,15 @@ export default function Invoices() {
     </Button>
   );
 
+  // What the user sees: draft, sent, overdue (sent and past its due date) or paid
+  const shown = (invoice) => invoice.displayStatus ?? invoice.status;
+
   // The cards always cover every invoice; the filter only changes the list
   const sum = (list) => list.reduce((total, invoice) => total + invoice.total, 0);
   const outstanding = sum((invoices ?? []).filter((invoice) => invoice.status !== 'paid'));
+  const overdue = sum((invoices ?? []).filter((invoice) => shown(invoice) === 'overdue'));
   const paid = sum((invoices ?? []).filter((invoice) => invoice.status === 'paid'));
-  const visible = (invoices ?? []).filter((invoice) => status === 'all' || invoice.status === status);
+  const visible = (invoices ?? []).filter((invoice) => status === 'all' || shown(invoice) === status);
 
   const renderList = () => {
     if (invoices.length === 0) {
@@ -95,7 +100,7 @@ export default function Invoices() {
               </div>
               <div className="flex items-center justify-between gap-4 sm:justify-end">
                 <p className="font-mono font-semibold text-slate-900">{formatCurrency(invoice.total, invoice.currency)}</p>
-                <InvoiceStatusBadge status={invoice.status} />
+                <InvoiceStatusBadge status={shown(invoice)} daysOverdue={invoice.daysOverdue} />
               </div>
             </Link>
           </li>
@@ -113,7 +118,12 @@ export default function Invoices() {
       ) : (
         <>
           <div className="mb-6 grid gap-3 sm:grid-cols-3" data-testid="summary">
-            <SummaryCard label="Outstanding" value={formatCurrency(outstanding, user.currency)} />
+            <SummaryCard
+              label="Outstanding"
+              value={formatCurrency(outstanding, user.currency)}
+              note={overdue > 0 ? `${formatCurrency(overdue, user.currency)} overdue` : undefined}
+              noteTone="danger"
+            />
             <SummaryCard label="Paid" value={formatCurrency(paid, user.currency)} />
             <SummaryCard label="Invoices" value={String(invoices.length)} />
           </div>
