@@ -17,16 +17,16 @@ PASS  Previous: URL becomes ?week=2026-03-02 and the label "2 – 8 Mar 2026"  -
 PASS  a week without time shows "No time tracked this week" and a "Go to Dashboard" button
 PASS  Next: back to 9 – 15 Mar 2026 with its data
 PASS  a refresh keeps the week from the URL
-PASS  "This week" jumps to the current week (Monday in India time)  -> 2026-10-26 (expected 2026-10-26)
+PASS  "This week" jumps to the current week (Monday in India time)  -> 2026-11-02 (expected 2026-11-02)
 PASS  on the current week "Next" and "This week" are disabled, "Previous" is not  -> {"nextDisabled":true,"thisWeekDisabled":true,"prevDisabled":false}
-PASS  today's column is highlighted in light indigo (header and cells)  -> {"count":1,"text":"Wed 28","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"}
+PASS  today's column is highlighted in light indigo (header and cells)  -> {"count":1,"text":"Wed 4","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"}
 PASS  ...and today's 15 minutes show in it  -> 15m
-PASS  a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL  -> 2026-10-26
-PASS  a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL  -> 2026-10-26
-PASS  a link with ?week=banana (not a date) shows the current week and fixes the URL  -> 2026-10-26
-PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6ae1eb13a4a625db9e153182&from=2026-03-09&to=2026-03-09&overlap=1
+PASS  a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL  -> 2026-11-02
+PASS  a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL  -> 2026-11-02
+PASS  a link with ?week=banana (not a date) shows the current week and fixes the URL  -> 2026-11-02
+PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6aeaaad58696f951b89cbcb9&from=2026-03-09&to=2026-03-09&overlap=1
 PASS  Time entries starts with those filters already set (Custom range, that day, that project)  -> {"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"}
-PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6ae1eb13a4a625db9e153182","overlap":"true"}
+PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6aeaaad58696f951b89cbcb9","overlap":"true"}
 PASS  the list shows exactly that entry (Homepage, 09:00–11:00, 2h)  -> Website · Acme Corp Homepage 09:00–11:00 Billable 2h
 PASS  Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
 PASS  Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h

@@ -257,7 +257,7 @@ check('line items table: Project, Hours, Rate, Amount', JSON.stringify(page1.hea
 check('...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89', JSON.stringify(page1.rows) === JSON.stringify([['App', '1.50', '$60.00', '$90.00'], ['Website', '2.78', '$50.00', '$138.89']].map((r) => r)) || (page1.rows.length === 2 && page1.rows[0].join('|') === 'App|1.50|$60.00|$90.00' && page1.rows[1].join('|') === 'Website|2.78|$50.00|$138.89'), JSON.stringify(page1.rows));
 check('subtotal and total $228.89', page1.total === '$228.89' && inPaper('Subtotal $228.89'));
 check('notes are at the bottom', inPaper('Notes') && inPaper('Payment within 14 days.') && inPaper('Thank you!'));
-check('actions: Back, Print / Save as PDF, Mark as sent, Mark as paid, Delete (a draft)', JSON.stringify(page1.actions) === JSON.stringify(['Back', 'Print / Save as PDF', 'Mark as sent', 'Mark as paid', 'Delete']), page1.actions.join(' | '));
+check('actions: Back, Print / Save as PDF, Send invoice (added in Phase 1A), Mark as sent, Mark as paid, Delete (a draft)', JSON.stringify(page1.actions) === JSON.stringify(['Back', 'Print / Save as PDF', 'Send invoice', 'Mark as sent', 'Mark as paid', 'Delete']), page1.actions.join(' | '));
 check('the paper is a white card', page1.paperBg === (await colorOf(A, 'bg-white', 'backgroundColor')));
 const slate700 = await colorOf(A, 'text-slate-700');
 const draftBadgeColor = await A.$eval('[data-testid="invoice-status"] span', (s) => getComputedStyle(s).color);
@@ -399,7 +399,7 @@ check('badge colours: Paid emerald, Draft slate; amounts in JetBrains Mono', ton
 const cards = await A.$$eval('[data-testid="summary"] > div', (c) => c.map((x) => x.innerText.replace(/\s+/g, ' ').trim().toLowerCase()));
 check('summary: Outstanding $570.00 (the two drafts), Paid $228.89, Invoices 3', cards[0].includes('$570.00') && cards[1].includes('$228.89') && cards[2].endsWith('3'), cards.join(' | '));
 const filterButtons = await A.$$eval('[aria-label="Filter by status"] button', (b) => b.map((x) => x.innerText.trim()));
-check('status filter: All, Draft, Sent, Paid', filterButtons.join() === 'All,Draft,Sent,Paid');
+check('status filter: All, Draft, Sent, Overdue (added in Phase 1A), Paid', filterButtons.join() === 'All,Draft,Sent,Overdue,Paid');
 await clickButton(A, 'Draft');
 check('filter "Draft" shows the 2 drafts, but the cards still cover everything', (await listRows(A)).length === 2 && (await A.$$eval('[data-testid="summary"] > div', (c) => c[0].innerText.includes('$570.00'))));
 await clickButton(A, 'Paid');

@@ -1,0 +1,14 @@
+Subject: Invoice INV-0003 from Alex Morgan
+
+Invoice INV-0003 from Alex Morgan
+
+Hi team,
+here is the invoice for the API work. Thank you!
+
+Amount: $602.25
+Due date: 18 Nov 2026
+
+View the invoice:
+http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFexampleToken
+
+-- Sent with TimeLedger

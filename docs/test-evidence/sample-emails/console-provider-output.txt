@@ -1,0 +1,36 @@
+﻿What the console email provider printed in the backend's output during the Phase 1A browser run (nothing was really sent; the token in the link belongs to a throwaway database).
+---------- email (console provider: nothing was sent) ----------
+To:       finance@initech.example
+Cc:       boss@initech.example
+Subject:  Invoice INV-0003 from Alex Morgan
+
+Invoice INV-0003 from Alex Morgan
+
+Hi team,
+here is the invoice for the API work. Thank you!
+
+Amount: $602.25
+Due date: 18 Nov 2026
+
+View the invoice:
+http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFdCowbyP
+
+-- Sent with TimeLedger
+----------------------------------------------------------------
+
+
+---------- email (console provider: nothing was sent) ----------
+To:       accounts@initech.example
+Subject:  Invoice INV-0003 from Alex Morgan
+
+Invoice INV-0003 from Alex Morgan
+
+Amount: $602.25
+Due date: 18 Nov 2026
+
+View the invoice:
+http://localhost:5273/i/b6vTd5dPtW2TAR43hLgx9Tpkm4Hn6u34
+
+-- Sent with TimeLedger
+----------------------------------------------------------------
+

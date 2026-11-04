@@ -1,0 +1,42 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+1. The public answer also contains entryIds (a private field leaks)
+  file: services/invoiceShare.service.js
+  change: notes: invoice.notes,  ->  notes: invoice.notes,
+    entryIds: invoice.entryIds,
+  Tests:       1 failed, 37 passed, 38 total
+    x shows the invoice to anybody with the link: no login, and only what the client needs
+  file restored identical: yes
+
+2. A later view overwrites the first view (viewedAt)
+  file: services/invoiceShare.service.js
+  change: { _id: invoice._id, viewedAt: null }  ->  { _id: invoice._id }
+  Tests:       1 failed, 37 passed, 38 total
+    x is set the first time the client opens the link and never overwritten
+  file restored identical: yes
+
+3. A paid or draft invoice can be overdue too (the 'only sent invoices' check is removed)
+  file: services/invoiceStatus.js
+  change: if (invoice.status !== 'sent') return 0;  ->  (removed)
+  Tests:       4 failed, 34 passed, 38 total
+    x a paid invoice is never overdue, and neither is a draft
+    x GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it
+    x marking it paid ends the overdue state
+    x shows the real state: sent, overdue (with the days) and paid
+  file restored identical: yes
+
+4. A failed email still moves the invoice to sent
+  file: services/invoiceSend.service.js
+  change: throw new HttpError(502, "Couldn't send the email. Try again.");  ->  await Invoice.updateOne({ _id: id }, { $set: { status: 'sent', sentAt: new Date() } });
+    throw new HttpError(502, "Couldn't send the email. Try again.");
+  Tests:       2 failed, 36 passed, 38 total
+    x when the provider fails: 502 "Couldn't send the email. Try again." and the invoice is left as it was
+    x through the API: Brevo refusing the email gives 502 and leaves the invoice a draft
+  file restored identical: yes
+
+5. Regenerating the link keeps the old token working (the token is not replaced)
+  file: services/invoiceShare.service.js
+  change: { $set: { publicToken: token, viewedAt: null } }  ->  { $set: { viewedAt: null } }
+  Tests:       1 failed, 37 passed, 38 total
+    x regenerate makes a new link and the old one stops working at once
+  file restored identical: yes

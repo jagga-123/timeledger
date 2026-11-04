@@ -1,0 +1,65 @@
+PASS  npm run seed created the demo data (a paid and a sent invoice)
+PASS  test set-up: the sent demo invoice INV-0002 is moved 3 days past its due date (in the throwaway database)
+PASS  API: every invoice has displayStatus and daysOverdue
+PASS  API: INV-0002 (sent, due 2026-11-01) is now 3 days overdue, while its stored status is still "sent"  -> overdue 3
+PASS  a new draft invoice for Initech (INV-0003) to send
+PASS  status filter chips: All, Draft, Sent, Overdue, Paid  -> All,Draft,Sent,Overdue,Paid
+PASS  INV-0002 shows a red-text badge "N days overdue" (not "Sent")  -> 3 days overdue
+PASS  ...the overdue badge is red, Draft slate, Paid emerald
+PASS  Outstanding card $1,947.00 with "$1,344.75 overdue" below it in red  -> OUTSTANDING $1,947.00 $1,344.75 overdue
+PASS  the Paid and count cards have no overdue note
+PASS  filter "Overdue" shows only INV-0002  -> INV-0002
+PASS  filter "Sent" does not include the overdue one (nothing else is sent yet)
+PASS  draft: the buttons are Back, Print, Send invoice, Mark as sent, Mark as paid, Delete
+PASS  "Send invoice" is the primary (indigo) button  -> oklch(0.511 0.262 276.966)
+PASS  timeline of a draft: Created done; Sent, Viewed and Paid still to come  -> {"created":{"done":true,"text":"Created 4 Nov 2026"},"sent":{"done":false,"text":"Sent Not sent yet"},"viewed":{"done":false,"text":"Viewed —"},"paid":{"done":false,"text":"Paid —"}}
+PASS  no share link yet: the box says so, and there is no Regenerate button
+PASS  the modal opens with To filled in with the client's email and a subject preview  -> {"to":"finance@initech.example","subject":"Invoice INV-0003 from Alex Morgan","title":"Send invoice","submit":"Send invoice"}
+PASS  a bad CC address is refused under the CC field and nothing is sent
+PASS  when the email can't be sent: the toast says so, the form stays open with what was typed, and the invoice is still a draft
+PASS  Send: toast "Invoice sent to finance@initech.example" and the modal closes
+PASS  the invoice is now Sent: sentAt, lastSentAt and sentTo are saved, and it has a share link
+PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFdCowbyP
+PASS  console provider: exactly one email, to the client, CC the boss, with the right subject  -> [["finance@initech.example","boss@initech.example","Invoice INV-0003 from Alex Morgan"]]
+PASS  ...the text version has the personal message, the amount, the due date and the link to /i/<token>
+PASS  the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example"  -> {"done":true,"text":"Sent 4 Nov 2026 to finance@initech.example"}
+PASS  the buttons now say "Resend invoice"; "Mark as sent" and Delete are gone (it is sent)
+PASS  the share link is shown in a box, with Copy and Regenerate buttons
+PASS  "Copy share link": toast "Share link copied"
+PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFdCowbyP
+PASS  the client sees the invoice without logging in: no sidebar, no app bars, the same paper  -> Sent
+PASS  ...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page
+PASS  ...a useful tab title and no search engine indexing  -> Invoice INV-0003 from Alex Morgan | noindex, nofollow
+PASS  the page holds nothing from the owner: no buttons to send, delete or edit, no share link box
+PASS  black box: the public JSON has no user id, entry ids, client id, project ids, token or viewedAt
+PASS  "Download PDF" opens the print dialog (Save as PDF)
+PASS  printed: the button bar and the footer are hidden, white background, one A4 page  -> {"footer":"none","bar":"none","paperRight":794,"bg":"rgb(255, 255, 255)","pages":1,"width":594.95996,"height":841.91998}
+PASS  the owner's timeline now shows Viewed with a date (set when the client opened the link)  -> Viewed 4 Nov 2026
+PASS  opening it again does not change the first view date
+PASS  an unknown link says "This invoice link is not valid", still without any app layout
+PASS  Regenerate asks first and says the old link stops working  -> Regenerate the share link? The current link stops working at once. Anyone you sent it to will need the new one. Cancel Regenerate
+PASS  Cancel keeps the link as it was
+PASS  Regenerate: toast, and the box shows a different link
+PASS  the new link is on the same address with a new token
+PASS  the timeline starts "Viewed" again (the new link has not been opened)  -> Viewed Not opened yet
+PASS  the OLD link now says "This invoice link is not valid"
+PASS  the NEW link opens the invoice
+PASS  Resend: the modal is titled "Resend invoice" and remembers who it was sent to  -> {"title":"Resend invoice","to":"finance@initech.example","note":true}
+PASS  sending again to another address works (toast shows the new address)
+PASS  two emails in total; the second has the NEW link; sentAt stayed, status still sent
+PASS  INV-0002's badge says "3 days overdue" in red, and so does the Sent step of the timeline  -> 3 days overdue | Sent 26 Oct 2026 to accounts@acme.example 3 days overdue
+PASS  the demo history is there: Sent to the client, not viewed yet; the share link exists
+PASS  an overdue invoice can be sent again (Resend invoice) and marked as paid
+PASS  Mark as paid ends the overdue state: badge "Paid" (emerald), the timeline shows Paid, and there is no Send button any more
+PASS  the Outstanding card no longer has an overdue line; "Overdue" is an empty list
+PASS  the paid demo invoice INV-0001 (Globex): no Send button; timeline Created, Sent, Viewed and Paid are all done  -> [true,true,true,true]
+PASS  its link shows a Paid badge to the client
+PASS  Phone: the timeline is vertical and fits the screen; no sideways scroll on the invoice page  -> {"stacked":true,"right":342} off=0
+PASS  Phone: the action buttons wrap inside the screen
+PASS  Phone: the Send invoice modal fits the screen  -> {"left":16,"right":359,"top":33.34375,"bottom":633.640625}
+PASS  Phone: the invoices list with the Overdue chip fits the screen
+PASS  Phone: the public invoice stacks its lines, the Download PDF button is on screen, and nothing runs off the edge  -> {"stacked":true,"table":"none","btnRight":359,"btnLeft":207.125} overflow=0 off=0 innerWidth=375
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL PHASE 1A BROWSER CHECKS PASSED

@@ -108,6 +108,11 @@ describe('seed', () => {
       ['INV-0001', 'Globex Ltd', 'paid', '2026-02-16', '2026-02-22'],
       ['INV-0002', 'Acme Corp', 'sent', '2026-02-23', '2026-03-08'],
     ]);
+    // as if they had been emailed: sent to the client, with a share link; only the paid one was opened
+    expect(invoices.map((i) => [i.sentTo, Boolean(i.publicToken), Boolean(i.viewedAt), Boolean(i.lastSentAt)])).toEqual([
+      ['billing@globex.example', true, true, true],
+      ['accounts@acme.example', true, false, true],
+    ]);
     for (const invoice of invoices) {
       const claimed = entries.filter((e) => String(e.invoiceId) === String(invoice._id));
       expect(claimed.map((e) => String(e._id)).sort()).toEqual(invoice.entryIds.map(String).sort());
