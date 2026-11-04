@@ -329,3 +329,33 @@ describe('rate limit on the public route', () => {
     expect((await api('get', '/api/invoices', priya.token)).status).toBe(200);
   });
 });
+
+// ---------- behind a proxy ----------
+
+describe('trust proxy (the app runs behind one proxy or load balancer)', () => {
+  // The limit is 60 a minute; every request below uses an address of its own so none of this touches the other tests
+  const asVisitor = (forwardedFor) => request(app).get('/api/public/invoices/not-a-real-token').set('X-Forwarded-For', forwardedFor);
+  const hitUntilBlocked = async (forwardedFor) => {
+    for (let i = 1; i <= 70; i++) {
+      const res = await asVisitor(typeof forwardedFor === 'function' ? forwardedFor(i) : forwardedFor);
+      if (res.status === 429) return i;
+    }
+    return null;
+  };
+
+  it('is set to 1 proxy hop', () => {
+    expect(app.get('trust proxy')).toBe(1);
+  });
+
+  it('the rate limit counts each visitor by the address the proxy reports, not by the proxy', async () => {
+    expect(await hitUntilBlocked('203.0.113.10')).toBe(61); // this visitor used up the minute's 60
+    expect((await asVisitor('203.0.113.10')).status).toBe(429);
+    expect((await asVisitor('203.0.113.11')).status).toBe(404); // another visitor behind the same proxy is not affected
+  });
+
+  it("a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts", async () => {
+    // the proxy appends the real address (198.51.100.7) after whatever the visitor sent
+    expect(await hitUntilBlocked((i) => `10.9.9.${i}, 198.51.100.7`)).toBe(61);
+    expect((await asVisitor('1.2.3.4, 198.51.100.7')).status).toBe(429);
+  });
+});

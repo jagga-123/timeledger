@@ -12,6 +12,12 @@ import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// The app runs behind ONE proxy or load balancer (Render, Heroku, nginx, ...), which puts the visitor's address in
+// X-Forwarded-For. Without this, every visitor would look like the proxy to the rate limit on the public invoice
+// link (one shared allowance for everybody). With 1, only the entry the proxy added is believed, so a visitor can't
+// fake their address by sending their own X-Forwarded-For. Run it with no proxy in front and that header could be faked.
+app.set('trust proxy', 1);
+
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }));
 app.use(express.json());
 
