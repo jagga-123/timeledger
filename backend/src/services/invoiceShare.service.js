@@ -2,7 +2,10 @@ import crypto from 'node:crypto';
 import Invoice from '../models/Invoice.js';
 import { HttpError } from '../utils/httpError.js';
 import { shareUrlFor } from '../utils/appUrl.js';
-import { userZone, withDisplayStatus } from './invoiceStatus.js';
+import User from '../models/User.js';
+import { usableZone } from '../utils/timezone.js';
+import { hasPaymentDetails } from './emailTemplates.js';
+import { withDisplayStatus } from './invoiceStatus.js';
 
 // The share link /i/:token lets a client see ONE invoice without logging in. The token is 24 random bytes
 // (192 bits), so it can't be guessed; whoever has the link can see the invoice, which is the point.
@@ -54,7 +57,16 @@ export const getPublicInvoice = async (token) => {
   // The first visit is remembered; the filter makes sure a later visit never overwrites it
   await Invoice.updateOne({ _id: invoice._id, viewedAt: null }, { $set: { viewedAt: new Date() } });
 
-  const { displayStatus, daysOverdue } = withDisplayStatus(invoice, await userZone(invoice.userId));
+  const owner = await User.findById(invoice.userId).select('timezone payment');
+  const { displayStatus, daysOverdue } = withDisplayStatus(invoice, usableZone(owner?.timezone));
+
+  // How to pay, as the owner has set it up now. Nothing to show when they set up nothing, or when it is already paid.
+  const pay = owner?.payment;
+  const payment =
+    displayStatus !== 'paid' && hasPaymentDetails(pay)
+      ? { link: pay.link || null, upiId: pay.upiId || null, bankDetails: pay.bankDetails || null }
+      : null;
+
   return {
     number: invoice.number,
     displayStatus,
@@ -79,5 +91,6 @@ export const getPublicInvoice = async (token) => {
     subtotal: invoice.subtotal,
     total: invoice.total,
     notes: invoice.notes,
+    payment,
   };
 };

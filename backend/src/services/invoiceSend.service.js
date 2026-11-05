@@ -14,7 +14,7 @@ const LIST_FIELDS = '-lineItems -entryIds';
 // If the email can't be sent the invoice stays exactly as it was. Sending again is allowed (it only updates
 // lastSentAt); a paid invoice can't be sent.
 export const sendInvoice = async (userId, id, { to, cc = [], message }) => {
-  const [user, invoice] = await Promise.all([User.findById(userId).select('name email'), Invoice.findOne({ _id: id, userId })]);
+  const [user, invoice] = await Promise.all([User.findById(userId).select('name email payment'),Invoice.findOne({ _id: id, userId })]);
   if (!invoice) {
     throw new HttpError(404, 'Invoice not found');
   }
@@ -31,7 +31,7 @@ export const sendInvoice = async (userId, id, { to, cc = [], message }) => {
 
   // The link has to work by the time the email arrives, so it is made before anything is sent
   const shareUrl = shareUrlFor(await ensureShareToken(userId, id));
-  const { subject, html, text } = renderInvoiceEmail({ invoice, fromName: user.name, shareUrl, message });
+  const { subject, html, text } = renderInvoiceEmail({ invoice, fromName: user.name, shareUrl, message, payment: user.payment });
 
   try {
     await sendEmail({
