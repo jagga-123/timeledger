@@ -35,7 +35,11 @@ export const getMe = (req, res) => {
 
 export const updateMe = async (req, res) => {
   // The schema only lets name, timezone and roundingMinutes through, and only the ones that were sent
-  req.user.set(req.body);
+  // reminders and payment are groups of settings: setting the whole group would wipe the fields that weren't sent
+  const { reminders = {}, payment = {}, ...rest } = req.body;
+  req.user.set(rest);
+  for (const [field, value] of Object.entries(reminders)) req.user.set(`reminders.${field}`, value);
+  for (const [field, value] of Object.entries(payment)) req.user.set(`payment.${field}`, value);
   await req.user.save();
   res.json({ user: req.user });
 };
