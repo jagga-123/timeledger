@@ -4,6 +4,7 @@ import Client from '../models/Client.js';
 import Counter from '../models/Counter.js';
 import Invoice from '../models/Invoice.js';
 import Project from '../models/Project.js';
+import ReminderLog from '../models/ReminderLog.js';
 import TimeEntry from '../models/TimeEntry.js';
 import User from '../models/User.js';
 import { roundToCents } from '../utils/money.js';
@@ -12,6 +13,13 @@ import { ensureShareToken } from './invoiceShare.service.js';
 
 // Demo data for reviewers: one user, three clients, about four weeks of time entries and two invoices.
 // Running it again wipes and recreates ONLY this user's data; nobody else's data is ever touched.
+
+// Fake payment details, so the demo shows "Pay now" and how to pay (nothing real is behind them)
+export const DEMO_PAYMENT = Object.freeze({
+  link: 'https://pay.example.com/alex-morgan',
+  upiId: 'alex.morgan@okhdfcbank',
+  bankDetails: 'Account name: Alex Morgan\nBank: HDFC Bank\nAccount no: 50100123456789\nIFSC: HDFC0001234',
+});
 
 export const DEMO_USER = Object.freeze({
   name: 'Alex Morgan',
@@ -191,7 +199,7 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
   const passwordHash = await bcrypt.hash(DEMO_USER.password, 10);
   const user = await User.findOneAndUpdate(
     { email: DEMO_USER.email },
-    { $set: { name: DEMO_USER.name, passwordHash, timezone: zone, currency: DEMO_USER.currency, roundingMinutes: 0 } },
+    { $set: { name: DEMO_USER.name, passwordHash, timezone: zone, currency: DEMO_USER.currency, roundingMinutes: 0, reminders: { enabled: true, beforeDueDays: 3, onDueDate: true, afterDueDays: [7, 14] }, payment: { ...DEMO_PAYMENT } } },
     { upsert: true, returnDocument: 'after' }
   );
   const userId = user._id;
@@ -202,6 +210,7 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
     TimeEntry.deleteMany(own),
     Invoice.deleteMany(own),
     Counter.deleteMany(own),
+    ReminderLog.deleteMany(own),
     Project.deleteMany(own),
     Client.deleteMany(own),
   ]);
