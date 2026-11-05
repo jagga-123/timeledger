@@ -43,6 +43,10 @@ const invoiceSchema = new mongoose.Schema(
     sentTo: { type: String, default: '' },
     sentCc: [{ type: String }],
 
+    // Payment reminders (see services/reminder.service.js). Paused: no automatic reminders for this invoice.
+    remindersPaused: { type: Boolean, default: false },
+    lastReminderAt: { type: Date, default: null }, // the latest reminder, automatic or manual
+
     // Snapshots
     client: {
       name: { type: String, required: true },

@@ -8,6 +8,7 @@ import entryRoutes from './routes/entry.routes.js';
 import timesheetRoutes from './routes/timesheet.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import publicRoutes from './routes/public.routes.js';
+import cronRoutes from './routes/cron.routes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/entries', entryRoutes);
 app.use('/api/timesheet', timesheetRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/public', publicRoutes); // no login: see routes/public.routes.js
+app.use('/api/cron', cronRoutes); // no login, a shared secret instead: see middleware/cronSecret.js
 
 app.use(notFound);
 app.use(errorHandler);

@@ -39,3 +39,8 @@ export const sendInvoiceSchema = z.object({
   cc: z.array(emailAddress('CC address'), { error: 'CC must be a list of email addresses' }).max(5, 'At most 5 people can be copied').optional(),
   message: z.preprocess(emptyToUndefined, z.string({ error: 'The message must be text' }).trim().max(1000, 'The message must be at most 1000 characters').optional()),
 });
+
+// PATCH /api/invoices/:id/reminders: pause or resume the automatic reminders of one invoice
+export const pauseRemindersSchema = z.object({
+  paused: z.boolean({ error: 'paused must be true or false' }),
+});

@@ -10,6 +10,7 @@ import {
   getShareLink,
   regenerateShareLink,
 } from '../controllers/invoice.controller.js';
+import { getInvoiceReminders, sendReminderNow, pauseReminders } from '../controllers/reminder.controller.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { validateObjectId } from '../middleware/validateObjectId.js';
@@ -18,6 +19,7 @@ import {
   createInvoiceSchema,
   updateInvoiceStatusSchema,
   sendInvoiceSchema,
+  pauseRemindersSchema,
 } from '../validators/invoice.validator.js';
 
 const router = Router();
@@ -33,6 +35,9 @@ router.patch('/:id/status', validate(updateInvoiceStatusSchema), updateInvoiceSt
 router.post('/:id/send', validate(sendInvoiceSchema), sendInvoice);
 router.post('/:id/share-link', getShareLink);
 router.post('/:id/share-link/regenerate', regenerateShareLink);
+router.get('/:id/reminders', getInvoiceReminders);
+router.post('/:id/reminders/send-now', sendReminderNow);
+router.patch('/:id/reminders', validate(pauseRemindersSchema), pauseReminders);
 router.delete('/:id', deleteInvoice);
 
 export default router;
