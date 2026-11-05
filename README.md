@@ -13,13 +13,17 @@ A time tracker with invoicing for freelancers: track time with a timer that live
     <td width="50%"><a href="docs/test-evidence/screenshots/step-8-seed-and-rounding/05-demo-invoice-sent-desktop.png"><img src="docs/test-evidence/screenshots/step-8-seed-and-rounding/05-demo-invoice-sent-desktop.png" alt="A printable invoice"></a><br><sub><b>Invoice</b>: printable, Print / Save as PDF</sub></td>
     <td width="50%"><a href="docs/test-evidence/screenshots/step-8-seed-and-rounding/15-running-timer-top-bar-mobile.png"><img src="docs/test-evidence/screenshots/step-8-seed-and-rounding/15-running-timer-top-bar-mobile.png" alt="The dashboard on a phone with a running timer" width="240"></a><br><sub><b>Phone</b> (375px): running timer in the top bar</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><a href="docs/test-evidence/screenshots/phase-1b-reminders-and-payment/05-invoice-reminder-sent-desktop.png"><img src="docs/test-evidence/screenshots/phase-1b-reminders-and-payment/05-invoice-reminder-sent-desktop.png" alt="An invoice with its reminder history, a pause switch and a Send reminder now button"></a><br><sub><b>Reminders</b>: the next one, the history, pause, send now</sub></td>
+    <td width="50%"><a href="docs/test-evidence/screenshots/phase-1b-reminders-and-payment/08-public-pay-now-desktop.png"><img src="docs/test-evidence/screenshots/phase-1b-reminders-and-payment/08-public-pay-now-desktop.png" alt="What the client sees under the invoice: a Pay now button, the UPI ID and the bank details"></a><br><sub><b>Pay now</b>: what the client sees under the invoice</sub></td>
+  </tr>
 </table>
 
 More screenshots, every test result and the test code are in [docs/test-evidence](docs/test-evidence) (open [test-report.html](docs/test-evidence/test-report.html) in a browser for the whole report on one page).
 
 ## Contents
 
-[Demo login](#demo-login) · [Features](#features) · [Tech stack](#tech-stack) · [Setup and run](#setup-and-run) · [Data model](#data-model) · [Design decisions](#main-design-decisions) · [Tests](#tests) · [Finished and not finished](#what-is-finished-and-what-is-not) · [AI tools used](#ai-tools-used) · [API](#api) · [Project structure](#project-structure) · [Troubleshooting](#troubleshooting)
+[Demo login](#demo-login) · [Features](#features) · [Tech stack](#tech-stack) · [Setup and run](#setup-and-run) · [Payment reminders](#payment-reminders-and-the-hourly-job) · [Data model](#data-model) · [Design decisions](#main-design-decisions) · [Tests](#tests) · [Finished and not finished](#what-is-finished-and-what-is-not) · [AI tools used](#ai-tools-used) · [API](#api) · [Project structure](#project-structure) · [Troubleshooting](#troubleshooting)
 
 ## Demo login
 
@@ -29,7 +33,7 @@ Run `npm run seed` in `backend/` (see [Setup and run](#setup-and-run)) and log i
 | --- | --- |
 | `demo@timeledger.app` | `Demo@1234` |
 
-The demo user, Alex Morgan (time zone Asia/Kolkata, USD), has 3 clients (Acme Corp, Globex Ltd, Initech), 4 projects, about four weeks of time entries placed relative to today, a **paid** invoice for Globex and a **sent** invoice for Acme. The last two weeks are left unbilled, so you can create an invoice right away. Nothing is running: start a timer yourself. To try the rounding rule, see [Rounding](#rounding-each-entry-up-to-15-minutes).
+The demo user, Alex Morgan (time zone Asia/Kolkata, USD), has 3 clients (Acme Corp, Globex Ltd, Initech), 4 projects, about four weeks of time entries placed relative to today, a **paid** invoice for Globex and a **sent** invoice for Acme. The last two weeks are left unbilled, so you can create an invoice right away. Nothing is running: start a timer yourself. To try the rounding rule, see [Rounding](#rounding-each-entry-up-to-15-minutes). The demo user also has payment reminders switched on and fake payment details (a `pay.example.com` link, a UPI ID and bank details), so e-mails and the public invoice page show a **Pay now** button; see [Payment reminders](#payment-reminders-and-the-hourly-job).
 
 ## Features
 
@@ -57,12 +61,18 @@ The demo user, Alex Morgan (time zone Asia/Kolkata, USD), has 3 clients (Acme Co
 - [x] **Public invoice link**: the client opens `/i/<token>` without logging in and sees the invoice (Download PDF, no sidebar). The owner can copy or regenerate the link (the old one stops working) and sees a timeline: Created, Sent (when, to whom), Viewed, Paid.
 - [x] **Overdue**: an invoice that was sent and is past its due date is shown as **Overdue** (red, "5 days overdue"), with an Overdue filter and the overdue amount under Outstanding. It is worked out each time, never stored.
 
+**Phase 1B (the SaaS version, on the `saas` branch)**
+
+- [x] **Automatic payment reminders** for invoices that were sent and are not paid: *N days before* the due date, *on* it and *N days after* (by default 3 days before, on the day, and 7 and 14 days after; everybody chooses in Settings). The e-mail is friendly ("Reminder: INV-0003 is due in 3 days") and has the amount, the due date and a **View invoice** button. Nothing runs inside the server (Render's free tier sleeps): an **hourly GitHub Action** calls a protected endpoint ([how to run it](#payment-reminders-and-the-hourly-job)).
+- [x] **Reminders on the invoice page**: the next reminder ("Next reminder: 12 Nov 2026, due in 3 days"), the history (date, to whom, sent or failed), *Pause reminders* for one invoice, *Send reminder now* (once per 24 hours), a *Reminder sent* step in the timeline, and a bell in the invoices list.
+- [x] **Payment details and Pay now**: in Settings add a payment link (a Stripe, PayPal or Razorpay URL), a UPI ID and bank details, all optional and validated. The invoice e-mail, the reminder e-mails and the client's public page then show a green **Pay now** button (only when there is a link) and the UPI ID and bank details below it.
+
 **Also in the app** (supporting the above, not part of the brief)
 
 - Accounts: register and log in (bcrypt-hashed passwords, JWT), protected routes, the session survives a reload
 - Time zones: everything is stored in UTC and days, weeks and invoice periods follow your own time zone (daylight saving included)
 - Responsive layout: sidebar on desktop, top bar and bottom tab bar on phones (checked at 375px)
-- A Settings page (name, time zone, the rounding switch) and demo seed data (`npm run seed`)
+- A Settings page (name, time zone, the rounding switch, payment reminders, payment details) and demo seed data (`npm run seed`)
 
 ### Rounding each entry up to 15 minutes
 
@@ -127,6 +137,7 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | `BREVO_API_KEY` | with `brevo` | `replace-with-your-brevo-api-key` | Your Brevo API key |
 | `EMAIL_FROM` | with `brevo` | `replace-with-your-verified-sender@example.com` | The sender address you verified in Brevo |
 | `EMAIL_FROM_NAME` | no | `TimeLedger` | The name shown with the sender address (an e-mail says "Alex Morgan via TimeLedger") |
+| `CRON_SECRET` | for reminders | `replace-with-a-long-random-string-for-the-scheduler` | The shared secret the scheduler sends in the `X-Cron-Secret` header to run the payment reminders (at least 16 characters). While it is empty or still the placeholder, the endpoint answers `503` and nothing runs. See [Payment reminders](#payment-reminders-and-the-hourly-job) |
 | `DNS_SERVERS` | no | *(empty)* | Comma-separated DNS servers used to look up `mongodb+srv://` hosts; empty means `8.8.8.8,1.1.1.1` |
 
 `frontend/.env` (the same variable as `frontend/.env.example`)
@@ -172,6 +183,56 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 
 If Brevo answers `401` about an unrecognised IP address, add your server's IP under *Security* → *Authorised IPs* or turn IP blocking off. The app then shows "Couldn't send the email. Try again." and leaves the invoice unchanged; the reason is in the backend's output (never the API key). In production an unset `EMAIL_PROVIDER` is an error rather than a silent log, so an invoice is never marked as sent by an e-mail that was only logged.
 
+### Payment reminders and the hourly job
+
+**What is sent.** For every invoice that was sent and is not paid, the client gets an e-mail *N days before* the due date, *on* the due date and *N days after* it. Everybody chooses in **Settings → Payment reminders**: a master switch, 0 to 14 days before (0 means none), the due date itself, and after the due date any of 7, 14 and 30 days (the defaults are 3 days before, on the due date, and 7 and 14 days after). The subjects are `Reminder: INV-0003 is due in 3 days`, `INV-0003 is due today` and `INV-0003 is 7 days overdue`. The e-mail has the amount, the due date, a **View invoice** button and, when payment details are set up in Settings, **Pay now** and the UPI ID and bank details below it. Replies go to the freelancer (Reply-To).
+
+**The rules** (every one of them has a test):
+
+- The day is the **owner's** day (their time zone), not the server's.
+- Nothing is scheduled on or before the day the invoice was (last) sent, so a freshly sent invoice is not reminded the same day.
+- A reminder that was missed (the server was asleep or down) is still sent up to **2 days late**, but only the **latest** missed one, never a burst of old ones. The wording follows the real situation ("is due in 1 day", "is 1 day overdue").
+- Nothing is sent for draft or paid invoices, paused invoices, a client without an e-mail address, or when the owner switched reminders off.
+- A reminder is **claimed in the database first** (a unique index) and sent afterwards, so two runs at the same moment, or calling the job again and again, send one e-mail. A failed e-mail is logged as *failed* and the next run tries again (3 attempts at most); the invoice itself never changes.
+- *Send reminder now* on the invoice page is limited to one per invoice per 24 hours (`429 You already sent a reminder in the last 24 hours`), and an automatic reminder waits 24 hours after a manual one.
+
+**Why an external scheduler.** Render's free tier puts the server to sleep, so `node-cron` or `setInterval` inside the server would not run when it is needed. Instead, `POST /api/cron/reminders` does one pass and an hourly **GitHub Action** ([.github/workflows/reminders.yml](.github/workflows/reminders.yml), at minute 17 of every hour) calls it. Calling it more often is harmless. It answers `{ checked, sent, skipped, failed, ranAt }`.
+
+**Run the job on your own computer** (with the backend running, for example `npm run dev`):
+
+1. Make a secret and put it in `backend/.env`, then restart the backend:
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   ```
+   CRON_SECRET=<the value that was printed>
+   ```
+
+   While `CRON_SECRET` is empty, shorter than 16 characters or still the placeholder, the endpoint answers `503`; a wrong or missing header is `401`.
+
+2. Call the endpoint with the secret. With `EMAIL_PROVIDER=console` the e-mails are printed in the backend's terminal and nothing is sent:
+
+   ```bash
+   curl -X POST -H "X-Cron-Secret: <your secret>" http://localhost:5000/api/cron/reminders
+   # {"checked":1,"sent":1,"skipped":0,"failed":0,"ranAt":"2026-11-05T09:00:00.000Z"}
+   ```
+
+   (In Windows PowerShell write `curl.exe`, because `curl` there is a different command.)
+
+3. To see a reminder: open a *sent* invoice (the demo user has one) and press **Send reminder now**; the e-mail appears in the terminal. For the automatic job to send something, an invoice needs a reminder day that is today, for example a due date exactly 3 days away with the default settings. No screen changes a due date, so for a try-out change `dueDate` of a sent invoice in the database.
+
+**Set up the GitHub Action** (once the backend is deployed):
+
+1. On the server (for example Render → *Environment*) set `CRON_SECRET` to a long random value (make one with the command above).
+2. In the GitHub repository open **Settings → Secrets and variables → Actions → New repository secret** and add two secrets:
+   - `REMINDERS_URL`: the full address of the endpoint, for example `https://your-backend.onrender.com/api/cron/reminders`
+   - `CRON_SECRET`: exactly the same value as on the server
+3. GitHub only runs scheduled workflows (and shows *Run workflow*) for the **default branch**, so the workflow starts working once the `saas` branch is merged into `main`.
+4. Try it: **Actions → Payment reminders → Run workflow**. A green run whose log shows `{"checked":...,"sent":...}` works. `401` means the two secrets differ, `503` means the server has no `CRON_SECRET`, and a failed run with a timeout means the server did not wake up (the workflow waits up to 3 minutes and retries 3 times, which is enough for Render's cold start).
+5. GitHub can start a scheduled run a few minutes late, and it pauses scheduled workflows of a public repository after 60 days without any activity (switch it on again in the Actions tab).
+
 ## Data model
 
 ```mermaid
@@ -181,6 +242,8 @@ erDiagram
     USER ||--o{ TIME_ENTRY : tracks
     USER ||--o{ INVOICE : issues
     USER ||--o{ COUNTER : "has one per number series"
+    USER ||--o{ REMINDER_LOG : owns
+    INVOICE ||--o{ REMINDER_LOG : "is reminded by"
     CLIENT ||--o{ PROJECT : has
     CLIENT ||--o{ INVOICE : "is billed by"
     PROJECT ||--o{ TIME_ENTRY : "time is tracked on"
@@ -194,6 +257,8 @@ erDiagram
         string timezone "e.g. Asia/Kolkata"
         string currency
         number roundingMinutes "0 or 15"
+        object reminders "enabled, beforeDueDays, onDueDate, afterDueDays"
+        object payment "link, upiId, bankDetails"
     }
     CLIENT {
         ObjectId _id PK
@@ -239,6 +304,8 @@ erDiagram
         date lastSentAt "latest e-mail"
         string sentTo
         date viewedAt "first time the client opened the link"
+        boolean remindersPaused "true = no automatic reminders for this invoice"
+        date lastReminderAt "latest reminder, automatic or manual"
         object client "snapshot: name, email, company"
         object from "snapshot: name, email"
         array lineItems "per project: rate, rawSeconds, billedSeconds, hours, amount"
@@ -252,13 +319,26 @@ erDiagram
         string name "invoice"
         number seq "only ever goes up"
     }
+    REMINDER_LOG {
+        ObjectId _id PK
+        ObjectId invoiceId FK
+        ObjectId userId FK
+        string kind "before_due, on_due, overdue or manual"
+        number offsetDays "days before or after the due date, none for manual"
+        date sentAt
+        string to
+        string status "sending, sent or failed"
+        number attempts
+        string error
+    }
 ```
 
-- **User**: the account and its settings: time zone (follows the device), currency and the rounding rule.
+- **User**: the account and its settings: time zone (follows the device), currency, the rounding rule, the reminder settings and the payment details (link, UPI ID, bank details).
 - **Client** and **Project**: what the time is for. A project has the hourly rate; a client name is unique per user and a project name unique per client (case-insensitive).
 - **TimeEntry**: one block of time. A **running timer is an entry with `endedAt: null`**; `invoiceId` is `null` until the entry is billed, and an entry with an invoice cannot be edited or deleted.
-- **Invoice**: the bill. It stores a **snapshot** (client, sender, rates, lines, period, time zone, rounding rule), so later changes to a client or a rate never change it, plus the ids of the entries it contains, and how it was sent and shared (`publicToken`, `sentAt`, `lastSentAt`, `sentTo`, `viewedAt`). "Overdue" is not stored: it is worked out from `status` and `dueDate`.
+- **Invoice**: the bill. It stores a **snapshot** (client, sender, rates, lines, period, time zone, rounding rule), so later changes to a client or a rate never change it, plus the ids of the entries it contains, and how it was sent and shared (`publicToken`, `sentAt`, `lastSentAt`, `sentTo`, `viewedAt`). "Overdue" is not stored: it is worked out from `status` and `dueDate`. The reminder state is two fields: `remindersPaused` and `lastReminderAt`.
 - **Counter**: one per user, the last invoice number handed out.
+- **ReminderLog**: one row per reminder: which invoice, which kind (3 days before, on the due date, 7 days after... or sent by hand), to whom, and whether it was sent or failed. A **unique index** on invoice, kind and day offset is what makes sure a scheduled reminder is sent once; manual reminders have no offset, so they are not limited by it.
 
 ## Main design decisions
 
@@ -267,6 +347,8 @@ erDiagram
 - **Time zones.** Times are stored in UTC; days, weeks and invoice periods are computed in the user's own time zone with Luxon's calendar arithmetic (not "24 hours × days"), so a daylight saving day is correctly 23 or 25 hours long and an entry that crosses midnight is split between the two days in the timesheet. The server never uses its own zone for this.
 - **Invoices are snapshots; numbers come from a counter; rounding happens at billing time.** Invoices copy the client, the sender, the rates and the lines, so history never changes. Numbers (`INV-0001`...) come from a per-user counter incremented inside the same transaction, so they are never reused, even after a draft is deleted. Each line is `hours × rate` rounded to cents and the total is the sum of those rounded lines, so the printed lines always add up. The rounding rule is applied only when an invoice is created: the entries keep their real durations, and the invoice stores the rule plus `rawSeconds` and `billedSeconds` per line.
 - **Public share links.** The client must see an invoice without an account, so the link carries the proof: a token of 24 random bytes (192 bits, impossible to guess) that identifies one invoice. The public answer is built field by field from a short list of what the client needs, so a field added to the invoice later can't leak by accident; no user id, entry id or other internal id is ever in it. The route is rate limited, answers `404` for anything unknown, is not cached or indexed, and the first view is recorded without ever being overwritten. The server trusts one proxy hop (`trust proxy` is 1), so the limit counts each visitor's real address and not the proxy's, and a faked `X-Forwarded-For` doesn't help. Regenerating replaces the token, so the old link dies at once. **Overdue** is computed from the due date in the owner's own time zone each time (a stored flag would be wrong the next morning), and an e-mail that fails changes nothing: the invoice is marked as sent only after the provider accepted it.
+- **Reminders without a scheduler inside the server.** Render's free tier sleeps, so a timer in the server cannot be trusted; an hourly GitHub Action calls `POST /api/cron/reminders`, which proves itself with a shared secret (compared in constant time, refused outright while the secret is missing or still the placeholder). One pass looks at every sent, unpaid invoice and works out the owner's *today* with Luxon (a New York owner is a day behind a Kolkata owner for part of every day). Each reminder is **claimed** with an insert that the unique index allows only once, and only then e-mailed, so the job can run twice, or two runs can overlap, and still send once; a failed e-mail marks its row *failed* so the next run can retry it (at most 3 times) without ever sending a second copy. If the server was away, only the latest missed reminder within 2 days goes out. *Send reminder now* is limited to once in 24 hours by an atomic update on the invoice, so two clicks at the same moment send one e-mail, and the limit is given back if the e-mail fails.
+- **Payment details are validated and escaped.** A payment link must be a full `https://` address without a password in it (so a Pay now button can never run script or leak a login), a UPI ID must look like `name@bank`, bank details are plain text; an empty value removes one. The public invoice shows the owner's *current* details, only while the invoice is unpaid, and the e-mails escape everything the owner typed.
 - **Validation and privacy.** Every route validates its input with Zod and answers errors in one shape, `{ message, errors? }`. Every record has an owner and a record that is someone else's looks like a missing one (`404`), so nobody can find out what exists.
 
 ## Tests
@@ -275,7 +357,7 @@ erDiagram
 cd backend && npm test
 ```
 
-**198 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
+**275 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
 
 | File | Tests | Covers |
 | --- | --- | --- |
@@ -287,11 +369,13 @@ cd backend && npm test
 | `timesheet.test.js` | 24 | days and week edges, splitting across midnight, daylight saving weeks, totals |
 | `invoices.test.js` | 36 | which entries are billed, line items and rounding, snapshots, **an entry never on two invoices (two identical requests, eight at once, overlapping periods, two users)**, all or nothing, the `503` without transactions, time zone day boundaries, numbering, the status flow, deleting a draft, privacy; the rounding rule on invoices |
 | `rounding.test.js` | 6 | `roundUp`: 1 s → 15 min, 15 min → 15 min, 15 min 1 s → 30 min, 0 stays 0, never rounds down |
-| `seed.test.js` | 3 | running the seed twice gives identical data, it leaves another user's data untouched, the production guard |
+| `seed.test.js` | 3 | running the seed twice gives identical data, it leaves another user's data untouched, the demo user gets reminders and payment details, the production guard |
 | `invoice-send.test.js` | 21 | sending (draft to sent, the e-mail the provider gets, typed recipient, CC, message escaped, the client's current address), no client e-mail `400`, validation, paid `409`, a failing provider `502` with the invoice untouched, sending again, privacy; the Brevo request and failures (network faked); overdue (due yesterday in Asia/Kolkata, due today, N days, paid and draft never, New York, the list and its filters) |
 | `public-invoice.test.js` | 20 | the public answer holds only what the client needs, no private data anywhere, not cached or indexed, real states, every kind of unknown token `404`, `viewedAt` set once, one token even for simultaneous requests, regenerate kills the old link, privacy between users, the rate limit, and the rate limit behind one proxy (each visitor counted by the address the proxy reports; faking `X-Forwarded-For` does not help) |
+| `payment.test.js` | 25 | saving the payment details (link, UPI ID, bank details) through `PATCH /auth/me`: only what is sent changes, an empty string removes one, the text is cleaned; the validation (https only, so no `javascript:`, `http:`, passwords or spaces; real Stripe, PayPal and Razorpay links; the UPI format; the length limits; each mistake under its own field); the "Pay now" button in the invoice e-mail only when there is a link (the details still show without one, what the owner typed is escaped); the public invoice's `payment` (empty when nothing is set up, the owner's current settings, left out once the invoice is paid, no other owner data) |
+| `reminders.test.js` | 52 | the reminder settings (defaults, limits, sorted days without repeats, nothing saved when one field is wrong); the schedule in the **owner's** time zone (Asia/Kolkata and America/New_York near midnight UTC); each reminder once (running twice, `Promise.all`, five at once, and a unique index); draft, paid, paused, no client e-mail and switched-off invoices get nothing; catch-up (only the latest, nothing older than 2 days, nothing before the day the invoice was sent); a failing provider (logged as failed, the invoice unchanged, retried, 3 attempts, one failure does not stop the rest); the cron endpoint (`401`, `503`, needs no login); *Send reminder now* (once, then `429`, again after 24 hours, two clicks at once, the 24 hours given back on failure, `409` and `400`); pause and resume; the history and the next reminder; user B cannot touch user A's reminders (`404`); the reminder e-mail (subjects, wording, "Pay now" only with a link, everything escaped) |
 
-**511 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule), and the Phase 1A checks (sending an invoice and reading the e-mail the backend prints, a failed send, the timeline, the share link, the client's view without a login, regenerating, overdue, phone layouts). Per step: 29 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings), 63 (Phase 1A).
+**573 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule), and the Phase 1A checks (sending an invoice and reading the e-mail the backend prints, a failed send, the timeline, the share link, the client's view without a login, regenerating, overdue, phone layouts), and the Phase 1B checks (the hourly job called with `curl` and its secret, a wrong secret, the reminder e-mails read from the backend's output, the Settings cards and their validation, the invoice page with the next reminder, the history, pause and send now, the bells, Pay now on the client's page and in print, phone layouts). Per step: 29 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings), 63 (Phase 1A), 62 (Phase 1B). All the older checks were run again against the Phase 1B build; one (the timeline of a paid invoice) had to be changed because the timeline got a fifth step.
 
 **Mutation checks** show the tests can actually fail. For each one I temporarily broke the code on purpose, ran the tests, and put the file back (checked against a hash of the original):
 
@@ -302,18 +386,22 @@ cd backend && npm test
 | Make the seed delete everybody's data instead of only the demo user's | 1 test fails (the other user's data test) |
 | Phase 1A, five changes: add a private field (`entryIds`) to the public invoice answer; let a later view overwrite the first; let a paid or draft invoice be overdue; let a failed e-mail still mark the invoice as sent; keep the old token when regenerating | 1, 1, 4, 2 and 1 tests fail (all five caught) |
 | Remove `app.set('trust proxy', 1)`; or change it to `true` (believe every address) | 3 and 2 tests fail |
+| Phase 1B, nine changes: let the unique index stop covering scheduled reminders; send the oldest instead of the latest missed reminder; work out "today" in UTC; widen the catch-up window to 10 days; accept the placeholder cron secret; take away the 24 hour limit; log a failed e-mail as sent; show Pay now without a link; accept a payment link that is not https | 10, 2, 2, 1, 1, 4, 6, 3 and 2 tests fail (all nine caught) |
 
-The results, 97 screenshots, sample invoice PDFs and e-mails and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
+The results, 114 screenshots, sample invoice PDFs and e-mails and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
 
 ## What is finished and what is not
 
-**Finished:** everything in the [feature checklist](#features): accounts, clients and projects, the server-side timer, manual entries with filters, the timesheet, invoices with the no-double-billing guarantee and printing to PDF, time zones, the rounding rule, Settings and the demo seed.
+**Finished:** everything in the [feature checklist](#features): accounts, clients and projects, the server-side timer, manual entries with filters, the timesheet, invoices with the no-double-billing guarantee and printing to PDF, time zones, the rounding rule, Settings and the demo seed. On the `saas` branch also: sending invoices by e-mail with a public link, the overdue status, automatic payment reminders and payment details with a Pay now button.
 
 **Not done**
 
 - No deployment yet (see the live demo line at the top).
-- Sending works through Brevo (or just logs in development), but **Brevo was never called for real here** (its request is tested with a faked network), so real delivery and how Gmail or Outlook draw the e-mail were not checked. "Paid" is set by hand: there is no online payment and no reminder e-mail for overdue invoices.
+- Sending works through Brevo (or just logs in development), but **Brevo was never called for real here** (its request is tested with a faked network), so real delivery and how Gmail or Outlook draw the e-mail were not checked. "Paid" is set by hand: there is no online payment (the **Pay now** button only opens the link you set up), so an invoice is not marked as paid when the client pays.
 - The server trusts exactly **one** proxy hop (`app.set('trust proxy', 1)`), which is right for one proxy or load balancer in front (Render, Heroku, nginx) and is tested with simulated `X-Forwarded-For` headers, but not with a real proxy. With no proxy in front a visitor could fake that header to dodge the public link's rate limit, and with two proxies in front every visitor would count as the first proxy: change the number to match the deployment.
+- **The hourly GitHub Action was never run on GitHub** (no secrets were set there). What was tested is the endpoint it calls (with `curl` and the secret against a local backend, and by the Jest tests) and the job behind it. A sleeping Render service waking up was not tried either; the workflow waits up to 3 minutes and retries to cover it.
+- Reminders go out when the hourly job runs, so on the right day for the owner but not at a chosen time of day, and GitHub may start a scheduled run a few minutes late.
+- The payment link, UPI ID and bank details are shown as typed: the UPI ID is only checked for its format, and nobody checks that a payment link works. Reminder e-mails, like invoice e-mails, were never sent for real through Brevo.
 - A draft invoice cannot be edited: delete it and create it again.
 - The PDF comes from the browser's *Print / Save as PDF*, not from the server.
 - One currency per user (USD by default), no tax, discounts or multi-currency.
@@ -325,7 +413,7 @@ The results, 97 screenshots, sample invoice PDFs and e-mails and the test code a
 **With more time I would**
 
 - deploy it (Atlas, a Node host and a static frontend) and add a health check and logging;
-- add a payment link to the invoice e-mail and send reminders for overdue invoices, and generate the PDF on the server so it looks the same everywhere;
+- take payments online (a payment gateway with a webhook that marks the invoice as paid) and generate the PDF on the server so it looks the same everywhere;
 - let a draft be edited, add tax and discount lines and several currencies;
 - add team accounts (a workspace with several members and roles);
 - add pagination, search and CSV export, and a password reset by e-mail;
@@ -346,7 +434,7 @@ I used **Claude** (Anthropic) as an AI coding assistant: to plan the build as ei
 | `POST /auth/register` | no | Body: `name` (2-50 chars), `email`, `password` (min 8). Returns `201 { user, token }`. `409` if the email is taken |
 | `POST /auth/login` | no | Body: `email`, `password`. Returns `{ user, token }`. `401` for a wrong email or password |
 | `GET /auth/me` | yes | Returns `{ user }` |
-| `PATCH /auth/me` | yes | Body: any of `name` (2-50), `timezone` (a real time zone name such as `Asia/Kolkata`) and `roundingMinutes` (`0` or `15`); at least one. Other fields are ignored. Returns `{ user }` |
+| `PATCH /auth/me` | yes | Body: any of `name` (2-50), `timezone` (a real time zone name such as `Asia/Kolkata`), `roundingMinutes` (`0` or `15`), `reminders` and `payment`; at least one. `reminders`: any of `enabled`, `beforeDueDays` (0-14, 0 means none), `onDueDate` and `afterDueDays` (up to 3 different days, each 1-60). `payment`: any of `link` (a full `https://` address, at most 500 characters), `upiId` (like `name@bank`) and `bankDetails` (plain text, at most 500); an empty string removes one. Other fields are ignored. Returns `{ user }` |
 | `GET /clients` | yes | Returns `{ clients }`, each with `projectCount` |
 | `POST /clients` | yes | Body: `name` (2-80), optional `email`, `company`. Returns `201 { client }`. `409` for a duplicate name |
 | `PATCH /clients/:id` | yes | Update any of the client fields. Returns `{ client }` |
@@ -371,9 +459,13 @@ I used **Claude** (Anthropic) as an AI coding assistant: to plan the build as ei
 | `POST /invoices/:id/send` | yes | Body: optional `to` (defaults to the client's current e-mail; `400 Add the client's email first` if there is none), `cc` (up to 5 addresses), `message` (max 1000). E-mails the invoice with a link, moves draft to sent (`sentAt`, `lastSentAt`, `sentTo`) and returns `{ invoice, sentTo, shareUrl }`. Sending again is allowed and only updates `lastSentAt`. `409 This invoice is already paid`; `502 Couldn't send the email. Try again.` (nothing changes) |
 | `POST /invoices/:id/share-link` | yes | Returns `{ shareUrl }` (`<APP_URL>/i/<token>`), making the link first if there is none; asking twice gives the same link |
 | `POST /invoices/:id/share-link/regenerate` | yes | Returns `{ shareUrl }` with a new token; the old link stops working and "viewed" starts again |
-| `GET /public/invoices/:token` | **no** | What the client sees: number, `displayStatus`, `daysOverdue`, dates, period, `from`, `client`, line items (project name, rate, hours, amount), totals, currency, rounding note and notes; nothing else (no ids). Records the first view. `404` for an unknown token, `429` after 60 requests a minute from one address. Not cached, not indexed |
+| `GET /public/invoices/:token` | **no** | What the client sees: number, `displayStatus`, `daysOverdue`, dates, period, `from`, `client`, line items (project name, rate, hours, amount), totals, currency, rounding note and notes, and `payment` (`{ link, upiId, bankDetails }`, each `null` when not set; the whole value is `null` when nothing is set up or the invoice is paid); nothing else (no ids). Records the first view. `404` for an unknown token, `429` after 60 requests a minute from one address. Not cached, not indexed |
 | `PATCH /invoices/:id/status` | yes | Body: `status` (`sent` or `paid`). Draft to sent, sent to paid or draft to paid; anything else is `409 Can't change status from X to Y`. Returns `{ invoice }` |
 | `DELETE /invoices/:id` | yes | Returns `204` and makes the invoice's entries unbilled again. Only drafts: `409 Only draft invoices can be deleted` |
+| `GET /invoices/:id/reminders` | yes | The reminders of an invoice: `{ paused, enabled, status, lastReminderAt, next, reason, history }`. `next` is the next scheduled reminder (`{ kind, offsetDays, date, daysFromNow, daysUntilDue }`) or `null`, and then `reason` says why (`paid`, `draft`, `paused`, `disabled`, `no_email` or `none_left`). `history` lists every reminder, newest first, with its status (`sent` or `failed`) |
+| `POST /invoices/:id/reminders/send-now` | yes | E-mails a reminder to the client now and returns `{ sentTo, reminder }`. `409` for a draft or paid invoice, `400 Add the client's email first`, `429 You already sent a reminder in the last 24 hours` (also after an automatic one), `502 Couldn't send the email. Try again.` (the 24 hours are given back) |
+| `PATCH /invoices/:id/reminders` | yes | Body: `paused` (`true` or `false`). Pauses or resumes the automatic reminders of this invoice. Returns `{ invoice }` |
+| `POST /cron/reminders` | **no** (a secret) | Runs the reminder job once. The header `X-Cron-Secret` must equal `CRON_SECRET` (compared in constant time). Returns `{ checked, sent, skipped, failed, ranAt }`. `401` for a wrong or missing secret, `503` while `CRON_SECRET` is not set up (empty, shorter than 16 characters or the placeholder). Safe to call as often as you like |
 
 **Errors** always look like `{ "message": "...", "errors": [{ "path": "email", "message": "..." }] }`; `errors` is only present for validation failures (`400`). A malformed `:id` returns `400 Invalid id`, a missing or invalid token returns `401`, and a record that doesn't exist or belongs to someone else returns `404`.
 
@@ -386,17 +478,18 @@ I used **Claude** (Anthropic) as an AI coding assistant: to plan the build as ei
 
 ```
 timeledger/
+├── .github/workflows/                reminders.yml: the hourly job that calls POST /api/cron/reminders
 ├── backend/
 │   ├── .env.example
 │   └── src/
 │       ├── app.js, server.js         Express app and startup
 │       ├── seed.js                   npm run seed (the command; the work is in services/seed.service.js)
 │       ├── config/                   MongoDB connection
-│       ├── models/                   User, Client, Project, TimeEntry, Invoice, Counter (invoice numbers)
-│       ├── routes/                   auth, clients, projects, timer, entries, timesheet, invoices, public (no login)
+│       ├── models/                   User, Client, Project, TimeEntry, Invoice, Counter (invoice numbers), ReminderLog
+│       ├── routes/                   auth, clients, projects, timer, entries, timesheet, invoices (with their reminders), public (no login), cron (the scheduler)
 │       ├── controllers/              request handlers
-│       ├── services/                 timer, entries, timesheet, invoice (preview, create, status, delete), invoiceSend, invoiceShare (links and the public view), invoiceStatus (overdue), email (console and Brevo providers) with emailTemplates, seed
-│       ├── middleware/               auth, validation, error handling
+│       ├── services/                 timer, entries, timesheet, invoice (preview, create, status, delete), invoiceSend, invoiceShare (links and the public view), invoiceStatus (overdue), email (console and Brevo providers) with emailTemplates (the invoice and reminder e-mails), reminder (the schedule, the job, send now), seed
+│       ├── middleware/               auth, cronSecret, validation, error handling
 │       ├── validators/               Zod schemas
 │       ├── utils/                    tokens, errors, money, ids, time zones, rounding (roundUp)
 │       └── tests/                    Jest tests
@@ -404,7 +497,7 @@ timeledger/
 │   ├── .env.example
 │   └── src/
 │       ├── api/                      axios instance and API calls
-│       ├── components/               shared UI (Modal, Button, FormField, ...)
+│       ├── components/               shared UI (Modal, Button, FormField, ...), the reminder and payment components
 │       ├── context/, hooks/          auth and timer state
 │       ├── layouts/                  AuthLayout, AppLayout (sidebar / top bar and tab bar)
 │       ├── pages/                    Login, Register, Dashboard, Clients, Projects, TimeEntries, Timesheet, Invoices, InvoiceDetail, PublicInvoice (/i/:token), Settings
@@ -419,6 +512,8 @@ timeledger/
 
 - **`503 Invoices need MongoDB transactions` when creating or deleting an invoice:** your MongoDB is a plain standalone server. Use MongoDB Atlas, or run a local MongoDB as a single-node replica set (`mongod --replSet rs0`, `rs.initiate()` once in `mongosh`, and `?replicaSet=rs0` on `MONGODB_URI`).
 - **"Couldn't send the email. Try again." when sending an invoice:** the e-mail provider refused it; the reason is in the backend's output. With Brevo check `BREVO_API_KEY`, that `EMAIL_FROM` is a sender you verified, and Brevo's *Authorised IPs*. Without any e-mail setup, leave `EMAIL_PROVIDER` unset (or `console`) while developing.
+- **`POST /api/cron/reminders` answers `503` or `401`:** `503` means `CRON_SECRET` on the server is empty, shorter than 16 characters or still the placeholder; `401` means the `X-Cron-Secret` header differs from it. In the GitHub Action the secrets `REMINDERS_URL` and `CRON_SECRET` must both be set, and `CRON_SECRET` must be the same on both sides.
+- **A reminder was not sent although you expected it:** the job only sends for invoices that are *Sent* (not draft, paid or paused), whose client has an e-mail address, with reminders switched on in Settings, and on the right day in the owner's time zone; a missed one is sent up to 2 days late, only the latest. The answer of the job (`checked`, `sent`, `skipped`, `failed`) and the invoice's *Payment reminders* section show what happened.
 - **`querySrv ECONNREFUSED` when connecting to Atlas:** Node's DNS lookup failed. The app already uses public DNS servers by default. If your network blocks them, set `DNS_SERVERS` in `backend/.env` to your network's DNS.
 - **`JWT_SECRET is not defined`:** copy `backend/.env.example` to `backend/.env` and set a long random value.
 - **Browser shows a CORS error:** make sure `FRONTEND_URL` in `backend/.env` matches the address of the frontend (default `http://localhost:5173`).
