@@ -5,6 +5,7 @@ import PageLoader from '../components/PageLoader';
 import EmptyState from '../components/EmptyState';
 import Button from '../components/Button';
 import InvoicePaper from '../components/InvoicePaper';
+import PaymentInstructions from '../components/PaymentInstructions';
 import { getPublicInvoice } from '../api/invoices';
 
 // Where "Sent with TimeLedger" leads: the start of the app (there is no separate landing page yet)
@@ -76,6 +77,7 @@ export default function PublicInvoice() {
           </div>
 
           <InvoicePaper invoice={state.invoice} />
+          <PaymentInstructions payment={state.invoice.payment} />
         </>
       )}
 
