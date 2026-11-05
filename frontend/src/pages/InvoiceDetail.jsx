@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, FileText, Link2, Printer, RefreshCw, Send, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,8 +8,9 @@ import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InvoicePaper from '../components/InvoicePaper';
 import InvoiceTimeline from '../components/InvoiceTimeline';
+import InvoiceReminders from '../components/InvoiceReminders';
 import SendInvoiceModal from '../components/SendInvoiceModal';
-import { getInvoice, updateInvoiceStatus, deleteInvoice, getShareLink, regenerateShareLink } from '../api/invoices';
+import { getInvoice, updateInvoiceStatus, deleteInvoice, getShareLink, regenerateShareLink, getInvoiceReminders } from '../api/invoices';
 import { getErrorMessage } from '../utils/errors';
 import { formatDate, formatDuration } from '../utils/time';
 
@@ -44,6 +45,7 @@ export default function InvoiceDetail() {
   const [deleting, setDeleting] = useState(false);
   const [confirmingNewLink, setConfirmingNewLink] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
+  const [reminders, setReminders] = useState(null); // what the payment reminders did and what comes next
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +67,14 @@ export default function InvoiceDetail() {
       cancelled = true;
     };
   }, [id]);
+
+  // The reminders are read again when the invoice changes in a way that matters to them (sent, paid, paused)
+  const loadReminders = useCallback(() => getInvoiceReminders(id).then(setReminders).catch(() => setReminders(null)), [id]);
+  const invoiceId = data?.invoice._id;
+  const { status, remindersPaused, lastSentAt } = data?.invoice ?? {};
+  useEffect(() => {
+    if (invoiceId) loadReminders();
+  }, [invoiceId, status, remindersPaused, lastSentAt, loadReminders]);
 
   if (notFound) {
     return (
@@ -181,7 +191,7 @@ export default function InvoiceDetail() {
       </div>
 
       <section aria-label="History and sharing" className="mx-auto mb-6 max-w-3xl space-y-5 rounded-xl border border-slate-200 bg-white p-4 sm:p-6 print:hidden" data-testid="invoice-activity">
-        <InvoiceTimeline invoice={invoice} />
+        <InvoiceTimeline invoice={invoice} reminders={reminders} />
 
         <div className="border-t border-slate-200 pt-4" data-testid="share-link">
           <p className="text-sm font-semibold text-slate-900">Share link</p>
@@ -211,6 +221,8 @@ export default function InvoiceDetail() {
           </div>
           {!invoice.shareUrl && <p className="mt-2 text-xs text-slate-500">There is no link yet. It is made when you send the invoice, or when you copy it here.</p>}
         </div>
+
+        <InvoiceReminders invoice={invoice} reminders={reminders} onReload={loadReminders} onInvoiceChange={mergeInvoice} />
       </section>
 
       <InvoicePaper invoice={invoice} />

@@ -1,11 +1,14 @@
 import { Check } from 'lucide-react';
-import { formatDate } from '../utils/time';
+import { formatDate, formatDateRange } from '../utils/time';
 
-// Created -> Sent (when, to whom) -> Viewed -> Paid, for the owner's invoice page
-export default function InvoiceTimeline({ invoice }) {
+// Created -> Sent (when, to whom) -> Reminder sent -> Viewed -> Paid, for the owner's invoice page
+// reminders: the answer of GET /invoices/:id/reminders (null while it loads)
+export default function InvoiceTimeline({ invoice, reminders = null }) {
   const date = (value) => formatDate(value, invoice.timezone);
   const resent = invoice.lastSentAt && invoice.sentAt && new Date(invoice.lastSentAt) - new Date(invoice.sentAt) > 60 * 1000;
   const sent = Boolean(invoice.sentAt);
+  const remindersSent = reminders ? reminders.history.filter((item) => item.status === 'sent').length : 0;
+  const lastReminder = reminders?.lastReminderAt ?? invoice.lastReminderAt;
 
   const steps = [
     { id: 'created', label: 'Created', done: true, when: date(invoice.issuedAt) },
@@ -17,6 +20,13 @@ export default function InvoiceTimeline({ invoice }) {
       detail: sent && invoice.sentTo ? `to ${invoice.sentTo}` : '',
       more: resent ? `Sent again ${date(invoice.lastSentAt)}` : '',
       alert: invoice.displayStatus === 'overdue' ? `${invoice.daysOverdue} ${invoice.daysOverdue === 1 ? 'day' : 'days'} overdue` : '',
+    },
+    {
+      id: 'reminder',
+      label: 'Reminder sent',
+      done: remindersSent > 0,
+      when: remindersSent > 0 ? date(lastReminder) : reminders?.next ? `Next: ${formatDateRange(reminders.next.date, reminders.next.date)}` : '—',
+      detail: remindersSent > 0 ? `${remindersSent} ${remindersSent === 1 ? 'reminder' : 'reminders'} so far` : '',
     },
     { id: 'viewed', label: 'Viewed', done: Boolean(invoice.viewedAt), when: invoice.viewedAt ? date(invoice.viewedAt) : sent ? 'Not opened yet' : '—' },
     { id: 'paid', label: 'Paid', done: Boolean(invoice.paidAt), when: invoice.paidAt ? date(invoice.paidAt) : '—' },

@@ -27,3 +27,15 @@ export const regenerateShareLink = async (id) => (await api.post(`/invoices/${id
 
 // No login needed: what a client sees at /i/:token
 export const getPublicInvoice = async (token) => (await api.get(`/public/invoices/${token}`)).data.invoice;
+
+// ----- payment reminders -----
+
+// What the reminders of one invoice did, what comes next, and whether they are paused:
+// { paused, enabled, status, reason, next, lastReminderAt, history }
+export const getInvoiceReminders = async (id) => (await api.get(`/invoices/${id}/reminders`)).data;
+
+// "Send reminder now". Returns { sentTo, reminder }. 429 when one went out in the last 24 hours.
+export const sendReminderNow = async (id) => (await api.post(`/invoices/${id}/reminders/send-now`)).data;
+
+// Pause or resume the automatic reminders of one invoice. Returns the invoice.
+export const pauseInvoiceReminders = async (id, paused) => (await api.patch(`/invoices/${id}/reminders`, { paused })).data.invoice;
