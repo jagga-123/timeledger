@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.E2E_BASE || 'http://localhost:5273';
@@ -71,7 +72,7 @@ const THIS_WEEK = mondayOf(0);
 const todayLabel = `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][wall.getUTCDay()]} ${wall.getUTCDate()}`;
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 

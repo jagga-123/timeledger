@@ -1,0 +1,83 @@
+---------- email (console provider: nothing was sent) ----------
+To:       accounts@acme.example
+Subject:  Reminder: INV-0002 is due in 3 days
+
+Invoice INV-0002 is due in 3 days
+
+Hi Acme Corp,
+
+Just a friendly reminder that invoice INV-0002 from Alex Morgan for $1,344.75 is due on 8 Nov 2026.
+
+Amount: $1,344.75
+Due date: 8 Nov 2026
+
+You can see the invoice below. If you have any questions, just reply to this e-mail to reach Alex Morgan.
+
+View the invoice:
+http://localhost:5273/i/27zvBOT5YEvdDCcOLohWuumjhA-sQirt
+
+Pay now:
+https://rzp.io/l/alex-morgan
+
+UPI ID: alex.morgan@okhdfcbank
+Bank details:
+Account name: Alex Morgan
+Bank: HDFC Bank
+Account no: 50100123456789
+IFSC: HDFC0001234
+
+-- Sent with TimeLedger on behalf of Alex Morgan
+----------------------------------------------------------------
+
+---------- email (console provider: nothing was sent) ----------
+To:       finance@initech.example
+Subject:  Reminder: INV-0003 is due in 10 days
+
+Invoice INV-0003 is due in 10 days
+
+Hi Initech,
+
+Just a friendly reminder that invoice INV-0003 from Alex Morgan for $148.50 is due on 15 Nov 2026.
+
+Amount: $148.50
+Due date: 15 Nov 2026
+
+You can see the invoice below. If you have any questions, just reply to this e-mail to reach Alex Morgan.
+
+View the invoice:
+http://localhost:5273/i/jZTgdloy6fcX9Jrq6v2qknyLtOlGFIjL
+
+Pay now:
+https://rzp.io/l/alex-morgan
+
+UPI ID: alex.morgan@okhdfcbank
+Bank details:
+Account name: Alex Morgan
+Bank: HDFC Bank
+Account no: 50100123456789
+IFSC: HDFC0001234
+
+-- Sent with TimeLedger on behalf of Alex Morgan
+----------------------------------------------------------------
+
+---------- email (console provider: nothing was sent) ----------
+To:       accounts@acme.example
+Subject:  Invoice INV-0004 from Alex Morgan
+
+Invoice INV-0004 from Alex Morgan
+
+Amount: $1,361.50
+Due date: 19 Nov 2026
+
+View the invoice:
+http://localhost:5273/i/GXXUKevEjqt506h2gdAsmnIjcR_TFEfS
+
+Pay now:
+https://rzp.io/l/alex-morgan
+
+UPI ID: alex.morgan@okhdfcbank
+Bank details:
+HDFC Bank
+
+-- Sent with TimeLedger
+----------------------------------------------------------------

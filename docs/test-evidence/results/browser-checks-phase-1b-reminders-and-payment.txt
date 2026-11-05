@@ -1,0 +1,64 @@
+PASS  npm run seed: the demo user now has reminders on and fake payment details
+PASS  the demo user: reminders 3 days before, on the due date, 7 and 14 after; a payment link, UPI ID and bank details
+PASS  the sent demo invoice INV-0002 is not paused and has no reminders yet
+PASS  curl without the secret, or with a wrong one: 401 and nothing runs  -> 401/401
+PASS  curl -X POST -H "X-Cron-Secret: ..." .../api/cron/reminders: 200 with { checked, sent, skipped, failed }  -> {"checked":1,"sent":0,"skipped":0,"failed":0,"ranAt":"2026-11-05T03:14:37.031Z"}
+PASS  Settings has a "Payment reminders" card and a "Payment details" card
+PASS  the reminder defaults: on, 3 days before, on the due date, chips 7 and 14 (30 is not picked)
+PASS  the summary line says what will happen  -> Clients get reminders 3 days before, on the due date, and 7 and 14 days after.
+PASS  Save is disabled until something changes
+PASS  the summary follows the choices at once  -> Clients get reminders 5 days before, on the due date, and 14 and 30 days after.
+PASS  Save: toast "Reminder settings saved"
+PASS  saved on the server: 5 days before, on the due date, [14, 30]  -> {"enabled":true,"beforeDueDays":5,"onDueDate":true,"afterDueDays":[14,30]}
+PASS  ...and it is still there after a reload
+PASS  switching the master toggle off: the options are disabled and the summary says reminders are off
+PASS  saved: reminders are off for this user
+PASS  the job with reminders off sends nothing (the invoice is skipped)  -> {"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:14:40.471Z"}
+PASS  Invoices list: a muted bell-off on the sent invoice ("Reminders are off in Settings")
+PASS  the payment card is filled in (from the demo data)
+PASS  an http:// link and a bad UPI ID are refused, each under its own field
+PASS  ...and nothing was saved
+PASS  a javascript: link is refused too
+PASS  valid details save: toast "Payment details saved"
+PASS  ...and are stored as typed
+PASS  test set-up: INV-0002 is made due in 3 days (the throwaway database)
+PASS  timeline: Created, Sent, Reminder sent, Viewed, Paid
+PASS  before the job: "Next reminder: today, due in 3 days", no history, and the reminder step still to come  -> Next reminder: today, due in 3 days
+PASS  the controls: a "Pause reminders" switch and a "Send reminder now" button
+PASS  the job (curl with the secret): 1 reminder sent  -> {"checked":1,"sent":1,"skipped":0,"failed":0,"ranAt":"2026-11-05T03:14:46.067Z"}
+PASS  the e-mail: to the client, "Reminder: INV-0002 is due in 3 days", the amount, a link to the invoice, Pay now and the UPI ID  -> ["Reminder: INV-0002 is due in 3 days"]
+PASS  calling the job again (an hourly scheduler does) sends nothing more  -> {"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:14:46.156Z"}
+PASS  the page shows the reminder: "3 days before the due date", to the client, Sent  -> 3 days before the due date 5 Nov 2026 · to accounts@acme.example Sent
+PASS  the timeline now has "Reminder sent" with a date and "1 reminder so far"  -> Reminder sent 5 Nov 2026 1 reminder so far
+PASS  the next one is on the due date  -> Next reminder: 8 Nov 2026, on the due date
+PASS  "Send reminder now" within 24 hours of the automatic one: toast "You already sent a reminder in the last 24 hours", no e-mail
+PASS  a draft: "Reminders start once the invoice has been sent." and no pause or send buttons
+PASS  a paid invoice: "This invoice is paid, so there are no more reminders." and no buttons
+PASS  INV-0003 (due in 10 days): "Next reminder: <date>, due in 3 days"  -> Next reminder: 12 Nov 2026, due in 3 days
+PASS  when the e-mail provider fails: toast "Couldn't send the email. Try again." and nothing is sent
+PASS  "Send reminder now": toast "Reminder sent to finance@initech.example"
+PASS  the e-mail went out (due in 10 days), the history says "Sent by you", and the timeline has the reminder  -> ["Reminder: INV-0003 is due in 10 days"]
+PASS  "Pause reminders": toast, the switch is on, and the page says reminders are paused  -> Reminders are paused for this invoice.
+PASS  saved on the server (remindersPaused)
+PASS  Invoices list: a bell on INV-0002, a muted bell-off on the paused INV-0003, none on the draft and the paid invoice  -> {"INV-0004":"none","INV-0003":"reminders-off","INV-0002":"reminders-on","INV-0001":"none"}
+PASS  ...the active bell is indigo and the paused one is muted grey  -> {"on":"oklch(0.511 0.262 276.966)","off":"oklch(0.869 0.022 252.894)"}
+PASS  the job skips a paused invoice (not even looked at)  -> {"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:15:02.820Z"}
+PASS  "Pause reminders" off again: toast "Reminders resumed"
+PASS  after resuming, the job sends the reminder that is due (and it counts as the day-of-send guard allows)  -> {"checked":2,"sent":0,"skipped":2,"failed":0,"ranAt":"2026-11-05T03:15:06.100Z"}
+PASS  the public invoice has a green "Pay now" button that opens the payment link in a new tab, safely  -> {"href":"https://rzp.io/l/alex-morgan","target":"_blank","rel":"noopener noreferrer","text":"Pay now","details":"OR PAY BY UPI alex.morgan@okhdfcbank BANK DETAILS Account name: Alex Morgan Bank: HDFC Bank Account no: 50100123456789 IFSC: HDFC0001234","heading":"Pay this invoice","bg":"oklch(0.596 0.145 163.225)"}
+PASS  ...with the UPI ID and the bank details below it  -> OR PAY BY UPI alex.morgan@okhdfcbank BANK DETAILS Account name: Alex Morgan Bank: HDFC Bank Account no: 50100123456789 IFSC: HDFC0001234
+PASS  the order on the page: the invoice, then Pay now, then the details
+PASS  when printed: the Pay now button is hidden and the UPI / bank details stay on the page (one A4 page)  -> {"button":"none","details":"block","pages":1}
+PASS  black box: the public JSON has payment { link, upiId, bankDetails } and no other owner data
+PASS  without a payment link: no Pay now button, but the heading is "How to pay" and the UPI / bank details are there
+PASS  with nothing set up: no payment block at all
+PASS  a PAID invoice shows no payment block, even though the owner has payment details
+PASS  the invoice e-mail (Send invoice) has Pay now and the UPI ID as well
+PASS  Phone: the Settings page with the reminder and payment cards fits the screen  -> off=0
+PASS  Phone: the invoice page with the reminders fits, and the 5-step timeline is vertical  -> {"five":5,"stacked":true} off=0
+PASS  Phone: the invoices list with the bells fits the screen
+PASS  Phone: the Pay now button is full width, inside the screen, and nothing runs off the edge  -> {"left":37,"right":338,"width":301}
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL PHASE 1B BROWSER CHECKS PASSED

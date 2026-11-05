@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync } from 'node:fs';
 
@@ -81,7 +82,7 @@ const istDateKey = (offsetDays = 0) => {
 };
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 

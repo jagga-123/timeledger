@@ -8,8 +8,9 @@ import Project from '../models/Project.js';
 import TimeEntry from '../models/TimeEntry.js';
 import Invoice from '../models/Invoice.js';
 import Counter from '../models/Counter.js';
+import ReminderLog from '../models/ReminderLog.js';
 import * as invoiceService from '../services/invoice.service.js';
-import { DEMO_USER, assertSeedAllowed, seedDemo } from '../services/seed.service.js';
+import { DEMO_PAYMENT, DEMO_USER, assertSeedAllowed, seedDemo } from '../services/seed.service.js';
 
 const ZONE = 'Asia/Kolkata';
 // A Wednesday afternoon in the past: the same "today" every time the tests run, so the data is the same too
@@ -51,11 +52,13 @@ describe('seed', () => {
     const demoId = (await User.findOne({ email: DEMO_USER.email }))._id;
 
     // whatever happened to the demo user in between (a new name, rounding switched on) is reset by the next run
-    await User.updateOne({ email: DEMO_USER.email }, { name: 'Someone Else', roundingMinutes: 15 });
+    await User.updateOne({ email: DEMO_USER.email }, { name: 'Someone Else', roundingMinutes: 15, 'reminders.enabled': false, 'payment.link': '' });
+    await ReminderLog.create({ invoiceId: new mongoose.Types.ObjectId(), userId: demoId, kind: 'manual', to: 'old@example.com' }); // a reminder from before the re-seed
 
     const second = await seedDemo({ now: NOW });
     expect(await countAll()).toEqual(countsAfterFirst);
     expect(second).toEqual(first);
+    expect(await ReminderLog.countDocuments()).toBe(0); // the demo user's reminder history is wiped with the rest of their data
     expect((await User.findOne({ email: DEMO_USER.email }))._id).toEqual(demoId); // the same user, reset
 
     expect(countsAfterFirst).toMatchObject({ users: 1, clients: 3, projects: 4, invoices: 2, counters: 1 });
@@ -64,6 +67,9 @@ describe('seed', () => {
     // the user
     const user = await User.findOne({ email: DEMO_USER.email });
     expect(user).toMatchObject({ name: 'Alex Morgan', timezone: 'Asia/Kolkata', currency: 'USD', roundingMinutes: 0 });
+    // reminders on with the defaults, and fake payment details so the demo shows "Pay now"
+    expect(user.reminders.toObject()).toEqual({ enabled: true, beforeDueDays: 3, onDueDate: true, afterDueDays: [7, 14] });
+    expect(user.payment.toObject()).toEqual({ ...DEMO_PAYMENT });
     expect(await bcrypt.compare('Demo@1234', user.passwordHash)).toBe(true);
 
     // clients and project rates

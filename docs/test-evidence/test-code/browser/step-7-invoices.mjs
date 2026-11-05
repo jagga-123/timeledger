@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const BASE = process.env.E2E_BASE || 'http://localhost:5273';
@@ -88,7 +89,7 @@ const dmy = (isoOrDate) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ko
 const money = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 

@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.E2E_BASE || 'http://localhost:5273';
@@ -36,7 +37,7 @@ const mobileApp = (await call('POST', '/projects', T, { name: 'Mobile app', clie
 const branding = (await call('POST', '/projects', T, { name: 'Branding', clientId: globex._id, hourlyRate: 80, color: '#F59E0B' })).body.project;
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 

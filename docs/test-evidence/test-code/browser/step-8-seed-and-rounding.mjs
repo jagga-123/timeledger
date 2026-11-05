@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -82,7 +83,7 @@ const expectedInvoice = (entries, rates, clientId, from, to, rounding) => {
 };
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 

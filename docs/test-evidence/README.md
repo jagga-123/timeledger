@@ -1,22 +1,23 @@
-# TimeLedger: test evidence (Steps 1-8 and Phase 1A)
+# TimeLedger: test evidence (Steps 1-8, Phase 1A and Phase 1B)
 
-Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-11-04 10:23.
+Everything that was run to check the app, in one folder: the results, every screenshot, and the test code itself. Generated 2026-11-05 09:13.
 
 ## Start here
 
 | Open this | To see |
 | --- | --- |
 | [test-report.html](test-report.html) | The whole report in one page: summary, every test, all screenshots (click one to zoom). Double-click it to open in a browser. |
-| [screenshots/](screenshots) | 97 screenshots taken by the browser tests, as separate PNG files. |
+| [screenshots/](screenshots) | 114 screenshots taken by the browser tests, as separate PNG files. |
 | [results/](results) | The raw output of each test run (text and JSON). |
-| [sample-pdfs/](sample-pdfs) | Two invoices exactly as the browser's "Save as PDF" engine produced them (a one-page invoice, and a 36-project invoice over three pages). |
+| [sample-pdfs/](sample-pdfs) | Invoices exactly as the browser's "Save as PDF" engine produced them (a one-page invoice, a 36-project invoice over three pages, and the client's public page with the payment details). |
+| [sample-emails/](sample-emails) | The invoice e-mail, the reminder e-mails and the invoice e-mail with "Pay now" (HTML and text), and what the `console` provider printed. |
 | [test-code/](test-code) | The test files that were run. |
 
 ## Summary
 
 | Check | Result |
 | --- | --- |
-| Backend tests (Jest + Supertest) | **198/198 passed** |
+| Backend tests (Jest + Supertest) | **275/275 passed** |
 | Browser checks, Step 2 (auth) | **29/29 passed** |
 | Browser checks, Step 3 (layout, clients, projects) | **62/62 passed** |
 | Browser checks, Step 4 (timer) | **73/73 passed** |
@@ -25,13 +26,15 @@ Everything that was run to check the app, in one folder: the results, every scre
 | Browser checks, Step 7 (invoices) | **85/85 passed** |
 | Browser checks, Step 8 (demo seed data, rounding, settings) | **63/63 passed** |
 | Browser checks, Phase 1A (send by e-mail, public link, overdue) | **63/63 passed** |
+| Browser checks, Phase 1B (payment reminders, payment details, Pay now) | **62/62 passed** |
+| Mutation checks, Phase 1B (the unique index that stops a double send, the oldest instead of the latest missed reminder, "today" in UTC, a 10-day catch-up, the placeholder cron secret accepted, no 24 hour limit, a failed e-mail logged as sent, Pay now without a link, a payment link that need not be https) | **9 of 9 caught** (10, 2, 2, 1, 1, 4, 6, 3 and 2 tests fail; [results/mutation-checks-phase-1b.txt](results/mutation-checks-phase-1b.txt)); restored byte for byte, all pass |
 | Mutation checks, Phase 1A (a private field leaking, a view overwritten, a paid invoice overdue, a failed e-mail changing the status, a link that is not replaced) | **5 of 5 caught** ([results/mutation-checks-phase-1a.txt](results/mutation-checks-phase-1a.txt)); restored, all pass |
 | Mutation checks, trust proxy (the setting removed; the setting changed to trust every address) | **both caught** (3 and 2 tests fail; [results/mutation-checks-trust-proxy.txt](results/mutation-checks-trust-proxy.txt)); restored, all pass |
 | Mutation checks, Step 8 (rounding to nearest instead of up, a seed that deletes everybody's data) | **7 and 1 tests fail** ([results/mutation-checks-step-8.txt](results/mutation-checks-step-8.txt)); restored, all pass |
 | Mutation check: taking the "not billed yet" guard out of the claim | **5 tests fail** ([results/mutation-check-double-billing.txt](results/mutation-check-double-billing.txt)); with the guard restored 32/32 pass |
 | Frontend production build | passed |
 
-Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft Windows 11 Home Single Language.
+Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.58, Microsoft Windows 11 Home Single Language.
 
 ## How the tests were run
 
@@ -45,8 +48,20 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - **The dashboard cards were wider than a phone screen** (since Step 6): the This week and Today cards ran off the right edge. Looking at the new screenshots showed it; the old "no sideways scroll" check could not, because on a phone the page width grows with the content and the check compared the page with that grown width. It now compares with the real screen width and also looks at every element on the page. Fixed with one class (`grid-cols-1`).
 - **Test start-up was slow on a busy computer.** Every test file starts its own in-memory MongoDB; with nine files at once some did not start within the default 10 seconds. Jest now runs at most 4 files at a time with a 60 second limit.
 
+## What the checks showed while building Phase 1B
+
+- **Old expectations that the new screen correctly broke.** The Phase 1A check "all steps of the paid invoice's timeline are done" failed, because the timeline now has a fifth step, *Reminder sent*, and the paid demo invoice never got a reminder. It now looks at the four steps by name and also checks that no reminder was sent. All other Step 2-8 and Phase 1A checks passed unchanged (511 checks, rerun against the Phase 1B build).
+- **Two of the new browser checks raced the page.** The invoice page's reminders section appears with "Loading reminders..." before its own request has finished; two checks read it too early (one failed, one crashed the script). The checks now wait for the real text. The app was fine: a separate look at a draft invoice showed the right text and no buttons.
+- **The browser could no longer be started the old way.** With the installed Edge (156.0.4314.58) `puppeteer.launch()` stopped working ("Failed to launch the browser process: Code: 0"), although Edge itself runs. The scripts now start Edge themselves and connect to it ([test-code/browser/launch-edge.mjs](test-code/browser/launch-edge.mjs)); every script, old and new, was rerun this way.
+- **Design choices the tests pin down** (each one has a test, and most a mutation check): a reminder is claimed in the database before the e-mail goes out, so two job runs at the same moment send one e-mail; only the latest missed reminder is sent (never a burst), and nothing older than 2 days; "today" is the owner's day (Kolkata and New York near midnight UTC); no reminder is ever scheduled on or before the day the invoice was sent; a failed e-mail is logged as failed and tried again by the next run (3 attempts at most); "Send reminder now" is limited to one per invoice per 24 hours, even for two clicks at the same moment.
+
 ## What was NOT tested
 
+- **The GitHub Action was never run on GitHub.** The workflow file was written and read, but its secrets (`REMINDERS_URL`, `CRON_SECRET`) were not set and nothing ran there. What was tested is the endpoint it calls (with curl and the secret against a local backend, and by the Jest tests) and the job itself. GitHub's scheduler can start a run late, and a sleeping Render service waking up (the workflow waits 3 minutes and retries) was not tried.
+- **No real reminder e-mail was sent** (Brevo, see below). The reminder and invoice e-mails with "Pay now" were rendered in Edge and read from the `console` provider's output only.
+- **The "Pay now" link was never followed**: it points to an example address. There is no payment gateway, no webhook, and "Paid" is still set by hand. The UPI ID is only checked for its format (it cannot be known whether such an account exists); bank details are free text.
+- In the browser, the dates the reminders depend on (an invoice's due date and the day it was sent) were moved in the throwaway database, because no screen can change them. The schedule itself is tested by Jest with a fixed "now" (a time zone test for Asia/Kolkata and America/New_York near midnight UTC, catch-up, paused, disabled, paid, draft, no client e-mail).
+- The "which day is it" rule was tested in two time zones (Asia/Kolkata and America/New_York) and in UTC for the mutation check; other zones use the same code.
 - The frontend components have no unit tests; they are only covered by the browser checks above.
 - Only Microsoft Edge was used (no Firefox or Safari, no real phone; phone layouts were checked at a 375px-wide window).
 - No load, performance or security-scanning tests.
@@ -66,59 +81,129 @@ Environment: Node v22.22.1, npm 10.9.4, Microsoft Edge 156.0.4314.42, Microsoft 
 - To get an overdue invoice in the browser, the due date of one demo invoice was moved back in the throwaway database (no screen can change a due date). The overdue rule itself is checked by the backend tests (due yesterday, due today, paid, draft, New York).
 - The rate limit on the public link (60 requests a minute per address) is tested directly, and behind one proxy (`app.set('trust proxy', 1)`: each visitor is counted by the address the proxy reports, and faking `X-Forwarded-For` doesn't help). A real proxy or load balancer, and a setup with two proxies in front (the setting trusts one hop), were not tested.
 - Copying the share link to the clipboard was checked in headless Edge (the clipboard could be read there); other browsers use the same code with a fallback for pages that are not HTTPS, which was not tested.
-- Invoices only have a status you set by hand (Draft, Sent, Paid): nothing is e-mailed, and there is no online payment, tax, discount or currency conversion.
+- "Paid" is a status you set by hand: there is no online payment, tax, discount or currency conversion.
 - The timer in the browser tab title is updated by the page, and browsers slow down timers in background tabs, so a hidden tab may update its title less often than once a second. The elapsed time itself is always correct when you look at it. Not tested.
 - The MongoDB Atlas connection was checked once by hand (a read-only ping), not by an automated test.
-- `npm run seed` is still a placeholder.
 
-## Backend tests (198)
+## Backend tests (275)
 
 Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-jest-output.txt](results/backend-jest-output.txt).
 
-### `seed.test.js` (3 tests)
+### `auth.test.js` (15 tests)
 
-**seed**
+**POST /api/auth/register**
 
-- ✅ can be run again and again: same counts, same invoices, and the data looks like the brief
-- ✅ does not delete or change another user's data
-- ✅ refuses to run in production unless SEED_ALLOW=true
+- ✅ creates a user and returns { user, token } without the password hash
+- ✅ returns 409 for a duplicate email (case-insensitive)
+- ✅ returns 400 with field-wise errors for invalid input
 
-### `public-invoice.test.js` (20 tests)
+**POST /api/auth/login**
 
-**GET /api/public/invoices/:token**
+- ✅ returns { user, token } for correct credentials
+- ✅ returns 401 for a wrong password
 
-- ✅ shows the invoice to anybody with the link: no login, and only what the client needs
-- ✅ is not cached or indexed
-- ✅ shows the real state: sent, overdue (with the days) and paid
-- ✅ answers 404 for a token that does not exist, however it is written
-- ✅ a token query can't be turned into a database query
-- ✅ an invoice that has no link yet is not reachable
+**GET /api/auth/me**
 
-**viewedAt**
+- ✅ returns 401 without a token
+- ✅ returns 401 for an invalid token
+- ✅ returns the current user with a valid token
 
-- ✅ is set the first time the client opens the link and never overwritten
-- ✅ an unknown token or the owner's own login never sets it
+**PATCH /api/auth/me (time zone)**
 
-**share links**
+- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
+- ✅ rejects an unknown time zone and a missing value
+- ✅ requires a token
 
-- ✅ POST /:id/share-link makes the link once and gives the same one every time, even when asked at the same moment
-- ✅ the invoice page data has the link (and no raw token), the list has neither
-- ✅ every invoice gets its own token
-- ✅ regenerate makes a new link and the old one stops working at once
-- ✅ regenerate starts "viewed" again, because the new link has not been opened yet
-- ✅ is private: user B can't get or regenerate user A's link (404), and a login is needed
-- ✅ the link made by sending an email opens the invoice
-- ✅ a deleted draft takes its link with it
+**PATCH /api/auth/me (name and rounding rule)**
 
-**rate limit on the public route**
+- ✅ has rounding off by default and saves 15 and 0
+- ✅ rejects any other rounding value
+- ✅ changes the name (trimmed) with the same rules as when registering
+- ✅ changes several things at once, needs at least one, and ignores everything else
 
-- ✅ answers 429 after 60 requests in a minute from one address, and only for this route
+### `reminders.test.js` (52 tests)
 
-**trust proxy (the app runs behind one proxy or load balancer)**
+**the schedule (3 days before, on the due date, 7 and 14 days after)**
 
-- ✅ is set to 1 proxy hop
-- ✅ the rate limit counts each visitor by the address the proxy reports, not by the proxy
-- ✅ a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts
+- ✅ before_due: sent 3 days before the due date, with the right words, link and recipient
+- ✅ on_due: sent on the due date
+- ✅ overdue: sent 7 days and 14 days after the due date, and not on the days in between
+- ✅ follows the owner's own settings: 5 days before, no due-date reminder, 2 and 30 days after
+- ✅ a day is counted in the OWNER's time zone: Kolkata and New York near midnight UTC
+- ✅ the same instant is a different day for each owner: 03:30 UTC is already 10 March in Kolkata but still 9 March in New York
+
+**a reminder is never sent twice**
+
+- ✅ running the job twice (and again) sends it once
+- ✅ two runs at the same moment (Promise.all) send it once, and so do five
+- ✅ the database itself refuses a second row for the same reminder; manual reminders are not limited
+
+**nothing is sent for ...**
+
+- ✅ a paid invoice, a draft, a paused invoice
+- ✅ a client with no e-mail address
+- ✅ an owner who switched reminders off, or has no reminder turned on at all
+- ✅ an invoice that was sent on the very day a reminder would go out (the client just got it)
+- ✅ an invoice whose reminder day is far away
+- ✅ an owner whose reminder was just sent by hand (not 2 in one day)
+- ✅ an invoice that is paid or paused after the job looked at it (nothing is sent, nothing is left claimed)
+
+**catch-up when the job did not run on the day (the server was asleep)**
+
+- ✅ a missed reminder is still sent up to 2 days late, with the words for today ("1 day overdue")
+- ✅ nothing older than 2 days is sent
+- ✅ only the LATEST missed reminder is sent, never a burst of old ones
+- ✅ does not send a reminder for a day before the invoice was sent, however late the job is
+
+**when the e-mail provider fails**
+
+- ✅ the log says "failed", the invoice is unchanged, and nothing was sent
+- ✅ a failed reminder is tried again by the next run, and then sent exactly once
+- ✅ gives up after 3 attempts (the row stays "failed")
+- ✅ one failure does not stop the others in the same run
+
+**POST /api/cron/reminders**
+
+- ✅ answers 401 without the secret and with a wrong one (also a different length), and runs nothing
+- ✅ with the right secret it runs the job and returns { checked, sent, skipped, failed }
+- ✅ is not open when the secret is missing on the server, too short, or still the placeholder (503, even with a matching header)
+- ✅ needs POST, and needs no login
+
+**POST /api/invoices/:id/reminders/send-now**
+
+- ✅ sends a reminder at once, once: the second time within 24 hours is 429
+- ✅ can be sent again once 24 hours have passed (and not before)
+- ✅ two clicks at the same moment send one e-mail
+- ✅ an automatic reminder counts too: no manual one within 24 hours of it
+- ✅ words follow the day: due today, overdue
+- ✅ when the provider fails: 502, and the 24 hours are given back so it can be tried again
+- ✅ a paid invoice and a draft are refused (409), and a client without an e-mail is 400
+- ✅ is private: user B can't send, read or pause user A's reminders (404), and a login is needed
+
+**pausing, and what the invoice page shows**
+
+- ✅ PATCH { paused } pauses and resumes the automatic reminders of one invoice
+- ✅ refuses anything but true or false
+- ✅ GET /reminders has the history (newest first, failures included) and the next reminder
+- ✅ "next" skips what was already sent, and says why there is none
+
+**reminder settings**
+
+- ✅ a user starts with: on, 3 days before, on the due date, 7 and 14 days after
+- ✅ saves any of them, changes only what is sent, and sorts the days after the due date
+- ✅ beforeDueDays is a whole number from 0 (off) to 14
+- ✅ afterDueDays: 1 to 60 each, at most 3, no repeats
+- ✅ enabled and onDueDate must be true or false; an empty group is refused; nothing is saved when one field is wrong
+- ✅ users saved before reminders existed get the defaults (nothing is missing in the job)
+
+**the reminder e-mail**
+
+- ✅ has a different subject for each situation (singular and plural)
+- ✅ is friendly, has the amount, the due date, the freelancer and a View invoice button, in HTML and in text
+- ✅ an overdue one says how long, and that a payment already made can be ignored
+- ✅ shows "Pay now" only when the owner has a payment link, and the UPI ID and bank details below it
+- ✅ escapes what people typed (the client's name, the freelancer's name, the bank details)
+- ✅ when the job sends it, "Pay now" follows the owner's current payment link
 
 ### `invoices.test.js` (36 tests)
 
@@ -235,103 +320,127 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns 400 "Invalid id" for malformed ids
 - ✅ requires authentication
 
-### `entries.test.js` (28 tests)
+### `timer.test.js` (25 tests)
 
-**POST /api/entries**
+**POST /api/timer/start and GET /api/timer**
 
-- ✅ creates a manual entry with the right duration and the project's client
-- ✅ is billable by default, copies the client of whichever project is chosen, and stores UTC
-- ✅ validates required fields, date formats and field lengths
-- ✅ rejects another user's project and an archived project
+- ✅ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it
+- ✅ returns { timer: null, serverTime } when nothing is running
+- ✅ defaults to billable with an empty description
+- ✅ returns 409 when a timer is already running
+- ✅ lets exactly one of two simultaneous start requests win
+- ✅ still allows only one when many requests arrive at once
+- ✅ allows different users to run timers at the same time
+- ✅ rejects another user's project with 400 'Project not found'
+- ✅ rejects an archived project and a project that does not exist
+- ✅ validates the body
 
-**POST /api/entries > time rules**
+**one running timer per user is enforced by the database**
 
-- ✅ rejects an end before the start, and a zero-length entry
-- ✅ rejects an entry longer than 24 hours but accepts exactly 24 hours
-- ✅ rejects an end time in the future, with 1 minute of clock difference allowed
+- ✅ has a partial unique index on userId for entries with endedAt: null
+- ✅ rejects a second running entry even when the service is bypassed
 
-**PATCH /api/entries/:id**
+**POST /api/timer/stop**
 
-- ✅ recalculates the duration when the times change
-- ✅ checks the new time against the existing one when only one time is sent
-- ✅ copies the new project's client when the project changes
-- ✅ can change just the description and billable flag, leaving the times alone
-- ✅ rejects another user's project, and edits stopped timer entries like any other
-- ✅ returns 409 for a billed entry and leaves it unchanged
-- ✅ returns 409 "Stop the timer first" for the running timer
-- ✅ returns 404 for an unknown id and 400 for a malformed one
+- ✅ calculates durationSeconds from startedAt and endedAt
+- ✅ keeps very short entries (duration can be 0)
+- ✅ returns 404 'No timer is running' when nothing is running
+- ✅ lets only one of two simultaneous stop requests succeed
+- ✅ lets the user start a new timer after stopping
 
-**DELETE /api/entries/:id**
+**PATCH /api/timer**
 
-- ✅ deletes an entry
-- ✅ returns 409 for a billed entry
-- ✅ returns 409 "Stop the timer first" for the running timer
+- ✅ updates description and billable of the running timer
+- ✅ can move the running timer to another of my projects (clientId follows)
+- ✅ rejects another user's project, bad input, and an empty patch is harmless
+- ✅ returns 404 when no timer is running and never edits a stopped entry
 
-**users can't touch each other's entries**
+**users can't touch each other's timers**
 
-- ✅ user A cannot see, edit or delete user B's entries (404)
-- ✅ user A cannot create an entry on user B's project
+- ✅ user A cannot see, stop or edit user B's timer
 - ✅ requires authentication
 
 **GET /api/entries**
 
-- ✅ lists finished entries newest first, without the running timer or other users' entries
-- ✅ calculates totals, including the billable amount from each project rate
-- ✅ filters by billable
-- ✅ filters by status (unbilled, billed, all)
-- ✅ combines filters and filters by client, project and date range
-- ✅ with overlap=true, from/to also match entries that start before the range or run past it
-- ✅ rejects invalid filters
+- ✅ lists only my stopped entries inside the range, newest first, with project and client names
+- ✅ rejects a malformed date
 
-### `auth.test.js` (15 tests)
+### `public-invoice.test.js` (20 tests)
 
-**POST /api/auth/register**
+**GET /api/public/invoices/:token**
 
-- ✅ creates a user and returns { user, token } without the password hash
-- ✅ returns 409 for a duplicate email (case-insensitive)
-- ✅ returns 400 with field-wise errors for invalid input
+- ✅ shows the invoice to anybody with the link: no login, and only what the client needs
+- ✅ is not cached or indexed
+- ✅ shows the real state: sent, overdue (with the days) and paid
+- ✅ answers 404 for a token that does not exist, however it is written
+- ✅ a token query can't be turned into a database query
+- ✅ an invoice that has no link yet is not reachable
 
-**POST /api/auth/login**
+**viewedAt**
 
-- ✅ returns { user, token } for correct credentials
-- ✅ returns 401 for a wrong password
+- ✅ is set the first time the client opens the link and never overwritten
+- ✅ an unknown token or the owner's own login never sets it
 
-**GET /api/auth/me**
+**share links**
 
-- ✅ returns 401 without a token
-- ✅ returns 401 for an invalid token
-- ✅ returns the current user with a valid token
+- ✅ POST /:id/share-link makes the link once and gives the same one every time, even when asked at the same moment
+- ✅ the invoice page data has the link (and no raw token), the list has neither
+- ✅ every invoice gets its own token
+- ✅ regenerate makes a new link and the old one stops working at once
+- ✅ regenerate starts "viewed" again, because the new link has not been opened yet
+- ✅ is private: user B can't get or regenerate user A's link (404), and a login is needed
+- ✅ the link made by sending an email opens the invoice
+- ✅ a deleted draft takes its link with it
 
-**PATCH /api/auth/me (time zone)**
+**rate limit on the public route**
 
-- ✅ saves a valid time zone, including names Intl.supportedValuesOf leaves out
-- ✅ rejects an unknown time zone and a missing value
-- ✅ requires a token
+- ✅ answers 429 after 60 requests in a minute from one address, and only for this route
 
-**PATCH /api/auth/me (name and rounding rule)**
+**trust proxy (the app runs behind one proxy or load balancer)**
 
-- ✅ has rounding off by default and saves 15 and 0
-- ✅ rejects any other rounding value
-- ✅ changes the name (trimmed) with the same rules as when registering
-- ✅ changes several things at once, needs at least one, and ignores everything else
+- ✅ is set to 1 proxy hop
+- ✅ the rate limit counts each visitor by the address the proxy reports, not by the proxy
+- ✅ a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts
 
-### `health.test.js` (2 tests)
+### `invoice-send.test.js` (21 tests)
 
-**GET /api/health**
+**POST /api/invoices/:id/send**
 
-- ✅ returns status ok
-- ✅ returns a JSON error for unknown routes
+- ✅ emails the client with a link, and moves the invoice from draft to sent
+- ✅ sends to the address typed in, copies others, and puts the personal message in both versions (escaped in the HTML)
+- ✅ goes to the client's email as it is now when it was corrected after the invoice was made
+- ✅ needs somebody to send it to: 400 "Add the client's email first", nothing is sent, nothing changes
+- ✅ validates the addresses and the message
+- ✅ refuses a paid invoice (409) and sends nothing
+- ✅ when the provider fails: 502 "Couldn't send the email. Try again." and the invoice is left as it was
+- ✅ can be sent again: only lastSentAt (and the recipient) change, sentAt stays and the same link is used
+- ✅ an overdue invoice can be sent again too, and stays overdue
+- ✅ is private: user B can't send user A's invoice (404, nothing is sent), and a login is needed
 
-### `rounding.test.js` (6 tests)
+**email providers**
 
-**roundUp(seconds, minutes)**
+- ✅ brevo: one POST to the transactional API with the key in a header and the whole email in the body
+- ✅ brevo: an error answer, a network failure or a missing key all become an EmailError (and the key is never in the message)
+- ✅ through the API: Brevo refusing the email gives 502 and leaves the invoice a draft
+- ✅ console is the default while developing; in production an unset provider is an error, not a silent log
 
-- ✅ rounds up to the next block of 15 minutes
-- ✅ keeps an exact multiple as it is, and goes up a whole block one second after it
-- ✅ keeps an empty entry at 0
-- ✅ does nothing when rounding is off (0 minutes or no value)
-- ✅ never goes below 0 and never rounds down
-- ✅ works for other block sizes too
+**overdue**
+
+- ✅ a sent invoice that was due yesterday (Asia/Kolkata) is overdue by 1 day
+- ✅ due today is not overdue yet, even at 00:00 today; one minute earlier is
+- ✅ counts the days: due 5 days ago is 5 days overdue
+- ✅ a paid invoice is never overdue, and neither is a draft
+- ✅ uses the user's own time zone: 23:00 yesterday in New York is overdue for a New York user
+- ✅ GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it
+- ✅ marking it paid ends the overdue state
+
+### `seed.test.js` (3 tests)
+
+**seed**
+
+- ✅ can be run again and again: same counts, same invoices, and the data looks like the brief
+- ✅ does not delete or change another user's data
+- ✅ refuses to run in production unless SEED_ALLOW=true
 
 ### `timesheet.test.js` (24 tests)
 
@@ -380,82 +489,110 @@ Source: [test-code/backend/](test-code/backend). Raw output: [results/backend-je
 - ✅ returns zeros for an entry outside the week or touching it only at an edge
 - ✅ accepts Date objects as well as timestamps, and always returns 7 numbers
 
-### `timer.test.js` (25 tests)
+### `rounding.test.js` (6 tests)
 
-**POST /api/timer/start and GET /api/timer**
+**roundUp(seconds, minutes)**
 
-- ✅ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it
-- ✅ returns { timer: null, serverTime } when nothing is running
-- ✅ defaults to billable with an empty description
-- ✅ returns 409 when a timer is already running
-- ✅ lets exactly one of two simultaneous start requests win
-- ✅ still allows only one when many requests arrive at once
-- ✅ allows different users to run timers at the same time
-- ✅ rejects another user's project with 400 'Project not found'
-- ✅ rejects an archived project and a project that does not exist
-- ✅ validates the body
+- ✅ rounds up to the next block of 15 minutes
+- ✅ keeps an exact multiple as it is, and goes up a whole block one second after it
+- ✅ keeps an empty entry at 0
+- ✅ does nothing when rounding is off (0 minutes or no value)
+- ✅ never goes below 0 and never rounds down
+- ✅ works for other block sizes too
 
-**one running timer per user is enforced by the database**
+### `health.test.js` (2 tests)
 
-- ✅ has a partial unique index on userId for entries with endedAt: null
-- ✅ rejects a second running entry even when the service is bypassed
+**GET /api/health**
 
-**POST /api/timer/stop**
+- ✅ returns status ok
+- ✅ returns a JSON error for unknown routes
 
-- ✅ calculates durationSeconds from startedAt and endedAt
-- ✅ keeps very short entries (duration can be 0)
-- ✅ returns 404 'No timer is running' when nothing is running
-- ✅ lets only one of two simultaneous stop requests succeed
-- ✅ lets the user start a new timer after stopping
+### `entries.test.js` (28 tests)
 
-**PATCH /api/timer**
+**POST /api/entries**
 
-- ✅ updates description and billable of the running timer
-- ✅ can move the running timer to another of my projects (clientId follows)
-- ✅ rejects another user's project, bad input, and an empty patch is harmless
-- ✅ returns 404 when no timer is running and never edits a stopped entry
+- ✅ creates a manual entry with the right duration and the project's client
+- ✅ is billable by default, copies the client of whichever project is chosen, and stores UTC
+- ✅ validates required fields, date formats and field lengths
+- ✅ rejects another user's project and an archived project
 
-**users can't touch each other's timers**
+**POST /api/entries > time rules**
 
-- ✅ user A cannot see, stop or edit user B's timer
+- ✅ rejects an end before the start, and a zero-length entry
+- ✅ rejects an entry longer than 24 hours but accepts exactly 24 hours
+- ✅ rejects an end time in the future, with 1 minute of clock difference allowed
+
+**PATCH /api/entries/:id**
+
+- ✅ recalculates the duration when the times change
+- ✅ checks the new time against the existing one when only one time is sent
+- ✅ copies the new project's client when the project changes
+- ✅ can change just the description and billable flag, leaving the times alone
+- ✅ rejects another user's project, and edits stopped timer entries like any other
+- ✅ returns 409 for a billed entry and leaves it unchanged
+- ✅ returns 409 "Stop the timer first" for the running timer
+- ✅ returns 404 for an unknown id and 400 for a malformed one
+
+**DELETE /api/entries/:id**
+
+- ✅ deletes an entry
+- ✅ returns 409 for a billed entry
+- ✅ returns 409 "Stop the timer first" for the running timer
+
+**users can't touch each other's entries**
+
+- ✅ user A cannot see, edit or delete user B's entries (404)
+- ✅ user A cannot create an entry on user B's project
 - ✅ requires authentication
 
 **GET /api/entries**
 
-- ✅ lists only my stopped entries inside the range, newest first, with project and client names
-- ✅ rejects a malformed date
+- ✅ lists finished entries newest first, without the running timer or other users' entries
+- ✅ calculates totals, including the billable amount from each project rate
+- ✅ filters by billable
+- ✅ filters by status (unbilled, billed, all)
+- ✅ combines filters and filters by client, project and date range
+- ✅ with overlap=true, from/to also match entries that start before the range or run past it
+- ✅ rejects invalid filters
 
-### `invoice-send.test.js` (21 tests)
+### `payment.test.js` (25 tests)
 
-**POST /api/invoices/:id/send**
+**PATCH /api/auth/me: payment details**
 
-- ✅ emails the client with a link, and moves the invoice from draft to sent
-- ✅ sends to the address typed in, copies others, and puts the personal message in both versions (escaped in the HTML)
-- ✅ goes to the client's email as it is now when it was corrected after the invoice was made
-- ✅ needs somebody to send it to: 400 "Add the client's email first", nothing is sent, nothing changes
-- ✅ validates the addresses and the message
-- ✅ refuses a paid invoice (409) and sends nothing
-- ✅ when the provider fails: 502 "Couldn't send the email. Try again." and the invoice is left as it was
-- ✅ can be sent again: only lastSentAt (and the recipient) change, sentAt stays and the same link is used
-- ✅ an overdue invoice can be sent again too, and stays overdue
-- ✅ is private: user B can't send user A's invoice (404, nothing is sent), and a login is needed
+- ✅ saves a payment link, a UPI ID and bank details, and /me gives them back
+- ✅ a new user has no payment details at all
+- ✅ changes only what is sent: the other details stay, and an empty string removes one
+- ✅ can be saved together with other settings without touching the reminder settings
+- ✅ trims the text, normalises line endings and drops control characters from the bank details
 
-**email providers**
+**payment details are validated**
 
-- ✅ brevo: one POST to the transactional API with the key in a header and the whole email in the body
-- ✅ brevo: an error answer, a network failure or a missing key all become an EmailError (and the key is never in the message)
-- ✅ through the API: Brevo refusing the email gives 502 and leaves the invoice a draft
-- ✅ console is the default while developing; in production an unset provider is an error, not a silent log
+- ✅ the payment link must be a full https address: no javascript:, http, ftp, bare words, passwords or spaces
+- ✅ accepts real payment links (Stripe, PayPal, Razorpay)
+- ✅ the payment link can be at most 500 characters
+- ✅ the UPI ID must look like name@bank
+- ✅ the bank details can be at most 500 characters
+- ✅ wrong types and an empty payment are refused
+- ✅ several mistakes are all reported, each under its own field
+- ✅ needs a login
 
-**overdue**
+**the "Pay now" button in the invoice e-mail**
 
-- ✅ a sent invoice that was due yesterday (Asia/Kolkata) is overdue by 1 day
-- ✅ due today is not overdue yet, even at 00:00 today; one minute earlier is
-- ✅ counts the days: due 5 days ago is 5 days overdue
-- ✅ a paid invoice is never overdue, and neither is a draft
-- ✅ uses the user's own time zone: 23:00 yesterday in New York is overdue for a New York user
-- ✅ GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it
-- ✅ marking it paid ends the overdue state
+- ✅ is not there when no payment link is set
+- ✅ is there, linking to the payment link, when one is set
+- ✅ with only a UPI ID or bank details there is no button, but the details are shown
+- ✅ with a link and details: the button, and the details below it
+- ✅ what the owner typed is escaped, so it can not add markup to the e-mail
+- ✅ removing the link removes the button from the next e-mail
+
+**the payment details on the public invoice**
+
+- ✅ are null when the owner set up nothing
+- ✅ have the link, the UPI ID and the bank details when they are set
+- ✅ have no link (null) when only a UPI ID is set, so the page can show no button
+- ✅ follow the owner's current settings, also for invoices made before
+- ✅ are left out once the invoice is paid (nothing to pay any more)
+- ✅ are the only owner data on the public page: no other user field is added
 
 ## Browser checks, Step 2: authentication (29)
 
@@ -583,10 +720,10 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ running: white Stop button (rgb(255, 255, 255))
 - ✅ running: clock starts at (almost) zero (00:00:00)
 - ✅ running: tab title is "HH:MM:SS · TimeLedger" (00:00:00 · TimeLedger)
-- ✅ server: timer exists with the server-side start time (between click and response) (32ms after the click)
+- ✅ server: timer exists with the server-side start time (between click and response) (127ms after the click)
 - ✅ server: description and project saved
-- ✅ clock ticks every second (0s -> 3s)
-- ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:03","pulsing":true,"stopButton":true,"linkTo":"/"})
+- ✅ clock ticks every second (0s -> 2s)
+- ✅ mini timer in the sidebar: pulsing dot + time + stop icon ({"inSidebar":true,"time":"00:00:02","pulsing":true,"stopButton":true,"linkTo":"/"})
 - ✅ mini timer stays visible on other pages
 - ✅ tab title keeps showing the time on other pages
 - ✅ clicking the mini timer goes to the dashboard
@@ -594,22 +731,22 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ description saved to the server (Enter)
 - ✅ Escape reverts the edit and saves nothing
 - ✅ after a page refresh the timer is still running
-- ✅ ...and the clock did not reset (it continues from the server start time) (4s -> 4s)
+- ✅ ...and the clock did not reset (it continues from the server start time) (4s -> 5s)
 - ✅ ...description survived too
 - ✅ a freshly opened browser shows the same running timer
-- ✅ ...with the same elapsed time (within 2s) (A=4s B=5s)
+- ✅ ...with the same elapsed time (within 2s) (A=8s B=8s)
 - ✅ ...and the title shows the time there too
-- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=6s C=5s)
-- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=6s D=6s)
+- ✅ device clock 10 minutes AHEAD still shows the correct elapsed time (A=11s C=11s)
+- ✅ device clock 2 hours BEHIND still shows the correct elapsed time (A=11s D=11s)
 - ✅ Stop shows a toast with the logged time
 - ✅ ...the card goes back to the start form
 - ✅ ...the tab title goes back to "TimeLedger"
 - ✅ ...the mini timer disappears
 - ✅ ...the server has no running timer
-- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:07)
-- ✅ ...and its duration matches what the clock showed (within 2s) (clock=6s list=7s)
+- ✅ "Today" lists the stopped entry with project, client, description and duration (Website redesign · Acme Corp Hero section v2 00:00:12)
+- ✅ ...and its duration matches what the clock showed (within 2s) (clock=12s list=12s)
 - ✅ ...Today shows a total
-- ✅ server: stopped entry has endedAt and durationSeconds (7s)
+- ✅ server: stopped entry has endedAt and durationSeconds (12s)
 - ✅ E: second tab loads idle
 - ✅ another device starts a timer (API)
 - ✅ starting a second timer shows the 409 message as is
@@ -620,7 +757,7 @@ Script: [test-code/browser/step-4-timer.mjs](test-code/browser/step-4-timer.mjs)
 - ✅ ...with the same time as E (within 2s)
 - ✅ tab A goes idle after the timer is stopped elsewhere
 - ✅ ...and "Today" now has both entries
-- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (26s)
+- ✅ a timer started elsewhere appears on its own within ~30 seconds (no click, no refresh) (21s)
 - ✅ the stop icon in the mini timer stops the timer
 - ✅ ...and "Today" now has 3 entries
 - ✅ no projects: "Create a project first" with a link
@@ -643,7 +780,7 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ "Time Entries" in the sidebar opens the real page (not "Coming soon")
 - ✅ header: "Time entries" + "Add entry" button
 - ✅ default range is "This week": the request covers Monday 00:00 to next Monday 00:00 (India time) (2026-11-01T18:30:00.000Z -> 2026-11-08T18:30:00.000Z)
-- ✅ this week shows today's entry under a "Today" heading (Today · Wed, 4 Nov 2026)
+- ✅ this week shows today's entry under a "Today" heading (Today · Thu, 5 Nov 2026)
 - ✅ ...but not last week's
 - ✅ "Last week" asks for the previous Monday-to-Monday range (2026-10-25T18:30:00.000Z -> 2026-11-01T18:30:00.000Z)
 - ✅ ...and shows last week's entry only
@@ -676,7 +813,7 @@ Script: [test-code/browser/step-5-time-entries.mjs](test-code/browser/step-5-tim
 - ✅ Clear filters resets them and keeps the date range (rows=5 query={"from":"2026-03-08T18:30:00.000Z","to":"2026-03-13T18:30:00.000Z"})
 - ✅ an empty period shows "No time entries yet" with an Add entry button
 - ✅ ...and the summary is all zero (total hours 0s | billable hours 0s | unbilled amount $0.00)
-- ✅ "Add entry" opens the modal with today's date filled in (2026-11-04)
+- ✅ "Add entry" opens the modal with today's date filled in (2026-11-05)
 - ✅ the modal has project, description, date, start, end and a billable switch (on)
 - ✅ duration starts as "—"
 - ✅ submitting an empty form shows field errors, and sends nothing
@@ -748,14 +885,14 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ a refresh keeps the week from the URL
 - ✅ "This week" jumps to the current week (Monday in India time) (2026-11-02 (expected 2026-11-02))
 - ✅ on the current week "Next" and "This week" are disabled, "Previous" is not ({"nextDisabled":true,"thisWeekDisabled":true,"prevDisabled":false})
-- ✅ today's column is highlighted in light indigo (header and cells) ({"count":1,"text":"Wed 4","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"})
+- ✅ today's column is highlighted in light indigo (header and cells) ({"count":1,"text":"Thu 5","headerBg":"oklch(0.962 0.018 272.314)","cellBg":"oklch(0.962 0.018 272.314)","cellText":"15m","otherCellBg":"rgba(0, 0, 0, 0)"})
 - ✅ ...and today's 15 minutes show in it (15m)
 - ✅ a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL (2026-11-02)
 - ✅ a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL (2026-11-02)
 - ✅ a link with ?week=banana (not a date) shows the current week and fixes the URL (2026-11-02)
-- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6aeaaad58696f951b89cbcb9&from=2026-03-09&to=2026-03-09&overlap=1)
+- ✅ clicking a cell opens /time-entries with the project and the day in the URL (?projectId=6aebf5bdcba454b19998af48&from=2026-03-09&to=2026-03-09&overlap=1)
 - ✅ Time entries starts with those filters already set (Custom range, that day, that project) ({"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"})
-- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6aeaaad58696f951b89cbcb9","overlap":"true"})
+- ✅ ...and asks for that day in India time, for that project ({"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6aebf5bdcba454b19998af48","overlap":"true"})
 - ✅ the list shows exactly that entry (Homepage, 09:00–11:00, 2h) (Website · Acme Corp Homepage 09:00–11:00 Billable 2h)
 - ✅ Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
 - ✅ Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00) (Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h)
@@ -773,7 +910,7 @@ Script: [test-code/browser/step-6-timesheet.mjs](test-code/browser/step-6-timesh
 - ✅ phone: Wednesday card shows its total and the projects with their hours (Wed 11 1h 30m App Acme Corp 30m Website Acme Corp 1h)
 - ✅ phone: a day without time says "No time tracked" (Thu 12 — No time tracked)
 - ✅ phone: the entry across midnight shows on both Tuesday and Wednesday
-- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=340.765625)
+- ✅ phone: no horizontal scroll, the navigator and cards fit in 375px (overflow=0 navRight=334.171875)
 - ✅ phone: the summary cards are there (9h, 7h 30m, $410.00) (total hours 9h | billable hours 7h 30m | billable amount $410.00)
 - ✅ phone: tapping a project in a day card also opens Time entries for that day
 - ✅ phone: the dashboard "This week" card shows and nothing scrolls sideways
@@ -791,14 +928,14 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ summary cards start at Outstanding $0.00, Paid $0.00, Invoices 0 (outstanding $0.00 | paid $0.00 | invoices 0)
 - ✅ the status filter is hidden while there are no invoices
 - ✅ "New invoice" opens the modal with a client select, quick picks, dates and notes
-- ✅ it starts on "This month" (the 1st up to today) ({"from":"2026-11-01","to":"2026-11-04","pressed":"This month"})
+- ✅ it starts on "This month" (the 1st up to today) ({"from":"2026-11-01","to":"2026-11-05","pressed":"This month"})
 - ✅ "Create invoice" is disabled until there is something to bill
 - ✅ ...and the preview asks for a client first
 - ✅ quick pick "Last week" fills 2026-10-26 to 2026-11-01 ({"from":"2026-10-26","to":"2026-11-01"})
 - ✅ quick pick "Last month" fills 2026-10-01 to 2026-10-31 ({"from":"2026-10-01","to":"2026-10-31"})
-- ✅ quick pick "This month" fills 2026-11-01 to 2026-11-04 ({"from":"2026-11-01","to":"2026-11-04"})
+- ✅ quick pick "This month" fills 2026-11-01 to 2026-11-05 ({"from":"2026-11-01","to":"2026-11-05"})
 - ✅ typing a date switches the quick pick to "Custom"
-- ✅ the end date cannot be picked after today (2026-11-04)
+- ✅ the end date cannot be picked after today (2026-11-05)
 - ✅ a client with its own unbilled time previews only that (Brand 1.00 h x $80.00 = $80.00) (Brand 1.00 h × $80.00 $80.00 1 entry · 9 – 13 Mar 2026 $80.00)
 - ✅ Acme preview: line items with hours, rate and amount, entry count and total (App 1.50 h × $60.00 $90.00 Website 2.78 h × $50.00 $138.89 4 entries · 9 – 13 Mar 2026 $228.89)
 - ✅ ...with the total $228.89 (non-billable, other client, outside the period and the 23:30 edge handled)
@@ -807,7 +944,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ ...and opens the invoice page
 - ✅ invoice page: logo, "INVOICE", number INV-0001 and a Draft badge (INV-0001 Draft)
 - ✅ From (the user) and Bill to (name, company, email)
-- ✅ issue date is today and the due date is 14 days later (India time) (TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793764176823@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 4 Nov 2026 DUE DATE 18 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 NO)
+- ✅ issue date is today and the due date is 14 days later (India time) (TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793848783269@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 5 Nov 2026 DUE DATE 19 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 NO)
 - ✅ period "9 – 13 Mar 2026"
 - ✅ line items table: Project, Hours, Rate, Amount (project | hours | rate | amount)
 - ✅ ...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89 ([["App","1.50","$60.00","$90.00"],["Website","2.78","$50.00","$138.89"]])
@@ -824,10 +961,10 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ API: creating it again is refused with the same 400
 - ✅ Time entries: the 4 invoiced entries show a "Billed" badge (4)
 - ✅ ...and the others are still billable / non-billable (Website · Acme Corp Not billable 09:00–10:00 Non-billable 1h | Brand · Zeta Ltd Other client 14:00–15:00 Billable 1h)
-- ✅ the Billed badge links to its invoice (/invoices/6aeaab558696f951b89cbd55)
+- ✅ the Billed badge links to its invoice (/invoices/6aebf5d6cba454b19998af69)
 - ✅ ...and clicking it opens that invoice
 - ✅ both tabs see the same preview ($270.00, 3 entries) (App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00 || App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00)
-- ✅ exactly ONE of the two tabs got an invoice (/invoices/6aeaab5b8696f951b89cbd58 / /invoices)
+- ✅ exactly ONE of the two tabs got an invoice (/invoices / /invoices/6aebf5e3cba454b19998af6c)
 - ✅ the other tab is told there is nothing left to bill, and stays on the form
 - ✅ ...with "Create invoice" disabled again
 - ✅ server: only one invoice exists for that period (INV-0002), not two (INV-0002,INV-0001)
@@ -842,7 +979,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ ...emerald colour and a paid date
 - ✅ API: a paid invoice cannot go back (409 "Can't change status from paid to sent") or be deleted (409)
 - ✅ after the project rate (50 -> 99) and the client name/email changed, the old invoice is exactly the same (App|1.50|$60.00|$90.00 ; Website|2.78|$50.00|$138.89)
-- ✅ list: 3 invoices, newest first, each with number, client, period, issued date, total and status (INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 4 Nov 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 4 Nov 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 4 Nov 2026 $228.89 Paid)
+- ✅ list: 3 invoices, newest first, each with number, client, period, issued date, total and status (INV-0003 Acme Corp 6 – 10 Apr 2026 · issued 5 Nov 2026 $300.00 Draft || INV-0002 Acme Corp 16 – 20 Mar 2026 · issued 5 Nov 2026 $270.00 Draft || INV-0001 Acme Corp 9 – 13 Mar 2026 · issued 5 Nov 2026 $228.89 Paid)
 - ✅ badge colours: Paid emerald, Draft slate; amounts in JetBrains Mono ({"paid":"oklch(0.508 0.118 165.612)","draft":"oklch(0.372 0.044 257.287)","mono":"\"JetBrains Mono\", ui-monospace, SFMono-Regular, monospace"})
 - ✅ summary: Outstanding $570.00 (the two drafts), Paid $228.89, Invoices 3 (outstanding $570.00 | paid $228.89 | invoices 3)
 - ✅ status filter: All, Draft, Sent, Overdue (added in Phase 1A), Paid
@@ -859,7 +996,7 @@ Script: [test-code/browser/step-7-invoices.mjs](test-code/browser/step-7-invoice
 - ✅ print: white background, no leftover sidebar space, no border or shadow (["rgb(255, 255, 255)","0px","0px","rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"])
 - ✅ print: the invoice fills the page width and nothing is cut off at the sides ([0,794,794,0])
 - ✅ print: the line items show as a table (not the stacked phone layout)
-- ✅ print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice) ({"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":121840})
+- ✅ print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice) ({"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":122434})
 - ✅ print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width (3 pages, 36 lines)
 - ✅ another user opening my invoice sees "Invoice not found" (and none of my data)
 - ✅ ...and their own list is empty
@@ -882,19 +1019,19 @@ Script: [test-code/browser/step-8-seed-and-rounding.mjs](test-code/browser/step-
 - ✅ the demo login works through the API (demo@timeledger.app / Demo@1234)
 - ✅ the demo data: 3 clients, 4 projects with the rates from the brief
 - ✅ the client names are Acme Corp, Globex Ltd and Initech
-- ✅ about four weeks of entries, weekdays only, up to today (67 entries from 2026-10-05)
-- ✅ 2-4 entries on every full weekday, each 30 minutes to 3 hours (2233323442233444442233)
+- ✅ about four weeks of entries, weekdays only, up to today (69 entries from 2026-10-05)
+- ✅ 2-4 entries on every full weekday, each 30 minutes to 3 hours (22233323442233444442233)
 - ✅ mostly billable, a few non-billable, one entry that crosses midnight, none in the future
 - ✅ no running timer
 - ✅ two invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago)
 - ✅ the last two weeks are left unbilled (so a reviewer can invoice them right away)
 - ✅ every billed entry is billable and claimed by exactly one of the two invoices
 - ✅ logging in as demo@timeledger.app / Demo@1234 opens the dashboard for Alex Morgan
-- ✅ Dashboard: the "This week" card shows this week's tracked time (7h 37m vs 7h 37m)
+- ✅ Dashboard: the "This week" card shows this week's tracked time (9h 44m vs 9h 44m)
 - ✅ Dashboard: nothing is running (a Start button, no clock) and the sidebar shows the name
 - ✅ Timesheet (last week): a row per project, and the total hours match the entries (total hours 22h 53m vs 22h 53m)
 - ✅ Time entries (all four weeks): every entry of INV-0001 and INV-0002 has a "Billed" badge that links to its own invoice (31 badges)
-- ✅ ...every entry is listed and the non-billable ones are labelled (67 entries, 4 non-billable)
+- ✅ ...every entry is listed and the non-billable ones are labelled (69 entries, 4 non-billable)
 - ✅ Invoices: INV-0002 (Acme, Sent) above INV-0001 (Globex, Paid) with their totals (INV-0002 Acme Corp 12 – 25 Oct 2026 · issued 26 Oct 2026 $1,344.75 Sent || INV-0001 Globex Ltd 5 – 11 Oct 2026 · issued 12 Oct 2026 $1,420.00 Paid)
 - ✅ Invoices: Outstanding = the sent invoice, Paid = the paid one, 2 invoices (outstanding $1,344.75 | paid $1,420.00 | invoices 2)
 - ✅ INV-0002: from Alex Morgan to Acme Corp, status Sent, total as listed, thank-you note, no rounding note
@@ -905,13 +1042,13 @@ Script: [test-code/browser/step-8-seed-and-rounding.mjs](test-code/browser/step-
 - ✅ a one-letter name is refused with the server's message under the field, and nothing changes
 - ✅ a valid name is saved: toast, and the sidebar shows it straight away
 - ✅ ...and it is still there after a reload
-- ✅ Rounding off: the Initech preview bills exactly what was tracked (6 entries, $602.25) (API integration 10.95 h × $55.00 $602.25 6 entries · 5 Oct – 4 Nov 2026 $602.25)
+- ✅ Rounding off: the Initech preview bills exactly what was tracked (6 entries, $602.25) (API integration 10.95 h × $55.00 $602.25 6 entries · 5 Oct – 5 Nov 2026 $602.25)
 - ✅ ...and there is no rounding note
 - ✅ toggling the switch enables Save
 - ✅ Save: toast "Settings saved"
 - ✅ ...and the rule is still on after a reload (saved on the server)
-- ✅ Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 5 Oct – 4 Nov 2026 $632.50)
-- ✅ ...with the amounts worked out per entry: $632.50 instead of $602.25 (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 5 Oct – 4 Nov 2026 $632.50)
+- ✅ Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 5 Oct – 5 Nov 2026 $632.50)
+- ✅ ...with the amounts worked out per entry: $632.50 instead of $602.25 (API integration 11.50 h × $55.00 $632.50 Rounded up to 15 min per entry: 10h 57m tracked, 11h 30m billed 6 entries · 5 Oct – 5 Nov 2026 $632.50)
 - ✅ creating it: toast "Invoice INV-0003 created" and the invoice page opens
 - ✅ INV-0003 shows "Rounded up to 15 min per entry", the billed hours and the rounded total ([["API integration","11.50","$55.00","$632.50"]])
 - ✅ the entry list shows tracked → billed for the entries that were rounded (4 of 6) (4 arrows)
@@ -920,7 +1057,7 @@ Script: [test-code/browser/step-8-seed-and-rounding.mjs](test-code/browser/step-
 - ✅ rounding switched off again
 - ✅ INV-0003 is unchanged after switching the rule off: same note, same total
 - ✅ INV-0001 (made before) has no rounding note and its total is unchanged
-- ✅ Rounding off again: an Acme invoice for the unbilled time is exactly as tracked (13 entries, $1,258.25; the billed INV-0002 entries are not in it) (Mobile app 17.53 h × $60.00 $1,052.00 Website redesign 4.58 h × $45.00 $206.25 13 entries · 5 Oct – 4 Nov 2026 $1,258.25)
+- ✅ Rounding off again: an Acme invoice for the unbilled time is exactly as tracked (15 entries, $1,361.50; the billed INV-0002 entries are not in it) (Mobile app 18.07 h × $60.00 $1,084.00 Website redesign 6.17 h × $45.00 $277.50 15 entries · 5 Oct – 5 Nov 2026 $1,361.50)
 - ✅ Print view of INV-0003: the sidebar is gone and the rounding note is part of the printed page
 - ✅ npm run seed once more (with an extra invoice and rounding switched on): same clients, projects and invoices again
 - ✅ the extra invoice INV-0003 is gone and numbering starts again at INV-0001/INV-0002
@@ -947,7 +1084,7 @@ Script: [test-code/browser/phase-1a-send-share-overdue.mjs](test-code/browser/ph
 - ✅ npm run seed created the demo data (a paid and a sent invoice)
 - ✅ test set-up: the sent demo invoice INV-0002 is moved 3 days past its due date (in the throwaway database)
 - ✅ API: every invoice has displayStatus and daysOverdue
-- ✅ API: INV-0002 (sent, due 2026-11-01) is now 3 days overdue, while its stored status is still "sent" (overdue 3)
+- ✅ API: INV-0002 (sent, due 2026-11-02) is now 3 days overdue, while its stored status is still "sent" (overdue 3)
 - ✅ a new draft invoice for Initech (INV-0003) to send
 - ✅ status filter chips: All, Draft, Sent, Overdue, Paid (All,Draft,Sent,Overdue,Paid)
 - ✅ INV-0002 shows a red-text badge "N days overdue" (not "Sent") (3 days overdue)
@@ -958,21 +1095,21 @@ Script: [test-code/browser/phase-1a-send-share-overdue.mjs](test-code/browser/ph
 - ✅ filter "Sent" does not include the overdue one (nothing else is sent yet)
 - ✅ draft: the buttons are Back, Print, Send invoice, Mark as sent, Mark as paid, Delete
 - ✅ "Send invoice" is the primary (indigo) button (oklch(0.511 0.262 276.966))
-- ✅ timeline of a draft: Created done; Sent, Viewed and Paid still to come ({"created":{"done":true,"text":"Created 4 Nov 2026"},"sent":{"done":false,"text":"Sent Not sent yet"},"viewed":{"done":false,"text":"Viewed —"},"paid":{"done":false,"text":"Paid —"}})
+- ✅ timeline of a draft: Created done; Sent, Viewed and Paid still to come ({"created":{"done":true,"text":"Created 5 Nov 2026"},"sent":{"done":false,"text":"Sent Not sent yet"},"reminder":{"done":false,"text":"Reminder sent —"},"viewed":{"done":false,"text":"Viewed —"},"paid":{"done":false,"text":"Paid —"}})
 - ✅ no share link yet: the box says so, and there is no Regenerate button
 - ✅ the modal opens with To filled in with the client's email and a subject preview ({"to":"finance@initech.example","subject":"Invoice INV-0003 from Alex Morgan","title":"Send invoice","submit":"Send invoice"})
 - ✅ a bad CC address is refused under the CC field and nothing is sent
 - ✅ when the email can't be sent: the toast says so, the form stays open with what was typed, and the invoice is still a draft
 - ✅ Send: toast "Invoice sent to finance@initech.example" and the modal closes
 - ✅ the invoice is now Sent: sentAt, lastSentAt and sentTo are saved, and it has a share link
-- ✅ the share link points at the app (APP_URL falls back to FRONTEND_URL) (http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFdCowbyP)
+- ✅ the share link points at the app (APP_URL falls back to FRONTEND_URL) (http://localhost:5273/i/BGMoJ8cHawAf8XFjBBCarTn1A4FNp70C)
 - ✅ console provider: exactly one email, to the client, CC the boss, with the right subject ([["finance@initech.example","boss@initech.example","Invoice INV-0003 from Alex Morgan"]])
 - ✅ ...the text version has the personal message, the amount, the due date and the link to /i/<token>
-- ✅ the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example" ({"done":true,"text":"Sent 4 Nov 2026 to finance@initech.example"})
+- ✅ the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example" ({"done":true,"text":"Sent 5 Nov 2026 to finance@initech.example"})
 - ✅ the buttons now say "Resend invoice"; "Mark as sent" and Delete are gone (it is sent)
 - ✅ the share link is shown in a box, with Copy and Regenerate buttons
 - ✅ "Copy share link": toast "Share link copied"
-- ✅ ...and the link is really on the clipboard (http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFdCowbyP)
+- ✅ ...and the link is really on the clipboard (http://localhost:5273/i/BGMoJ8cHawAf8XFjBBCarTn1A4FNp70C)
 - ✅ the client sees the invoice without logging in: no sidebar, no app bars, the same paper (Sent)
 - ✅ ...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page
 - ✅ ...a useful tab title and no search engine indexing (Invoice INV-0003 from Alex Morgan | noindex, nofollow)
@@ -980,7 +1117,7 @@ Script: [test-code/browser/phase-1a-send-share-overdue.mjs](test-code/browser/ph
 - ✅ black box: the public JSON has no user id, entry ids, client id, project ids, token or viewedAt
 - ✅ "Download PDF" opens the print dialog (Save as PDF)
 - ✅ printed: the button bar and the footer are hidden, white background, one A4 page ({"footer":"none","bar":"none","paperRight":794,"bg":"rgb(255, 255, 255)","pages":1,"width":594.95996,"height":841.91998})
-- ✅ the owner's timeline now shows Viewed with a date (set when the client opened the link) (Viewed 4 Nov 2026)
+- ✅ the owner's timeline now shows Viewed with a date (set when the client opened the link) (Viewed 5 Nov 2026)
 - ✅ opening it again does not change the first view date
 - ✅ an unknown link says "This invoice link is not valid", still without any app layout
 - ✅ Regenerate asks first and says the old link stops working (Regenerate the share link? The current link stops working at once. Anyone you sent it to will need the new one. Cancel Regenerate)
@@ -998,13 +1135,80 @@ Script: [test-code/browser/phase-1a-send-share-overdue.mjs](test-code/browser/ph
 - ✅ an overdue invoice can be sent again (Resend invoice) and marked as paid
 - ✅ Mark as paid ends the overdue state: badge "Paid" (emerald), the timeline shows Paid, and there is no Send button any more
 - ✅ the Outstanding card no longer has an overdue line; "Overdue" is an empty list
-- ✅ the paid demo invoice INV-0001 (Globex): no Send button; timeline Created, Sent, Viewed and Paid are all done ([true,true,true,true])
+- ✅ the paid demo invoice INV-0001 (Globex): no Send button; timeline Created, Sent, Viewed and Paid are all done (and no reminder was sent) (["created:true","sent:true","reminder:false","viewed:true","paid:true"])
 - ✅ its link shows a Paid badge to the client
 - ✅ Phone: the timeline is vertical and fits the screen; no sideways scroll on the invoice page ({"stacked":true,"right":342} off=0)
 - ✅ Phone: the action buttons wrap inside the screen
 - ✅ Phone: the Send invoice modal fits the screen ({"left":16,"right":359,"top":33.34375,"bottom":633.640625})
 - ✅ Phone: the invoices list with the Overdue chip fits the screen
 - ✅ Phone: the public invoice stacks its lines, the Download PDF button is on screen, and nothing runs off the edge ({"stacked":true,"table":"none","btnRight":359,"btnLeft":207.125} overflow=0 off=0 innerWidth=375)
+- ✅ isolated: no request went to the dev servers on 5000/5173
+- ✅ no unexpected console/page errors
+
+## Browser checks, Phase 1B: payment reminders, payment details, Pay now (62)
+
+Script: [test-code/browser/phase-1b-reminders-and-payment.mjs](test-code/browser/phase-1b-reminders-and-payment.mjs). Raw output: [results/browser-checks-phase-1b-reminders-and-payment.txt](results/browser-checks-phase-1b-reminders-and-payment.txt). The hourly job is called the way the GitHub Action calls it: `curl -X POST -H "X-Cron-Secret: ..." .../api/cron/reminders` against the isolated backend (a wrong or missing secret is checked too). The e-mails were read back from the backend's output ([sample-emails/console-provider-output-phase-1b.txt](sample-emails/console-provider-output-phase-1b.txt)); the HTML e-mails rendered in Edge are in [sample-emails/](sample-emails) (made by [test-code/browser/render-reminder-emails.mjs](test-code/browser/render-reminder-emails.mjs)).
+
+- ✅ npm run seed: the demo user now has reminders on and fake payment details
+- ✅ the demo user: reminders 3 days before, on the due date, 7 and 14 after; a payment link, UPI ID and bank details
+- ✅ the sent demo invoice INV-0002 is not paused and has no reminders yet
+- ✅ curl without the secret, or with a wrong one: 401 and nothing runs (401/401)
+- ✅ curl -X POST -H "X-Cron-Secret: ..." .../api/cron/reminders: 200 with { checked, sent, skipped, failed } ({"checked":1,"sent":0,"skipped":0,"failed":0,"ranAt":"2026-11-05T03:14:37.031Z"})
+- ✅ Settings has a "Payment reminders" card and a "Payment details" card
+- ✅ the reminder defaults: on, 3 days before, on the due date, chips 7 and 14 (30 is not picked)
+- ✅ the summary line says what will happen (Clients get reminders 3 days before, on the due date, and 7 and 14 days after.)
+- ✅ Save is disabled until something changes
+- ✅ the summary follows the choices at once (Clients get reminders 5 days before, on the due date, and 14 and 30 days after.)
+- ✅ Save: toast "Reminder settings saved"
+- ✅ saved on the server: 5 days before, on the due date, [14, 30] ({"enabled":true,"beforeDueDays":5,"onDueDate":true,"afterDueDays":[14,30]})
+- ✅ ...and it is still there after a reload
+- ✅ switching the master toggle off: the options are disabled and the summary says reminders are off
+- ✅ saved: reminders are off for this user
+- ✅ the job with reminders off sends nothing (the invoice is skipped) ({"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:14:40.471Z"})
+- ✅ Invoices list: a muted bell-off on the sent invoice ("Reminders are off in Settings")
+- ✅ the payment card is filled in (from the demo data)
+- ✅ an http:// link and a bad UPI ID are refused, each under its own field
+- ✅ ...and nothing was saved
+- ✅ a javascript: link is refused too
+- ✅ valid details save: toast "Payment details saved"
+- ✅ ...and are stored as typed
+- ✅ test set-up: INV-0002 is made due in 3 days (the throwaway database)
+- ✅ timeline: Created, Sent, Reminder sent, Viewed, Paid
+- ✅ before the job: "Next reminder: today, due in 3 days", no history, and the reminder step still to come (Next reminder: today, due in 3 days)
+- ✅ the controls: a "Pause reminders" switch and a "Send reminder now" button
+- ✅ the job (curl with the secret): 1 reminder sent ({"checked":1,"sent":1,"skipped":0,"failed":0,"ranAt":"2026-11-05T03:14:46.067Z"})
+- ✅ the e-mail: to the client, "Reminder: INV-0002 is due in 3 days", the amount, a link to the invoice, Pay now and the UPI ID (["Reminder: INV-0002 is due in 3 days"])
+- ✅ calling the job again (an hourly scheduler does) sends nothing more ({"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:14:46.156Z"})
+- ✅ the page shows the reminder: "3 days before the due date", to the client, Sent (3 days before the due date 5 Nov 2026 · to accounts@acme.example Sent)
+- ✅ the timeline now has "Reminder sent" with a date and "1 reminder so far" (Reminder sent 5 Nov 2026 1 reminder so far)
+- ✅ the next one is on the due date (Next reminder: 8 Nov 2026, on the due date)
+- ✅ "Send reminder now" within 24 hours of the automatic one: toast "You already sent a reminder in the last 24 hours", no e-mail
+- ✅ a draft: "Reminders start once the invoice has been sent." and no pause or send buttons
+- ✅ a paid invoice: "This invoice is paid, so there are no more reminders." and no buttons
+- ✅ INV-0003 (due in 10 days): "Next reminder: <date>, due in 3 days" (Next reminder: 12 Nov 2026, due in 3 days)
+- ✅ when the e-mail provider fails: toast "Couldn't send the email. Try again." and nothing is sent
+- ✅ "Send reminder now": toast "Reminder sent to finance@initech.example"
+- ✅ the e-mail went out (due in 10 days), the history says "Sent by you", and the timeline has the reminder (["Reminder: INV-0003 is due in 10 days"])
+- ✅ "Pause reminders": toast, the switch is on, and the page says reminders are paused (Reminders are paused for this invoice.)
+- ✅ saved on the server (remindersPaused)
+- ✅ Invoices list: a bell on INV-0002, a muted bell-off on the paused INV-0003, none on the draft and the paid invoice ({"INV-0004":"none","INV-0003":"reminders-off","INV-0002":"reminders-on","INV-0001":"none"})
+- ✅ ...the active bell is indigo and the paused one is muted grey ({"on":"oklch(0.511 0.262 276.966)","off":"oklch(0.869 0.022 252.894)"})
+- ✅ the job skips a paused invoice (not even looked at) ({"checked":1,"sent":0,"skipped":1,"failed":0,"ranAt":"2026-11-05T03:15:02.820Z"})
+- ✅ "Pause reminders" off again: toast "Reminders resumed"
+- ✅ after resuming, the job sends the reminder that is due (and it counts as the day-of-send guard allows) ({"checked":2,"sent":0,"skipped":2,"failed":0,"ranAt":"2026-11-05T03:15:06.100Z"})
+- ✅ the public invoice has a green "Pay now" button that opens the payment link in a new tab, safely ({"href":"https://rzp.io/l/alex-morgan","target":"_blank","rel":"noopener noreferrer","text":"Pay now","details":"OR PAY BY UPI alex.morgan@okhdfcbank BANK DETAILS Account name: Alex Morgan Bank: HDFC Bank Account no: 50100123456789 IFSC: HDFC0001234","heading":"Pay this invoice","bg":"oklch(0.596 0.145 163.225)"})
+- ✅ ...with the UPI ID and the bank details below it (OR PAY BY UPI alex.morgan@okhdfcbank BANK DETAILS Account name: Alex Morgan Bank: HDFC Bank Account no: 50100123456789 IFSC: HDFC0001234)
+- ✅ the order on the page: the invoice, then Pay now, then the details
+- ✅ when printed: the Pay now button is hidden and the UPI / bank details stay on the page (one A4 page) ({"button":"none","details":"block","pages":1})
+- ✅ black box: the public JSON has payment { link, upiId, bankDetails } and no other owner data
+- ✅ without a payment link: no Pay now button, but the heading is "How to pay" and the UPI / bank details are there
+- ✅ with nothing set up: no payment block at all
+- ✅ a PAID invoice shows no payment block, even though the owner has payment details
+- ✅ the invoice e-mail (Send invoice) has Pay now and the UPI ID as well
+- ✅ Phone: the Settings page with the reminder and payment cards fits the screen (off=0)
+- ✅ Phone: the invoice page with the reminders fits, and the 5-step timeline is vertical ({"five":5,"stacked":true} off=0)
+- ✅ Phone: the invoices list with the bells fits the screen
+- ✅ Phone: the Pay now button is full width, inside the screen, and nothing runs off the edge ({"left":37,"right":338,"width":301})
 - ✅ isolated: no request went to the dev servers on 5000/5173
 - ✅ no unexpected console/page errors
 
@@ -1416,10 +1620,82 @@ The public invoice as the client prints it: [sample-pdfs/public-invoice-as-the-c
 
 ![The same email at phone width](screenshots/phase-1a-send-share-overdue/18-invoice-email-mobile.png)
 
+## Screenshots, Phase 1B: payment reminders, payment details, Pay now
+
+The client's public page as printed (the Pay now button is hidden, the payment details stay): [sample-pdfs/public-invoice-with-payment-details.pdf](sample-pdfs/public-invoice-with-payment-details.pdf).
+
+**Settings: the new "Payment reminders" card under the profile: a master switch and "Remind 3 days before"**
+
+![Settings: the new "Payment reminders" card under the profile: a master switch and "Remind 3 days before"](screenshots/phase-1b-reminders-and-payment/01-settings-reminders-desktop.png)
+
+**Settings: the "Payment details" card (payment link, UPI ID, bank details), filled in from the demo data**
+
+![Settings: the "Payment details" card (payment link, UPI ID, bank details), filled in from the demo data](screenshots/phase-1b-reminders-and-payment/02-settings-payment-desktop.png)
+
+**An http:// link and a bad UPI ID are refused, each under its own field, and nothing is saved**
+
+![An http:// link and a bad UPI ID are refused, each under its own field, and nothing is saved](screenshots/phase-1b-reminders-and-payment/03-settings-payment-errors-desktop.png)
+
+**A sent invoice: "Next reminder: today, due in 3 days", with Pause reminders and Send reminder now; the timeline has the new "Reminder sent" step**
+
+![A sent invoice: "Next reminder: today, due in 3 days", with Pause reminders and Send reminder now; the timeline has the new "Reminder sent" step](screenshots/phase-1b-reminders-and-payment/04-invoice-reminders-before-desktop.png)
+
+**After the hourly job ran (curl with the secret): the reminder is in the history as Sent, the timeline says "1 reminder so far", and the next one is on the due date**
+
+![After the hourly job ran (curl with the secret): the reminder is in the history as Sent, the timeline says "1 reminder so far", and the next one is on the due date](screenshots/phase-1b-reminders-and-payment/05-invoice-reminder-sent-desktop.png)
+
+**When the e-mail provider fails, "Send reminder now" shows "Couldn't send the email. Try again." and sends nothing**
+
+![When the e-mail provider fails, "Send reminder now" shows "Couldn't send the email. Try again." and sends nothing](screenshots/phase-1b-reminders-and-payment/06-send-reminder-failed-desktop.png)
+
+**Invoices list: an indigo bell on a sent invoice with reminders on, a muted bell-off on the paused one, none on the draft and the paid invoice**
+
+![Invoices list: an indigo bell on a sent invoice with reminders on, a muted bell-off on the paused one, none on the draft and the paid invoice](screenshots/phase-1b-reminders-and-payment/07-invoices-list-bells-desktop.png)
+
+**The client's page: below the invoice a green "Pay now" button (opens the payment link in a new tab), the UPI ID and the bank details**
+
+![The client's page: below the invoice a green "Pay now" button (opens the payment link in a new tab), the UPI ID and the bank details](screenshots/phase-1b-reminders-and-payment/08-public-pay-now-desktop.png)
+
+**Without a payment link: no button, the block is called "How to pay" and shows the UPI ID and bank details**
+
+![Without a payment link: no button, the block is called "How to pay" and shows the UPI ID and bank details](screenshots/phase-1b-reminders-and-payment/09-public-how-to-pay-no-link-desktop.png)
+
+**Phone (375px): the Payment reminders card**
+
+![Phone (375px): the Payment reminders card](screenshots/phase-1b-reminders-and-payment/10-settings-reminders-mobile.png)
+
+**Phone: the Payment details card**
+
+![Phone: the Payment details card](screenshots/phase-1b-reminders-and-payment/11-settings-payment-mobile.png)
+
+**Phone: the invoice page with the five-step timeline stacked vertically (Created, Sent, Reminder sent, Viewed, Paid)**
+
+![Phone: the invoice page with the five-step timeline stacked vertically (Created, Sent, Reminder sent, Viewed, Paid)](screenshots/phase-1b-reminders-and-payment/12-invoice-reminders-mobile.png)
+
+**Phone: the Pay now button is full width and the payment details fit the screen**
+
+![Phone: the Pay now button is full width and the payment details fit the screen](screenshots/phase-1b-reminders-and-payment/13-public-pay-now-mobile.png)
+
+**The reminder e-mail "Reminder: INV-0003 is due in 3 days" rendered in Edge: amount, due date, View invoice, a green Pay now button and the UPI / bank details**
+
+![The reminder e-mail "Reminder: INV-0003 is due in 3 days" rendered in Edge: amount, due date, View invoice, a green Pay now button and the UPI / bank details](screenshots/phase-1b-reminders-and-payment/14-reminder-email-desktop.png)
+
+**The same reminder e-mail at phone width**
+
+![The same reminder e-mail at phone width](screenshots/phase-1b-reminders-and-payment/15-reminder-email-mobile.png)
+
+**An overdue reminder ("INV-0003 is 7 days overdue") for an owner without a payment link: no Pay now button, a "How to pay" block**
+
+![An overdue reminder ("INV-0003 is 7 days overdue") for an owner without a payment link: no Pay now button, a "How to pay" block](screenshots/phase-1b-reminders-and-payment/16-reminder-email-overdue-no-link-desktop.png)
+
+**The invoice e-mail now has the Pay now button and the payment details too**
+
+![The invoice e-mail now has the Pay now button and the payment details too](screenshots/phase-1b-reminders-and-payment/17-invoice-email-pay-now-desktop.png)
+
 ## Re-running the browser checks
 
-The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set at the top of each script) and `npm install puppeteer-core` next to them. Then:
+The scripts in [test-code/browser/](test-code/browser) are a snapshot of what was run. To run them again you need Microsoft Edge (the path is set in `launch-edge.mjs`, which every script imports and which must stay next to them) and `npm install puppeteer-core` next to them. Then:
 
 1. Build the frontend for the test ports and serve it: set `VITE_API_URL=http://localhost:5100/api`, run `npm run build -- --outDir <some folder> --emptyOutDir` in `frontend/`, then `npm run preview -- --outDir <some folder> --port 5273 --strictPort`.
 2. From `backend/`, run `node <path to>/start-isolated-backend.mjs` (in-memory database, as a replica set, port 5100).
-3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs`, `node step-6-timesheet.mjs`, `node step-7-invoices.mjs`, `node step-8-seed-and-rounding.mjs` and `node phase-1a-send-share-overdue.mjs`. (Steps 5 and 8 and Phase 1A also need the in-memory database's address, and Phase 1A reads the e-mails from the backend's output, so save that output to a file and give its path in `E2E_BACKEND_LOG`. For the address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.
+3. Run `node step-2-auth.mjs`, `node step-3-layout-clients-projects.mjs`, `node step-4-timer.mjs`, `node step-5-time-entries.mjs`, `node step-6-timesheet.mjs`, `node step-7-invoices.mjs`, `node step-8-seed-and-rounding.mjs`, `node phase-1a-send-share-overdue.mjs` and `node phase-1b-reminders-and-payment.mjs`. (Steps 5 and 8 and Phases 1A and 1B also need the in-memory database's address, and Phases 1A and 1B read the e-mails from the backend's output, so save that output to a file and give its path in `E2E_BACKEND_LOG`. The isolated backend sets `CRON_SECRET` for the reminder job (the value is in the script, or in `E2E_CRON_SECRET`; Phase 1B reads it from the same variable). For the address: start the backend with the environment variable `E2E_MONGO_URI_FILE` set to a file path; the script reads the address from that file.) Each prints PASS/FAIL per check and writes its screenshots next to the script.

@@ -104,7 +104,7 @@ describe('GET /api/public/invoices/:token', () => {
     expect(Object.keys(shown).sort()).toEqual(
       [
         'client', 'currency', 'daysOverdue', 'displayStatus', 'dueDate', 'from', 'issuedAt', 'lineItems', 'notes', 'number',
-        'paidAt', 'periodEnd', 'periodStart', 'roundingMinutes', 'sentAt', 'subtotal', 'timezone', 'total',
+        'paidAt', 'payment', 'periodEnd', 'periodStart', 'roundingMinutes', 'sentAt', 'subtotal', 'timezone', 'total',
       ].sort()
     );
     expect(shown).toMatchObject({

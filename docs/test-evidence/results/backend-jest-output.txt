@@ -1,292 +1,387 @@
 
 > timeledger-backend@0.1.0 test
-> node --experimental-vm-modules node_modules/jest/bin/jest.js --reporters=default --verbose --json --outputFile=C:\Users\sande\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json
+> node --experimental-vm-modules node_modules/jest/bin/jest.js --reporters=default --verbose --json --outputFile=C:/Users/sande/AppData/Local/Temp/claude/c--Users-sande-OneDrive-Desktop-timeledger/82fe8a0c-c1f8-44f4-a9e2-35cfff95393e/scratchpad/results/jest.json
 
-(node:15188) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:36288) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:21716) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:28056) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:25452) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:36664) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:200) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(node:17912) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
 (Use `node --trace-warnings ...` to show where the warning was created)
-PASS src/tests/seed.test.js (10.581 s)
-  seed
-    √ can be run again and again: same counts, same invoices, and the data looks like the brief (2494 ms)
-    √ does not delete or change another user's data (1390 ms)
-    √ refuses to run in production unless SEED_ALLOW=true (36 ms)
+PASS src/tests/auth.test.js (12.728 s)
+  POST /api/auth/register
+    √ creates a user and returns { user, token } without the password hash (803 ms)
+    √ returns 409 for a duplicate email (case-insensitive) (464 ms)
+    √ returns 400 with field-wise errors for invalid input (23 ms)
+  POST /api/auth/login
+    √ returns { user, token } for correct credentials (447 ms)
+    √ returns 401 for a wrong password (396 ms)
+  GET /api/auth/me
+    √ returns 401 without a token (25 ms)
+    √ returns 401 for an invalid token (24 ms)
+    √ returns the current user with a valid token (227 ms)
+  PATCH /api/auth/me (time zone)
+    √ saves a valid time zone, including names Intl.supportedValuesOf leaves out (370 ms)
+    √ rejects an unknown time zone and a missing value (280 ms)
+    √ requires a token (11 ms)
+  PATCH /api/auth/me (name and rounding rule)
+    √ has rounding off by default and saves 15 and 0 (237 ms)
+    √ rejects any other rounding value (302 ms)
+    √ changes the name (trimmed) with the same rules as when registering (289 ms)
+    √ changes several things at once, needs at least one, and ignores everything else (254 ms)
 
-PASS src/tests/public-invoice.test.js (11.714 s)
-  GET /api/public/invoices/:token
-    √ shows the invoice to anybody with the link: no login, and only what the client needs (493 ms)
-    √ is not cached or indexed (113 ms)
-    √ shows the real state: sent, overdue (with the days) and paid (276 ms)
-    √ answers 404 for a token that does not exist, however it is written (143 ms)
-    √ a token query can't be turned into a database query (66 ms)
-    √ an invoice that has no link yet is not reachable (72 ms)
-  viewedAt
-    √ is set the first time the client opens the link and never overwritten (241 ms)
-    √ an unknown token or the owner's own login never sets it (127 ms)
-  share links
-    √ POST /:id/share-link makes the link once and gives the same one every time, even when asked at the same moment (176 ms)
-    √ the invoice page data has the link (and no raw token), the list has neither (137 ms)
-    √ every invoice gets its own token (63 ms)
-    √ regenerate makes a new link and the old one stops working at once (146 ms)
-    √ regenerate starts "viewed" again, because the new link has not been opened yet (98 ms)
-    √ is private: user B can't get or regenerate user A's link (404), and a login is needed (149 ms)
-    √ the link made by sending an email opens the invoice (202 ms)
-    √ a deleted draft takes its link with it (68 ms)
-  rate limit on the public route
-    √ answers 429 after 60 requests in a minute from one address, and only for this route (790 ms)
-  trust proxy (the app runs behind one proxy or load balancer)
-    √ is set to 1 proxy hop (27 ms)
-    √ the rate limit counts each visitor by the address the proxy reports, not by the proxy (869 ms)
-    √ a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts (679 ms)
+PASS src/tests/reminders.test.js (14.9 s)
+  the schedule (3 days before, on the due date, 7 and 14 days after)
+    √ before_due: sent 3 days before the due date, with the right words, link and recipient (597 ms)
+    √ on_due: sent on the due date (116 ms)
+    √ overdue: sent 7 days and 14 days after the due date, and not on the days in between (229 ms)
+    √ follows the owner's own settings: 5 days before, no due-date reminder, 2 and 30 days after (176 ms)
+    √ a day is counted in the OWNER's time zone: Kolkata and New York near midnight UTC (127 ms)
+    √ the same instant is a different day for each owner: 03:30 UTC is already 10 March in Kolkata but still 9 March in New York (135 ms)
+  a reminder is never sent twice
+    √ running the job twice (and again) sends it once (157 ms)
+    √ two runs at the same moment (Promise.all) send it once, and so do five (218 ms)
+    √ the database itself refuses a second row for the same reminder; manual reminders are not limited (64 ms)
+  nothing is sent for ...
+    √ a paid invoice, a draft, a paused invoice (57 ms)
+    √ a client with no e-mail address (47 ms)
+    √ an owner who switched reminders off, or has no reminder turned on at all (68 ms)
+    √ an invoice that was sent on the very day a reminder would go out (the client just got it) (97 ms)
+    √ an invoice whose reminder day is far away (41 ms)
+    √ an owner whose reminder was just sent by hand (not 2 in one day) (54 ms)
+    √ an invoice that is paid or paused after the job looked at it (nothing is sent, nothing is left claimed) (67 ms)
+  catch-up when the job did not run on the day (the server was asleep)
+    √ a missed reminder is still sent up to 2 days late, with the words for today ("1 day overdue") (124 ms)
+    √ nothing older than 2 days is sent (59 ms)
+    √ only the LATEST missed reminder is sent, never a burst of old ones (94 ms)
+    √ does not send a reminder for a day before the invoice was sent, however late the job is (77 ms)
+  when the e-mail provider fails
+    √ the log says "failed", the invoice is unchanged, and nothing was sent (81 ms)
+    √ a failed reminder is tried again by the next run, and then sent exactly once (108 ms)
+    √ gives up after 3 attempts (the row stays "failed") (163 ms)
+    √ one failure does not stop the others in the same run (91 ms)
+  POST /api/cron/reminders
+    √ answers 401 without the secret and with a wrong one (also a different length), and runs nothing (175 ms)
+    √ with the right secret it runs the job and returns { checked, sent, skipped, failed } (108 ms)
+    √ is not open when the secret is missing on the server, too short, or still the placeholder (503, even with a matching header) (140 ms)
+    √ needs POST, and needs no login (59 ms)
+  POST /api/invoices/:id/reminders/send-now
+    √ sends a reminder at once, once: the second time within 24 hours is 429 (136 ms)
+    √ can be sent again once 24 hours have passed (and not before) (176 ms)
+    √ two clicks at the same moment send one e-mail (113 ms)
+    √ an automatic reminder counts too: no manual one within 24 hours of it (93 ms)
+    √ words follow the day: due today, overdue (147 ms)
+    √ when the provider fails: 502, and the 24 hours are given back so it can be tried again (141 ms)
+    √ a paid invoice and a draft are refused (409), and a client without an e-mail is 400 (114 ms)
+    √ is private: user B can't send, read or pause user A's reminders (404), and a login is needed (192 ms)
+  pausing, and what the invoice page shows
+    √ PATCH { paused } pauses and resumes the automatic reminders of one invoice (196 ms)
+    √ refuses anything but true or false (102 ms)
+    √ GET /reminders has the history (newest first, failures included) and the next reminder (196 ms)
+    √ "next" skips what was already sent, and says why there is none (295 ms)
+  reminder settings
+    √ a user starts with: on, 3 days before, on the due date, 7 and 14 days after (35 ms)
+    √ saves any of them, changes only what is sent, and sorts the days after the due date (97 ms)
+    √ beforeDueDays is a whole number from 0 (off) to 14 (165 ms)
+    √ afterDueDays: 1 to 60 each, at most 3, no repeats (158 ms)
+    √ enabled and onDueDate must be true or false; an empty group is refused; nothing is saved when one field is wrong (73 ms)
+    √ users saved before reminders existed get the defaults (nothing is missing in the job) (82 ms)
+  the reminder e-mail
+    √ has a different subject for each situation (singular and plural) (20 ms)
+    √ is friendly, has the amount, the due date, the freelancer and a View invoice button, in HTML and in text (24 ms)
+    √ an overdue one says how long, and that a payment already made can be ignored (21 ms)
+    √ shows "Pay now" only when the owner has a payment link, and the UPI ID and bank details below it (24 ms)
+    √ escapes what people typed (the client's name, the freelancer's name, the bank details) (25 ms)
+    √ when the job sends it, "Pay now" follows the owner's current payment link (130 ms)
 
-PASS src/tests/invoices.test.js (15.773 s)
+PASS src/tests/invoices.test.js (17.776 s)
   POST /api/invoices: which entries are billed
-    √ bills billable, unbilled, finished entries of that client inside the range, and nothing else (666 ms)
-    √ shows the same entries in a preview without saving anything (208 ms)
-    √ answers a preview and a create with "nothing to bill" when no entry matches (160 ms)
+    √ bills billable, unbilled, finished entries of that client inside the range, and nothing else (612 ms)
+    √ shows the same entries in a preview without saving anything (193 ms)
+    √ answers a preview and a create with "nothing to bill" when no entry matches (178 ms)
   line items and totals
-    √ makes one line per project with hours, rate and amount rounded to cents, and a total that adds up (172 ms)
-    √ the total is the sum of the rounded lines, not the rounded sum of the exact amounts (158 ms)
-    √ snapshots the client, the sender, the period, the time zone, the dates and the notes (151 ms)
-    √ later changes to a rate, a project, the client or the user never change an existing invoice (221 ms)
+    √ makes one line per project with hours, rate and amount rounded to cents, and a total that adds up (183 ms)
+    √ the total is the sum of the rounded lines, not the rounded sum of the exact amounts (190 ms)
+    √ snapshots the client, the sender, the period, the time zone, the dates and the notes (159 ms)
+    √ later changes to a rate, a project, the client or the user never change an existing invoice (219 ms)
   billed entries
-    √ become billed, cannot be edited or deleted, and cannot be invoiced a second time (312 ms)
+    √ become billed, cannot be edited or deleted, and cannot be invoiced a second time (308 ms)
   concurrency: an entry is never on two invoices
-    √ two identical requests at the same time: one invoice, every entry on exactly that one (285 ms)
-    √ eight requests at once: exactly one wins (515 ms)
-    √ overlapping ranges at the same time: every entry still ends up on exactly one invoice (523 ms)
-    √ two users invoicing at the same time do not affect each other (176 ms)
+    √ two identical requests at the same time: one invoice, every entry on exactly that one (283 ms)
+    √ eight requests at once: exactly one wins (480 ms)
+    √ overlapping ranges at the same time: every entry still ends up on exactly one invoice (396 ms)
+    √ two users invoicing at the same time do not affect each other (168 ms)
   all or nothing
-    √ if saving the invoice fails, the claimed entries are released and no number is used up (187 ms)
-    √ explains clearly when MongoDB has no transactions (a plain local server) (98 ms)
+    √ if saving the invoice fails, the claimed entries are released and no number is used up (218 ms)
+    √ explains clearly when MongoDB has no transactions (a plain local server) (92 ms)
   rounding each entry up to 15 minutes
-    √ bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone (228 ms)
-    √ is off by default: the same entries are billed as tracked (137 ms)
-    √ rounds every entry, not the total, and one project at a time (164 ms)
-    √ never changes an invoice that already exists when the setting is changed later (either way) (283 ms)
+    √ bills 7 min + 22 min as 15 + 30 min (per entry), and leaves the entries themselves alone (239 ms)
+    √ is off by default: the same entries are billed as tracked (149 ms)
+    √ rounds every entry, not the total, and one project at a time (236 ms)
+    √ never changes an invoice that already exists when the setting is changed later (either way) (293 ms)
   the date range uses the user's time zone
-    √ India: 23:30 on the last day is in, 00:15 the next morning is out (149 ms)
-    √ New York (UTC-4 in March): the day starts at 04:00 UTC (177 ms)
+    √ India: 23:30 on the last day is in, 00:15 the next morning is out (166 ms)
+    √ New York (UTC-4 in March): the day starts at 04:00 UTC (176 ms)
   validation
-    √ rejects a client that isn't the user's, or missing (113 ms)
-    √ rejects bad dates, from after to, ranges over 366 days and an end date after today (201 ms)
-    √ rejects notes over 500 characters (76 ms)
+    √ rejects a client that isn't the user's, or missing (142 ms)
+    √ rejects bad dates, from after to, ranges over 366 days and an end date after today (226 ms)
+    √ rejects notes over 500 characters (90 ms)
   invoice numbers
-    √ count up per user (INV-0001, INV-0002, ...) and are never reused (274 ms)
-    √ are unique per user in the database too (57 ms)
+    √ count up per user (INV-0001, INV-0002, ...) and are never reused (361 ms)
+    √ are unique per user in the database too (62 ms)
   PATCH /api/invoices/:id/status
-    √ allows draft to sent, sent to paid, and draft to paid, and records when (261 ms)
-    √ rejects every other change with 409 "Can't change status from X to Y" (363 ms)
-    √ rejects a status that does not exist (106 ms)
+    √ allows draft to sent, sent to paid, and draft to paid, and records when (287 ms)
+    √ rejects every other change with 409 "Can't change status from X to Y" (380 ms)
+    √ rejects a status that does not exist (143 ms)
   DELETE /api/invoices/:id
-    √ deletes a draft and gives its entries back so they can be invoiced again (273 ms)
-    √ refuses to delete a sent or a paid invoice (409) and keeps its entries billed (267 ms)
-    √ returns 404 for an invoice that does not exist and 400 for a malformed id (94 ms)
+    √ deletes a draft and gives its entries back so they can be invoiced again (310 ms)
+    √ refuses to delete a sent or a paid invoice (409) and keeps its entries billed (323 ms)
+    √ returns 404 for an invoice that does not exist and 400 for a malformed id (83 ms)
   GET /api/invoices and /api/invoices/:id
-    √ lists my invoices newest first with filters, without the heavy fields (330 ms)
-    √ returns one invoice with its lines, and the entries on it in time order (222 ms)
+    √ lists my invoices newest first with filters, without the heavy fields (333 ms)
+    √ returns one invoice with its lines, and the entries on it in time order (153 ms)
   users can't touch each other's invoices
-    √ user B cannot see, change or delete user A's invoice (404) and it is not in B's list (221 ms)
-    √ user B cannot bill user A's entries, even by using A's client id (92 ms)
-    √ requires a login (118 ms)
+    √ user B cannot see, change or delete user A's invoice (404) and it is not in B's list (186 ms)
+    √ user B cannot bill user A's entries, even by using A's client id (83 ms)
+    √ requires a login (97 ms)
 
-PASS src/tests/clients-projects.test.js (16.047 s)
+PASS src/tests/clients-projects.test.js (18.164 s)
   creating clients and projects
-    √ creates a client and a project, and lists them with projectCount and client name (1035 ms)
-    √ filters projects by clientId (639 ms)
-    √ allows the same project name under different clients but not under the same client (516 ms)
+    √ creates a client and a project, and lists them with projectCount and client name (1183 ms)
+    √ filters projects by clientId (598 ms)
+    √ allows the same project name under different clients but not under the same client (530 ms)
   duplicate client names
-    √ returns 409 for a duplicate name (case-insensitive) for the same user (484 ms)
-    √ allows another user to use the same name (412 ms)
+    √ returns 409 for a duplicate name (case-insensitive) for the same user (430 ms)
+    √ allows another user to use the same name (420 ms)
     √ returns 409 when renaming a client to an existing name (463 ms)
   data isolation between users
-    √ user A cannot see, edit or delete user B's client (655 ms)
-    √ user A cannot see, edit or delete user B's project (476 ms)
-    √ rejects a project that uses another user's clientId with 400 (474 ms)
+    √ user A cannot see, edit or delete user B's client (490 ms)
+    √ user A cannot see, edit or delete user B's project (590 ms)
+    √ rejects a project that uses another user's clientId with 400 (570 ms)
   deleting
-    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (527 ms)
-    √ returns 409 when deleting a project that has time entries (468 ms)
+    √ returns 409 when deleting a client that still has projects, then succeeds once they are gone (552 ms)
+    √ returns 409 when deleting a project that has time entries (509 ms)
   moving a project to another client
-    √ moves the project's unbilled entries along, but not entries that are already on an invoice (512 ms)
+    √ moves the project's unbilled entries along, but not entries that are already on an invoice (576 ms)
   validation
-    √ rejects invalid hourlyRate values with a field error (415 ms)
-    √ accepts the boundary rates 0 and 10000 (424 ms)
-    √ validates client and project fields (406 ms)
-    √ lets a client email be cleared with an empty string (377 ms)
-    √ returns 400 "Invalid id" for malformed ids (459 ms)
+    √ rejects invalid hourlyRate values with a field error (446 ms)
+    √ accepts the boundary rates 0 and 10000 (483 ms)
+    √ validates client and project fields (432 ms)
+    √ lets a client email be cleared with an empty string (360 ms)
+    √ returns 400 "Invalid id" for malformed ids (404 ms)
     √ requires authentication (584 ms)
 
-PASS src/tests/entries.test.js (7.094 s)
-  POST /api/entries
-    √ creates a manual entry with the right duration and the project's client (316 ms)
-    √ is billable by default, copies the client of whichever project is chosen, and stores UTC (83 ms)
-    √ validates required fields, date formats and field lengths (101 ms)
-    √ rejects another user's project and an archived project (136 ms)
-    time rules
-      √ rejects an end before the start, and a zero-length entry (78 ms)
-      √ rejects an entry longer than 24 hours but accepts exactly 24 hours (88 ms)
-      √ rejects an end time in the future, with 1 minute of clock difference allowed (85 ms)
-  PATCH /api/entries/:id
-    √ recalculates the duration when the times change (164 ms)
-    √ checks the new time against the existing one when only one time is sent (98 ms)
-    √ copies the new project's client when the project changes (96 ms)
-    √ can change just the description and billable flag, leaving the times alone (91 ms)
-    √ rejects another user's project, and edits stopped timer entries like any other (105 ms)
-    √ returns 409 for a billed entry and leaves it unchanged (58 ms)
-    √ returns 409 "Stop the timer first" for the running timer (52 ms)
-    √ returns 404 for an unknown id and 400 for a malformed one (59 ms)
-  DELETE /api/entries/:id
-    √ deletes an entry (91 ms)
-    √ returns 409 for a billed entry (45 ms)
-    √ returns 409 "Stop the timer first" for the running timer (45 ms)
-  users can't touch each other's entries
-    √ user A cannot see, edit or delete user B's entries (404) (97 ms)
-    √ user A cannot create an entry on user B's project (40 ms)
-    √ requires authentication (52 ms)
+PASS src/tests/timer.test.js (7.414 s)
+  POST /api/timer/start and GET /api/timer
+    √ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it (215 ms)
+    √ returns { timer: null, serverTime } when nothing is running (44 ms)
+    √ defaults to billable with an empty description (71 ms)
+    √ returns 409 when a timer is already running (138 ms)
+    √ lets exactly one of two simultaneous start requests win (93 ms)
+    √ still allows only one when many requests arrive at once (376 ms)
+    √ allows different users to run timers at the same time (101 ms)
+    √ rejects another user's project with 400 'Project not found' (59 ms)
+    √ rejects an archived project and a project that does not exist (73 ms)
+    √ validates the body (65 ms)
+  one running timer per user is enforced by the database
+    √ has a partial unique index on userId for entries with endedAt: null (46 ms)
+    √ rejects a second running entry even when the service is bypassed (54 ms)
+  POST /api/timer/stop
+    √ calculates durationSeconds from startedAt and endedAt (119 ms)
+    √ keeps very short entries (duration can be 0) (90 ms)
+    √ returns 404 'No timer is running' when nothing is running (53 ms)
+    √ lets only one of two simultaneous stop requests succeed (120 ms)
+    √ lets the user start a new timer after stopping (153 ms)
+  PATCH /api/timer
+    √ updates description and billable of the running timer (112 ms)
+    √ can move the running timer to another of my projects (clientId follows) (107 ms)
+    √ rejects another user's project, bad input, and an empty patch is harmless (125 ms)
+    √ returns 404 when no timer is running and never edits a stopped entry (114 ms)
+  users can't touch each other's timers
+    √ user A cannot see, stop or edit user B's timer (140 ms)
+    √ requires authentication (69 ms)
   GET /api/entries
-    √ lists finished entries newest first, without the running timer or other users' entries (76 ms)
-    √ calculates totals, including the billable amount from each project rate (80 ms)
-    √ filters by billable (94 ms)
-    √ filters by status (unbilled, billed, all) (168 ms)
-    √ combines filters and filters by client, project and date range (131 ms)
-    √ with overlap=true, from/to also match entries that start before the range or run past it (137 ms)
-    √ rejects invalid filters (123 ms)
+    √ lists only my stopped entries inside the range, newest first, with project and client names (96 ms)
+    √ rejects a malformed date (61 ms)
 
-PASS src/tests/auth.test.js (7.074 s)
-  POST /api/auth/register
-    √ creates a user and returns { user, token } without the password hash (370 ms)
-    √ returns 409 for a duplicate email (case-insensitive) (611 ms)
-    √ returns 400 with field-wise errors for invalid input (21 ms)
-  POST /api/auth/login
-    √ returns { user, token } for correct credentials (370 ms)
-    √ returns 401 for a wrong password (341 ms)
-  GET /api/auth/me
-    √ returns 401 without a token (21 ms)
-    √ returns 401 for an invalid token (16 ms)
-    √ returns the current user with a valid token (199 ms)
-  PATCH /api/auth/me (time zone)
-    √ saves a valid time zone, including names Intl.supportedValuesOf leaves out (275 ms)
-    √ rejects an unknown time zone and a missing value (230 ms)
-    √ requires a token (8 ms)
-  PATCH /api/auth/me (name and rounding rule)
-    √ has rounding off by default and saves 15 and 0 (198 ms)
-    √ rejects any other rounding value (247 ms)
-    √ changes the name (trimmed) with the same rules as when registering (239 ms)
-    √ changes several things at once, needs at least one, and ignores everything else (374 ms)
+PASS src/tests/public-invoice.test.js (8.938 s)
+  GET /api/public/invoices/:token
+    √ shows the invoice to anybody with the link: no login, and only what the client needs (250 ms)
+    √ is not cached or indexed (85 ms)
+    √ shows the real state: sent, overdue (with the days) and paid (198 ms)
+    √ answers 404 for a token that does not exist, however it is written (117 ms)
+    √ a token query can't be turned into a database query (81 ms)
+    √ an invoice that has no link yet is not reachable (65 ms)
+  viewedAt
+    √ is set the first time the client opens the link and never overwritten (240 ms)
+    √ an unknown token or the owner's own login never sets it (122 ms)
+  share links
+    √ POST /:id/share-link makes the link once and gives the same one every time, even when asked at the same moment (187 ms)
+    √ the invoice page data has the link (and no raw token), the list has neither (185 ms)
+    √ every invoice gets its own token (77 ms)
+    √ regenerate makes a new link and the old one stops working at once (157 ms)
+    √ regenerate starts "viewed" again, because the new link has not been opened yet (116 ms)
+    √ is private: user B can't get or regenerate user A's link (404), and a login is needed (165 ms)
+    √ the link made by sending an email opens the invoice (144 ms)
+    √ a deleted draft takes its link with it (68 ms)
+  rate limit on the public route
+    √ answers 429 after 60 requests in a minute from one address, and only for this route (917 ms)
+  trust proxy (the app runs behind one proxy or load balancer)
+    √ is set to 1 proxy hop (33 ms)
+    √ the rate limit counts each visitor by the address the proxy reports, not by the proxy (743 ms)
+    √ a visitor can't escape the limit by faking X-Forwarded-For: only the address the proxy added counts (744 ms)
 
-PASS src/tests/health.test.js
-  GET /api/health
-    √ returns status ok (36 ms)
-    √ returns a JSON error for unknown routes (13 ms)
+PASS src/tests/invoice-send.test.js (7.226 s)
+  POST /api/invoices/:id/send
+    √ emails the client with a link, and moves the invoice from draft to sent (401 ms)
+    √ sends to the address typed in, copies others, and puts the personal message in both versions (escaped in the HTML) (98 ms)
+    √ goes to the client's email as it is now when it was corrected after the invoice was made (89 ms)
+    √ needs somebody to send it to: 400 "Add the client's email first", nothing is sent, nothing changes (136 ms)
+    √ validates the addresses and the message (126 ms)
+    √ refuses a paid invoice (409) and sends nothing (66 ms)
+    √ when the provider fails: 502 "Couldn't send the email. Try again." and the invoice is left as it was (153 ms)
+    √ can be sent again: only lastSentAt (and the recipient) change, sentAt stays and the same link is used (140 ms)
+    √ an overdue invoice can be sent again too, and stays overdue (86 ms)
+    √ is private: user B can't send user A's invoice (404, nothing is sent), and a login is needed (120 ms)
+  email providers
+    √ brevo: one POST to the transactional API with the key in a header and the whole email in the body (28 ms)
+    √ brevo: an error answer, a network failure or a missing key all become an EmailError (and the key is never in the message) (26 ms)
+    √ through the API: Brevo refusing the email gives 502 and leaves the invoice a draft (66 ms)
+    √ console is the default while developing; in production an unset provider is an error, not a silent log (28 ms)
+  overdue
+    √ a sent invoice that was due yesterday (Asia/Kolkata) is overdue by 1 day (79 ms)
+    √ due today is not overdue yet, even at 00:00 today; one minute earlier is (160 ms)
+    √ counts the days: due 5 days ago is 5 days overdue (64 ms)
+    √ a paid invoice is never overdue, and neither is a draft (97 ms)
+    √ uses the user's own time zone: 23:00 yesterday in New York is overdue for a New York user (115 ms)
+    √ GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it (203 ms)
+    √ marking it paid ends the overdue state (54 ms)
+
+PASS src/tests/seed.test.js (8.234 s)
+  seed
+    √ can be run again and again: same counts, same invoices, and the data looks like the brief (2042 ms)
+    √ does not delete or change another user's data (1486 ms)
+    √ refuses to run in production unless SEED_ALLOW=true (25 ms)
+
+PASS src/tests/timesheet.test.js (6.934 s)
+  GET /api/timesheet: days and rows
+    √ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project (287 ms)
+    √ only lists projects that have time that week and returns zeros for an empty week (130 ms)
+    √ defaults to the current week in the user's own time zone (68 ms)
+  entries across midnight and at the edges of the week
+    √ splits an entry that crosses midnight between the two days (81 ms)
+    √ clips entries to the edges of the week and ignores entries outside it (108 ms)
+    √ leaves out the running timer (75 ms)
+    √ counts whole seconds, so the days add up to exactly the entry's durationSeconds (105 ms)
+  days are counted in the user's time zone
+    √ the same UTC entries land on different days for India and New York (163 ms)
+    √ uses each user's own zone even when two users look at the same week (139 ms)
+  daylight saving weeks (America/New_York)
+    √ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long (139 ms)
+    √ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long (127 ms)
+    √ a normal week after the change (9 March 2026): days start at 04:00 UTC (108 ms)
+  totals
+    √ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount (88 ms)
+    √ billed entries still count towards the week (66 ms)
+  validation and privacy
+    √ rejects a weekStart that is not a Monday (85 ms)
+    √ rejects a weekStart that is not a date (96 ms)
+    √ never shows another user's entries (94 ms)
+    √ requires a login (42 ms)
+  splitIntoDays
+    √ puts an entry that stays inside one day in that day (36 ms)
+    √ splits an entry that crosses midnight (37 ms)
+    √ spreads a very long entry over every day it touches (44 ms)
+    √ clips the parts before the week starts and after it ends (42 ms)
+    √ returns zeros for an entry outside the week or touching it only at an edge (44 ms)
+    √ accepts Date objects as well as timestamps, and always returns 7 numbers (38 ms)
 
 PASS src/tests/rounding.test.js
   roundUp(seconds, minutes)
-    √ rounds up to the next block of 15 minutes (7 ms)
-    √ keeps an exact multiple as it is, and goes up a whole block one second after it (1 ms)
-    √ keeps an empty entry at 0
-    √ does nothing when rounding is off (0 minutes or no value)
-    √ never goes below 0 and never rounds down (112 ms)
-    √ works for other block sizes too (1 ms)
+    √ rounds up to the next block of 15 minutes (8 ms)
+    √ keeps an exact multiple as it is, and goes up a whole block one second after it (2 ms)
+    √ keeps an empty entry at 0 (2 ms)
+    √ does nothing when rounding is off (0 minutes or no value) (1 ms)
+    √ never goes below 0 and never rounds down (97 ms)
+    √ works for other block sizes too (2 ms)
 
-PASS src/tests/timesheet.test.js (5.593 s)
-  GET /api/timesheet: days and rows
-    √ puts entries on the right day columns, with 7 labelled days and rows sorted by client then project (327 ms)
-    √ only lists projects that have time that week and returns zeros for an empty week (115 ms)
-    √ defaults to the current week in the user's own time zone (68 ms)
-  entries across midnight and at the edges of the week
-    √ splits an entry that crosses midnight between the two days (76 ms)
-    √ clips entries to the edges of the week and ignores entries outside it (101 ms)
-    √ leaves out the running timer (74 ms)
-    √ counts whole seconds, so the days add up to exactly the entry's durationSeconds (81 ms)
-  days are counted in the user's time zone
-    √ the same UTC entries land on different days for India and New York (145 ms)
-    √ uses each user's own zone even when two users look at the same week (132 ms)
-  daylight saving weeks (America/New_York)
-    √ the week DST starts (2 March 2026): Sunday 8 March is 23 hours long (119 ms)
-    √ the week DST ends (26 October 2026): Sunday 1 November is 25 hours long (104 ms)
-    √ a normal week after the change (9 March 2026): days start at 04:00 UTC (78 ms)
-  totals
-    √ calculates dayTotals, weekTotalSeconds, billableSeconds and billableAmount (87 ms)
-    √ billed entries still count towards the week (71 ms)
-  validation and privacy
-    √ rejects a weekStart that is not a Monday (90 ms)
-    √ rejects a weekStart that is not a date (87 ms)
-    √ never shows another user's entries (89 ms)
-    √ requires a login (34 ms)
-  splitIntoDays
-    √ puts an entry that stays inside one day in that day (28 ms)
-    √ splits an entry that crosses midnight (31 ms)
-    √ spreads a very long entry over every day it touches (24 ms)
-    √ clips the parts before the week starts and after it ends (25 ms)
-    √ returns zeros for an entry outside the week or touching it only at an edge (27 ms)
-    √ accepts Date objects as well as timestamps, and always returns 7 numbers (25 ms)
+PASS src/tests/health.test.js
+  GET /api/health
+    √ returns status ok (59 ms)
+    √ returns a JSON error for unknown routes (15 ms)
 
-PASS src/tests/timer.test.js (5.94 s)
-  POST /api/timer/start and GET /api/timer
-    √ sets startedAt from the server clock (ignoring any time the client sends) and GET returns it (258 ms)
-    √ returns { timer: null, serverTime } when nothing is running (57 ms)
-    √ defaults to billable with an empty description (68 ms)
-    √ returns 409 when a timer is already running (103 ms)
-    √ lets exactly one of two simultaneous start requests win (94 ms)
-    √ still allows only one when many requests arrive at once (194 ms)
-    √ allows different users to run timers at the same time (103 ms)
-    √ rejects another user's project with 400 'Project not found' (65 ms)
-    √ rejects an archived project and a project that does not exist (87 ms)
-    √ validates the body (64 ms)
-  one running timer per user is enforced by the database
-    √ has a partial unique index on userId for entries with endedAt: null (42 ms)
-    √ rejects a second running entry even when the service is bypassed (57 ms)
-  POST /api/timer/stop
-    √ calculates durationSeconds from startedAt and endedAt (142 ms)
-    √ keeps very short entries (duration can be 0) (91 ms)
-    √ returns 404 'No timer is running' when nothing is running (47 ms)
-    √ lets only one of two simultaneous stop requests succeed (93 ms)
-    √ lets the user start a new timer after stopping (122 ms)
-  PATCH /api/timer
-    √ updates description and billable of the running timer (94 ms)
-    √ can move the running timer to another of my projects (clientId follows) (90 ms)
-    √ rejects another user's project, bad input, and an empty patch is harmless (104 ms)
-    √ returns 404 when no timer is running and never edits a stopped entry (104 ms)
-  users can't touch each other's timers
-    √ user A cannot see, stop or edit user B's timer (102 ms)
+PASS src/tests/entries.test.js (6.464 s)
+  POST /api/entries
+    √ creates a manual entry with the right duration and the project's client (168 ms)
+    √ is billable by default, copies the client of whichever project is chosen, and stores UTC (70 ms)
+    √ validates required fields, date formats and field lengths (63 ms)
+    √ rejects another user's project and an archived project (65 ms)
+    time rules
+      √ rejects an end before the start, and a zero-length entry (64 ms)
+      √ rejects an entry longer than 24 hours but accepts exactly 24 hours (57 ms)
+      √ rejects an end time in the future, with 1 minute of clock difference allowed (55 ms)
+  PATCH /api/entries/:id
+    √ recalculates the duration when the times change (64 ms)
+    √ checks the new time against the existing one when only one time is sent (53 ms)
+    √ copies the new project's client when the project changes (67 ms)
+    √ can change just the description and billable flag, leaving the times alone (62 ms)
+    √ rejects another user's project, and edits stopped timer entries like any other (72 ms)
+    √ returns 409 for a billed entry and leaves it unchanged (35 ms)
+    √ returns 409 "Stop the timer first" for the running timer (33 ms)
+    √ returns 404 for an unknown id and 400 for a malformed one (38 ms)
+  DELETE /api/entries/:id
+    √ deletes an entry (70 ms)
+    √ returns 409 for a billed entry (42 ms)
+    √ returns 409 "Stop the timer first" for the running timer (38 ms)
+  users can't touch each other's entries
+    √ user A cannot see, edit or delete user B's entries (404) (79 ms)
+    √ user A cannot create an entry on user B's project (37 ms)
     √ requires authentication (52 ms)
   GET /api/entries
-    √ lists only my stopped entries inside the range, newest first, with project and client names (71 ms)
-    √ rejects a malformed date (35 ms)
+    √ lists finished entries newest first, without the running timer or other users' entries (61 ms)
+    √ calculates totals, including the billable amount from each project rate (73 ms)
+    √ filters by billable (98 ms)
+    √ filters by status (unbilled, billed, all) (139 ms)
+    √ combines filters and filters by client, project and date range (117 ms)
+    √ with overlap=true, from/to also match entries that start before the range or run past it (171 ms)
+    √ rejects invalid filters (124 ms)
 
-PASS src/tests/invoice-send.test.js (5.092 s)
-  POST /api/invoices/:id/send
-    √ emails the client with a link, and moves the invoice from draft to sent (144 ms)
-    √ sends to the address typed in, copies others, and puts the personal message in both versions (escaped in the HTML) (46 ms)
-    √ goes to the client's email as it is now when it was corrected after the invoice was made (46 ms)
-    √ needs somebody to send it to: 400 "Add the client's email first", nothing is sent, nothing changes (55 ms)
-    √ validates the addresses and the message (55 ms)
-    √ refuses a paid invoice (409) and sends nothing (30 ms)
-    √ when the provider fails: 502 "Couldn't send the email. Try again." and the invoice is left as it was (75 ms)
-    √ can be sent again: only lastSentAt (and the recipient) change, sentAt stays and the same link is used (85 ms)
-    √ an overdue invoice can be sent again too, and stays overdue (33 ms)
-    √ is private: user B can't send user A's invoice (404, nothing is sent), and a login is needed (36 ms)
-  email providers
-    √ brevo: one POST to the transactional API with the key in a header and the whole email in the body (11 ms)
-    √ brevo: an error answer, a network failure or a missing key all become an EmailError (and the key is never in the message) (9 ms)
-    √ through the API: Brevo refusing the email gives 502 and leaves the invoice a draft (25 ms)
-    √ console is the default while developing; in production an unset provider is an error, not a silent log (9 ms)
-  overdue
-    √ a sent invoice that was due yesterday (Asia/Kolkata) is overdue by 1 day (26 ms)
-    √ due today is not overdue yet, even at 00:00 today; one minute earlier is (56 ms)
-    √ counts the days: due 5 days ago is 5 days overdue (25 ms)
-    √ a paid invoice is never overdue, and neither is a draft (39 ms)
-    √ uses the user's own time zone: 23:00 yesterday in New York is overdue for a New York user (46 ms)
-    √ GET /api/invoices has displayStatus and daysOverdue on every invoice, and ?status=overdue / sent / draft / paid filter by it (82 ms)
-    √ marking it paid ends the overdue state (23 ms)
+PASS src/tests/payment.test.js (5.168 s)
+  PATCH /api/auth/me: payment details
+    √ saves a payment link, a UPI ID and bank details, and /me gives them back (104 ms)
+    √ a new user has no payment details at all (23 ms)
+    √ changes only what is sent: the other details stay, and an empty string removes one (59 ms)
+    √ can be saved together with other settings without touching the reminder settings (25 ms)
+    √ trims the text, normalises line endings and drops control characters from the bank details (23 ms)
+  payment details are validated
+    √ the payment link must be a full https address: no javascript:, http, ftp, bare words, passwords or spaces (105 ms)
+    √ accepts real payment links (Stripe, PayPal, Razorpay) (56 ms)
+    √ the payment link can be at most 500 characters (20 ms)
+    √ the UPI ID must look like name@bank (151 ms)
+    √ the bank details can be at most 500 characters (40 ms)
+    √ wrong types and an empty payment are refused (80 ms)
+    √ several mistakes are all reported, each under its own field (28 ms)
+    √ needs a login (15 ms)
+  the "Pay now" button in the invoice e-mail
+    √ is not there when no payment link is set (82 ms)
+    √ is there, linking to the payment link, when one is set (62 ms)
+    √ with only a UPI ID or bank details there is no button, but the details are shown (63 ms)
+    √ with a link and details: the button, and the details below it (74 ms)
+    √ what the owner typed is escaped, so it can not add markup to the e-mail (70 ms)
+    √ removing the link removes the button from the next e-mail (123 ms)
+  the payment details on the public invoice
+    √ are null when the owner set up nothing (49 ms)
+    √ have the link, the UPI ID and the bank details when they are set (56 ms)
+    √ have no link (null) when only a UPI ID is set, so the page can show no button (58 ms)
+    √ follow the owner's current settings, also for invoices made before (71 ms)
+    √ are left out once the invoice is paid (nothing to pay any more) (72 ms)
+    √ are the only owner data on the public page: no other user field is added (41 ms)
 
-Test Suites: 11 passed, 11 total
-Tests:       198 passed, 198 total
+Test Suites: 13 passed, 13 total
+Tests:       275 passed, 275 total
 Snapshots:   0 total
-Time:        23.535 s
+Time:        31.34 s, estimated 47 s
 Ran all test suites.
 Test results written to: ..\..\..\..\AppData\Local\Temp\claude\c--Users-sande-OneDrive-Desktop-timeledger\82fe8a0c-c1f8-44f4-a9e2-35cfff95393e\scratchpad\results\jest.json

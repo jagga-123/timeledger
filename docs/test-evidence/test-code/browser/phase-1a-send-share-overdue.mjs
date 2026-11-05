@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -55,7 +56,7 @@ const money = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currenc
 const dayWord = (n) => `${n} ${n === 1 ? 'day' : 'days'} overdue`;
 
 // ---------- browser helpers ----------
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const consoleErrors = [];
 const blocked = [];
 let failNextSend = false; // makes the next "send invoice" request fail with a 502, as if the email provider were down
@@ -360,7 +361,7 @@ await clickButton(A, 'All');
 await A.goto(BASE + `/invoices/${inv1._id}`);
 await waitSel(A, '[data-testid="invoice-number"]');
 tl = await timeline(A);
-check('the paid demo invoice INV-0001 (Globex): no Send button; timeline Created, Sent, Viewed and Paid are all done', !(await buttonTexts(A, '[data-testid="invoice-actions"]')).some((t) => /Send|Resend/.test(t)) && Object.values(tl).every((s) => s.done), JSON.stringify(Object.values(tl).map((s) => s.done)));
+check('the paid demo invoice INV-0001 (Globex): no Send button; timeline Created, Sent, Viewed and Paid are all done (and no reminder was sent)', !(await buttonTexts(A, '[data-testid="invoice-actions"]')).some((t) => /Send|Resend/.test(t)) && ['created', 'sent', 'viewed', 'paid'].every((step) => tl[step].done) && !tl.reminder.done, JSON.stringify(Object.entries(tl).map(([step, s]) => `${step}:${s.done}`))); // Phase 1B added a "Reminder sent" step: this invoice never got a reminder
 const P = await freshPage('P-public-paid');
 await P.goto((await call('GET', `/invoices/${inv1._id}`, T)).body.invoice.shareUrl);
 check('its link shows a Paid badge to the client', (await waitSel(P, '[data-testid="invoice-status"]')) && (await P.$eval('[data-testid="invoice-status"]', (e) => e.innerText.trim())) === 'Paid');

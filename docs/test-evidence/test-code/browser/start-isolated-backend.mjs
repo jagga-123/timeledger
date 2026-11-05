@@ -29,6 +29,7 @@ process.env.PORT = PORT;
 process.env.FRONTEND_URL = FRONTEND_URL;
 process.env.JWT_SECRET = 'e2e-secret';
 process.env.JWT_EXPIRES_IN = '1h';
+process.env.CRON_SECRET = process.env.E2E_CRON_SECRET || 'e2e-cron-secret-0123456789abcdef'; // for POST /api/cron/reminders
 
 // Let test scripts reach the throwaway database (e.g. to mark an entry as billed, which no API can do yet)
 if (process.env.E2E_MONGO_URI_FILE) {

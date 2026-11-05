@@ -1,0 +1,86 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+1. The unique index no longer covers scheduled reminders (the same reminder can be claimed twice)
+  file: models/ReminderLog.js
+  change: { unique: true, partialFilterExpression: { offsetDays: { $type: 'number' } } }  ->  { unique: true, partialFilterExpression: { offsetDays: { $type: 'string' } } }
+  Tests:       10 failed, 67 passed, 77 total
+    x the same instant is a different day for each owner: 03:30 UTC is already 10 March in Kolkata but still 9 March in New York
+    x running the job twice (and again) sends it once
+    x two runs at the same moment (Promise.all) send it once, and so do five
+    x the database itself refuses a second row for the same reminder; manual reminders are not limited
+    x a missed reminder is still sent up to 2 days late, with the words for today ("1 day overdue")
+    x only the LATEST missed reminder is sent, never a burst of old ones
+    x a failed reminder is tried again by the next run, and then sent exactly once
+    x gives up after 3 attempts (the row stays "failed")
+    x with the right secret it runs the job and returns { checked, sent, skipped, failed }
+    x PATCH { paused } pauses and resumes the automatic reminders of one invoice
+  file restored identical: yes
+
+2. Catch-up sends the OLDEST missed reminder instead of the latest
+  file: services/reminder.service.js
+  change: const latest = eligible.at(-1);  ->  const latest = eligible[0];
+  Tests:       2 failed, 75 passed, 77 total
+    x a day is counted in the OWNER's time zone: Kolkata and New York near midnight UTC
+    x only the LATEST missed reminder is sent, never a burst of old ones
+  file restored identical: yes
+
+3. "Today" is worked out in UTC instead of the owner's time zone
+  file: services/reminder.service.js
+  change: now.setZone(zone)  ->  now.setZone('utc')  (in findDue)
+  Tests:       2 failed, 75 passed, 77 total
+    x a day is counted in the OWNER's time zone: Kolkata and New York near midnight UTC
+    x the same instant is a different day for each owner: 03:30 UTC is already 10 March in Kolkata but still 9 March in New York
+  file restored identical: yes
+
+4. The catch-up window is 10 days instead of 2
+  file: services/reminder.service.js
+  change: export const CATCH_UP_DAYS = 2;  ->  export const CATCH_UP_DAYS = 10;
+  Tests:       1 failed, 76 passed, 77 total
+    x nothing older than 2 days is sent
+  file restored identical: yes
+
+5. The placeholder secret from .env.example is accepted as the cron secret
+  file: middleware/cronSecret.js
+  change: if (expected.length < 16 || expected.startsWith('replace-with')) {  ->  if (expected.length < 16) {
+  Tests:       1 failed, 76 passed, 77 total
+    x is not open when the secret is missing on the server, too short, or still the placeholder (503, even with a matching header)
+  file restored identical: yes
+
+6. The 24 hour limit on "Send reminder now" no longer limits (the cut-off is in the future)
+  file: services/reminder.service.js
+  change: { lastReminderAt: { $lt: new Date(now.getTime() - MANUAL_COOLDOWN_MS) } }  ->  { lastReminderAt: { $lt: new Date(now.getTime() + MANUAL_COOLDOWN_MS) } }
+  Tests:       4 failed, 73 passed, 77 total
+    x sends a reminder at once, once: the second time within 24 hours is 429
+    x can be sent again once 24 hours have passed (and not before)
+    x two clicks at the same moment send one e-mail
+    x an automatic reminder counts too: no manual one within 24 hours of it
+  file restored identical: yes
+
+7. A failed e-mail is logged as "sent"
+  file: services/reminder.service.js
+  change: { $set: { status: 'failed', error: String(err.message).slice(0, 300) } }  ->  { $set: { status: 'sent', error: String(err.message).slice(0, 300) } }
+  Tests:       6 failed, 71 passed, 77 total
+    x the log says "failed", the invoice is unchanged, and nothing was sent
+    x a failed reminder is tried again by the next run, and then sent exactly once
+    x gives up after 3 attempts (the row stays "failed")
+    x one failure does not stop the others in the same run
+    x when the provider fails: 502, and the 24 hours are given back so it can be tried again
+    x GET /reminders has the history (newest first, failures included) and the next reminder
+  file restored identical: yes
+
+8. "Pay now" is shown even when there is no payment link
+  file: services/emailTemplates.js
+  change: return (payment.link ? button(payment.link, 'Pay now', GREEN) : '') + otherWays;  ->  return button(payment.link || '#', 'Pay now', GREEN) + otherWays;
+  Tests:       3 failed, 74 passed, 77 total
+    x with only a UPI ID or bank details there is no button, but the details are shown
+    x shows "Pay now" only when the owner has a payment link, and the UPI ID and bank details below it
+    x when the job sends it, "Pay now" follows the owner's current payment link
+  file restored identical: yes
+
+9. The payment link no longer has to be https (the protocol check is removed)
+  file: validators/auth.validator.js
+  change: return url.protocol === 'https:' && url.hostname.includes('.')  ->  return url.hostname.includes('.')
+  Tests:       2 failed, 75 passed, 77 total
+    x the payment link must be a full https address: no javascript:, http, ftp, bare words, passwords or spaces
+    x several mistakes are all reported, each under its own field
+  file restored identical: yes

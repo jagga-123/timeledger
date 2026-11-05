@@ -1,0 +1,24 @@
+Subject: INV-0003 is 7 days overdue
+
+Invoice INV-0003 is 7 days overdue
+
+Hi Initech,
+
+Invoice INV-0003 from Alex Morgan for $602.25 was due on 18 Nov 2026, so it is now 7 days overdue. If you have already paid, thank you, and please ignore this message.
+
+Amount: $602.25
+Due date: 18 Nov 2026
+
+You can see the invoice below. If you have any questions, just reply to this e-mail to reach Alex Morgan.
+
+View the invoice:
+http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFexampleToken
+
+UPI ID: alex.morgan@okhdfcbank
+Bank details:
+Account name: Alex Morgan
+Bank: HDFC Bank
+Account no: 50100123456789
+IFSC: HDFC0001234
+
+-- Sent with TimeLedger on behalf of Alex Morgan

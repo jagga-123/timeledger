@@ -1,0 +1,27 @@
+Subject: Reminder: INV-0003 is due in 3 days
+
+Invoice INV-0003 is due in 3 days
+
+Hi Initech,
+
+Just a friendly reminder that invoice INV-0003 from Alex Morgan for $602.25 is due on 18 Nov 2026.
+
+Amount: $602.25
+Due date: 18 Nov 2026
+
+You can see the invoice below. If you have any questions, just reply to this e-mail to reach Alex Morgan.
+
+View the invoice:
+http://localhost:5273/i/sVdtUHZ-GpbrPx_lDW84q0FjFexampleToken
+
+Pay now:
+https://pay.example.com/alex-morgan
+
+UPI ID: alex.morgan@okhdfcbank
+Bank details:
+Account name: Alex Morgan
+Bank: HDFC Bank
+Account no: 50100123456789
+IFSC: HDFC0001234
+
+-- Sent with TimeLedger on behalf of Alex Morgan

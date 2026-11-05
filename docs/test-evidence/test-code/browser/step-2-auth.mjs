@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import { launchEdge } from './launch-edge.mjs';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.env.E2E_BASE || 'http://localhost:5273';
@@ -13,7 +14,7 @@ const check = (name, ok, extra = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${extra ? '  -> ' + extra : ''}`);
 };
 
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await launchEdge();
 const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 800 });
 

@@ -144,7 +144,7 @@ describe('PATCH /api/auth/me (time zone)', () => {
 
     const missing = await request(app).patch('/api/auth/me').set('Authorization', `Bearer ${body.token}`).send({});
     expect(missing.status).toBe(400);
-    expect(missing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone or roundingMinutes' }]);
+    expect(missing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone, roundingMinutes, reminders or payment' }]);
 
     expect((await User.findOne({ email: validUser.email })).timezone).toBe('Asia/Kolkata');
   });
@@ -209,7 +209,7 @@ describe('PATCH /api/auth/me (name and rounding rule)', () => {
 
     const nothing = await patchMe(body.token, {});
     expect(nothing.status).toBe(400);
-    expect(nothing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone or roundingMinutes' }]);
+    expect(nothing.body.errors).toEqual([{ path: '', message: 'Send at least one of name, timezone, roundingMinutes, reminders or payment' }]);
 
     // fields that are not meant to be changed here are dropped, not saved
     const sneaky = await patchMe(body.token, { name: 'Still Me', email: 'hacker@example.com', passwordHash: 'x', currency: 'EUR' });
