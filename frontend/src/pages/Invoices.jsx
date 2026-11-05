@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Plus } from 'lucide-react';
+import { Bell, BellOff, FileText, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/PageHeader';
 import PageLoader from '../components/PageLoader';
@@ -21,6 +21,20 @@ const FILTERS = [
   { id: 'overdue', label: 'Overdue' },
   { id: 'paid', label: 'Paid' },
 ];
+
+// A small bell on a sent invoice: on, or muted when this invoice is paused (or reminders are off in Settings)
+function ReminderBell({ invoice, ownerEnabled }) {
+  if (invoice.status !== 'sent') return null;
+
+  const on = ownerEnabled && !invoice.remindersPaused;
+  const title = on ? 'Payment reminders are on' : invoice.remindersPaused ? 'Reminders are paused for this invoice' : 'Reminders are off in Settings';
+  const Icon = on ? Bell : BellOff;
+  return (
+    <span title={title} aria-label={title} role="img" data-testid={on ? 'reminders-on' : 'reminders-off'} className={`shrink-0 ${on ? 'text-primary' : 'text-slate-300'}`}>
+      <Icon size={14} />
+    </span>
+  );
+}
 
 export default function Invoices() {
   const { user } = useAuth();
@@ -93,6 +107,7 @@ export default function Invoices() {
                 <p className="flex items-center gap-2">
                   <span className="font-mono font-semibold text-slate-900">{invoice.number}</span>
                   <span className="truncate text-slate-700">{invoice.client.name}</span>
+                  <ReminderBell invoice={invoice} ownerEnabled={user.reminders?.enabled ?? true} />
                 </p>
                 <p className="mt-0.5 text-sm text-slate-500">
                   {formatDateRange(invoice.periodStart, invoice.periodEnd)} · issued {formatDate(invoice.issuedAt, invoice.timezone)}
