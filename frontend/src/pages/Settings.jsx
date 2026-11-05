@@ -4,6 +4,8 @@ import PageHeader from '../components/PageHeader';
 import FormField from '../components/FormField';
 import Switch from '../components/Switch';
 import Button from '../components/Button';
+import RemindersSettings from '../components/RemindersSettings';
+import PaymentSettings from '../components/PaymentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { handleFormError } from '../utils/errors';
 
@@ -39,9 +41,10 @@ export default function Settings() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Your name, your time zone and how time is billed." />
+      <PageHeader title="Settings" description="Your name, how time is billed, payment reminders and how clients can pay you." />
 
-      <form onSubmit={handleSubmit} noValidate className="max-w-xl space-y-6 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+      <div className="max-w-xl space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
         <FormField
           label="Name"
           name="name"
@@ -86,6 +89,10 @@ export default function Settings() {
           </Button>
         </div>
       </form>
+
+      <RemindersSettings />
+      <PaymentSettings />
+      </div>
     </>
   );
 }
