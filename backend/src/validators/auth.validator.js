@@ -55,12 +55,18 @@ const isPaymentLink = (value) => {
   }
 };
 
-const optionalText = (schema) => z.preprocess(cleanText, z.union([z.literal(''), schema]));
+const optionalText = (schema, clean = cleanText) => z.preprocess(clean, z.union([z.literal(''), schema]));
+
+// A UPI ID is saved trimmed and in lower case: handles are lower case, so "Alex@OkHDFCbank" and "alex@okhdfcbank" are the same ID
+const cleanUpiId = (value) => {
+  const text = cleanText(value);
+  return typeof text === 'string' ? text.toLowerCase() : text;
+};
 
 const paymentSchema = z
   .object({
     link: optionalText(z.string().max(500, 'The payment link must be at most 500 characters').refine(isPaymentLink, 'Payment link must be a full https:// address, like https://rzp.io/l/yourname')).optional(),
-    upiId: optionalText(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,255}@[a-zA-Z][a-zA-Z0-9.]{1,63}$/, 'UPI ID must look like name@bank, for example alex@okhdfcbank')).optional(),
+    upiId: optionalText(z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{1,255}@[a-zA-Z][a-zA-Z0-9.]{1,63}$/, 'UPI ID must look like name@bank, for example alex@okhdfcbank'), cleanUpiId).optional(),
     bankDetails: optionalText(z.string().max(500, 'Bank details must be at most 500 characters')).optional(),
   })
   .refine((changes) => Object.keys(changes).length > 0, { error: 'Send at least one payment detail' });
