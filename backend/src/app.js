@@ -9,6 +9,7 @@ import timesheetRoutes from './routes/timesheet.routes.js';
 import invoiceRoutes from './routes/invoice.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import cronRoutes from './routes/cron.routes.js';
+import receivablesRoutes from './routes/receivables.routes.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/timer', timerRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/timesheet', timesheetRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/receivables', receivablesRoutes); // who owes what: see services/receivables.service.js
 app.use('/api/public', publicRoutes); // no login: see routes/public.routes.js
 app.use('/api/cron', cronRoutes); // no login, a shared secret instead: see middleware/cronSecret.js
 
