@@ -5,6 +5,7 @@ import FormField from './FormField';
 import Button from './Button';
 import { useAuth } from '../hooks/useAuth';
 import { handleFormError } from '../utils/errors';
+import { upiHandleWarning } from '../utils/upiHandles';
 
 const fromUser = (user) => ({ link: user.payment?.link ?? '', upiId: user.payment?.upiId ?? '', bankDetails: user.payment?.bankDetails ?? '' });
 
@@ -15,6 +16,7 @@ export default function PaymentSettings() {
   const [form, setForm] = useState(saved);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [typingUpi, setTypingUpi] = useState(false); // the amber note waits until the person has finished typing the UPI ID
 
   const changed = Object.keys(form).some((field) => form[field].trim() !== saved[field]);
 
@@ -22,7 +24,17 @@ export default function PaymentSettings() {
     const { name, value } = e.target;
     setForm((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: undefined }));
+    if (name === 'upiId') setTypingUpi(true);
   };
+
+  // Leaving the UPI ID field: show it the way it will be saved (no spaces around it, lower case) and look at its handle
+  const handleUpiBlur = () => {
+    setForm((current) => ({ ...current, upiId: current.upiId.trim().toLowerCase() }));
+    setTypingUpi(false);
+  };
+
+  // A handle we don't know (@okhdfcnk) is only a warning: it is saved all the same
+  const upiWarning = typingUpi || errors.upiId ? '' : upiHandleWarning(form.upiId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,7 +88,9 @@ export default function PaymentSettings() {
         placeholder="yourname@okhdfcbank"
         value={form.upiId}
         onChange={handleChange}
+        onBlur={handleUpiBlur}
         error={errors.upiId}
+        warning={upiWarning}
       />
 
       <FormField
