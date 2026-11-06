@@ -2,7 +2,7 @@
 
 A time tracker with invoicing for freelancers: track time with a timer that lives on the server, turn unbilled time into printable invoices, and never bill the same hour twice. Built with the MERN stack (MongoDB, Express, React, Node.js).
 
-**Live demo:** (coming in the next step)
+**Live site:** press **Sign up** and create your own account. There is no shared demo login on the live site; the demo data is for running the app locally (see [Try it](#try-it)).
 
 <table>
   <tr>
@@ -23,11 +23,13 @@ More screenshots, every test result and the test code are in [docs/test-evidence
 
 ## Contents
 
-[Demo login](#demo-login) · [Features](#features) · [Tech stack](#tech-stack) · [Setup and run](#setup-and-run) · [Payment reminders](#payment-reminders-and-the-hourly-job) · [Data model](#data-model) · [Design decisions](#main-design-decisions) · [Tests](#tests) · [Finished and not finished](#what-is-finished-and-what-is-not) · [AI tools used](#ai-tools-used) · [API](#api) · [Project structure](#project-structure) · [Troubleshooting](#troubleshooting)
+[Try it](#try-it) · [Features](#features) · [Tech stack](#tech-stack) · [Setup and run](#setup-and-run) · [Payment reminders](#payment-reminders-and-the-hourly-job) · [Data model](#data-model) · [Design decisions](#main-design-decisions) · [Tests](#tests) · [Finished and not finished](#what-is-finished-and-what-is-not) · [AI tools used](#ai-tools-used) · [API](#api) · [Project structure](#project-structure) · [Troubleshooting](#troubleshooting)
 
-## Demo login
+## Try it
 
-The demo data only exists where you run `npm run seed` (see [Setup and run](#setup-and-run)), and the seed only runs against a **local** database (or with `SEED_ALLOW=true`), so a deployed app has no demo user. After seeding, log in with:
+**On the live site:** press **Sign up** and create your own account with your e-mail address and a password (at least 8 characters). There is no shared demo account there: everybody starts with an empty account, so add a client and a project, start a timer and make your first invoice.
+
+**With demo data, on your own computer:** the demo data is made locally, with `npm run seed` in `backend/` (see [Setup and run](#setup-and-run)). The seed only runs against a **local** database (or with `SEED_ALLOW=true`), so it never puts a demo user into a deployed app. After seeding, log in with this local demo account (the login page only shows it as a hint when the frontend is started with `VITE_SHOW_DEMO=true`):
 
 | Email | Password |
 | --- | --- |
@@ -123,7 +125,7 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
    cd frontend && npm run dev    # app on http://localhost:5173
    ```
 
-   Open http://localhost:5173, then register, or log in as the [demo user](#demo-login).
+   Open http://localhost:5173, then register, or, if you ran the seed, log in as the demo user (see [Try it](#try-it)).
 
 5. **Run the tests:** `cd backend && npm test` (uses a throwaway in-memory database, never yours).
 
@@ -257,7 +259,7 @@ The dashboard, the Clients page and the sidebar badge all answer one question: w
 
 **Check it with the demo data**
 
-1. `cd backend && npm run seed`, start the app and log in as `demo@timeledger.app` / `Demo@1234`.
+1. Locally: `cd backend && npm run seed` (it needs a local database), start the app and log in as `demo@timeledger.app` / `Demo@1234`.
 2. **Dashboard**: a red banner "1 invoice overdue · $148.50" with "Oldest: Initech, N days" (N is 7 to 13, depending on the weekday), the Money cards, the aging bar (Acme's invoice is *Current*, Initech's is *1–30 days*) and a red **1** next to *Invoices* in the sidebar. The **X** hides the banner for today; **View overdue** opens the Invoices with the Overdue filter on.
 3. **Clients**: Initech first with a red *Overdue* and its days, then Acme Corp (*Owes $1,344.75*), then Globex Ltd (*All paid*, with the date of its payment). Try *Sort by* and the *Owes me money* chip. Every client also has unbilled time.
 4. Click **Acme Corp**: four metric cards, its invoice, and *Invoice unbilled time* (it opens *New invoice* with Acme and the exact days of the unbilled time, and the total is the *Unbilled* card).
@@ -433,7 +435,7 @@ The results, 132 screenshots, sample invoice PDFs and e-mails and the test code 
 
 **Not done**
 
-- No deployment yet (see the live demo line at the top).
+- The live site runs on free hosting: the API server sleeps when it has been idle, so the first request after a quiet period can take up to a minute while it wakes up (a limit of the free tier, not a bug). There is no demo account on it: visitors sign up for their own.
 - Sending works through Brevo (or just logs in development), but **Brevo was never called for real here** (its request is tested with a faked network), so real delivery and how Gmail or Outlook draw the e-mail were not checked. "Paid" is set by hand: there is no online payment (the **Pay now** button only opens the link you set up), so an invoice is not marked as paid when the client pays.
 - The server trusts exactly **one** proxy hop (`app.set('trust proxy', 1)`), which is right for one proxy or load balancer in front (Render, Heroku, nginx) and is tested with simulated `X-Forwarded-For` headers, but not with a real proxy. With no proxy in front a visitor could fake that header to dodge the public link's rate limit, and with two proxies in front every visitor would count as the first proxy: change the number to match the deployment.
 - **The hourly GitHub Action was never run on GitHub** (no secrets were set there). What was tested is the endpoint it calls (with `curl` and the secret against a local backend, and by the Jest tests) and the job behind it. A sleeping Render service waking up was not tried either; the workflow waits up to 3 minutes and retries to cover it.
@@ -451,7 +453,7 @@ The results, 132 screenshots, sample invoice PDFs and e-mails and the test code 
 
 **With more time I would**
 
-- deploy it (Atlas, a Node host and a static frontend) and add a health check and logging;
+- add logging and monitoring to the deployed app (a health check already exists at `/api/health`);
 - take payments online (a payment gateway with a webhook that marks the invoice as paid) and generate the PDF on the server so it looks the same everywhere;
 - let a draft be edited, add tax and discount lines and several currencies;
 - add team accounts (a workspace with several members and roles);
