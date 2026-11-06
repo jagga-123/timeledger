@@ -2,7 +2,8 @@
 
 A time tracker with invoicing for freelancers: track time with a timer that lives on the server, turn unbilled time into printable invoices, and never bill the same hour twice. Built with the MERN stack (MongoDB, Express, React, Node.js).
 
-**Live site:** press **Sign up** and create your own account. There is no shared demo login on the live site; the demo data is for running the app locally (see [Try it](#try-it)).
+- **Live site:** https://timeledger-snowy.vercel.app/ (press **Sign up** and create your own account; there is no shared demo login on the live site, the demo data is for running the app locally, see [Try it](#try-it))
+- **API health check:** https://timeledger-a0ub.onrender.com/api/health (answers `{ "status": "ok" }`; on the free hosting the first request after a quiet period can take up to a minute while the server wakes up)
 
 <table>
   <tr>
