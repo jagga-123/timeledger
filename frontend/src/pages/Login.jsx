@@ -7,6 +7,9 @@ import Button from '../components/Button';
 import { useAuth } from '../hooks/useAuth';
 import { getFieldErrors, getErrorMessage } from '../utils/errors';
 
+// The "Demo: ..." hint is only for places where the demo data exists (npm run seed on a local database): off unless VITE_SHOW_DEMO=true
+const SHOW_DEMO = import.meta.env.VITE_SHOW_DEMO === 'true';
+
 export default function Login() {
   const { login } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -66,9 +69,11 @@ export default function Login() {
         </Button>
       </form>
 
-      <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-center text-xs text-slate-500">
-        Demo: <span className="font-mono">demo@timeledger.app / Demo@1234</span>
-      </p>
+      {SHOW_DEMO && (
+        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-center text-xs text-slate-500" data-testid="demo-hint">
+          Demo: <span className="font-mono">demo@timeledger.app / Demo@1234</span>
+        </p>
+      )}
 
       <p className="mt-6 text-center text-sm text-slate-600">
         Don&apos;t have an account?{' '}
