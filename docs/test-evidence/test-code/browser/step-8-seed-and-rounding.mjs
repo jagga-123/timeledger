@@ -189,7 +189,7 @@ const settingsState = (page) =>
 // 1. `npm run seed`, twice, against the throwaway database
 // =====================================================================
 const seed1 = await runSeed();
-check('npm run seed: exits cleanly and prints what it created', seed1.code === 0 && seed1.out.includes('Demo data created for Alex Morgan (demo@timeledger.app') && seed1.out.includes('INV-0001') && seed1.out.includes('INV-0002'), seed1.out.split('\n').slice(0, 3).join(' | '));
+check('npm run seed: exits cleanly and prints what it created', seed1.code === 0 && seed1.out.includes('Demo data created for Alex Morgan (demo@timeledger.app') && seed1.out.includes('INV-0001') && seed1.out.includes('INV-0002') && seed1.out.includes('INV-0003'), seed1.out.split('\n').slice(0, 3).join(' | '));
 const seed2 = await runSeed();
 check('npm run seed again: exactly the same summary (safe to run many times)', seed2.code === 0 && seed2.out === seed1.out);
 const prod = await runSeed({ NODE_ENV: 'production' });
@@ -217,16 +217,18 @@ for (const e of entriesAll) if (!crossing.includes(e)) perDay.set(dayKeyIST(e.st
 check('2-4 entries on every full weekday, each 30 minutes to 3 hours', [...perDay].every(([day, n]) => day === TODAY || (n >= 2 && n <= 4)) && entriesAll.every((e) => e.durationSeconds >= 1800 && e.durationSeconds <= 10800), [...perDay.values()].join(''));
 check('mostly billable, a few non-billable, one entry that crosses midnight, none in the future', entriesAll.filter((e) => !e.billable).length >= 1 && entriesAll.filter((e) => e.billable).length > entriesAll.length * 0.8 && crossing.length === 1 && entriesAll.every((e) => new Date(e.endedAt) <= new Date()));
 check('no running timer', timer === null);
-check('two invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago)',
-  invoicesApi.length === 2 &&
+check('three invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago), INV-0003 Initech SENT (4 weeks ago, overdue)',
+  invoicesApi.length === 3 &&
+    invoicesApi.some((i) => i.number === 'INV-0003' && i.client.name === 'Initech' && i.status === 'sent' && i.displayStatus === 'overdue' && i.periodStart === mondayKey(4)) &&
     invoicesApi.some((i) => i.number === 'INV-0001' && i.client.name === 'Globex Ltd' && i.status === 'paid' && i.periodStart === mondayKey(4)) &&
     invoicesApi.some((i) => i.number === 'INV-0002' && i.client.name === 'Acme Corp' && i.status === 'sent' && i.periodStart === mondayKey(3) && i.periodEnd === dayKeyIST(new Date(Date.parse(mondayKey(2) + 'T00:00:00Z') + 6 * 86400000)))
 );
 const inv1 = invoicesApi.find((i) => i.number === 'INV-0001');
 const inv2 = invoicesApi.find((i) => i.number === 'INV-0002');
+const inv3demo = invoicesApi.find((i) => i.number === 'INV-0003');
 const billedEntries = entriesAll.filter((e) => e.invoiceId);
 check('the last two weeks are left unbilled (so a reviewer can invoice them right away)', billedEntries.every((e) => dayKeyIST(e.startedAt) < mondayKey(1)) && entriesAll.filter((e) => dayKeyIST(e.startedAt) >= mondayKey(1) && e.billable).every((e) => !e.invoiceId));
-check('every billed entry is billable and claimed by exactly one of the two invoices', billedEntries.length > 0 && billedEntries.every((e) => e.billable) && new Set(billedEntries.map((e) => e.invoiceId)).size === 2);
+check('every billed entry is billable and claimed by exactly one of the three invoices', billedEntries.length > 0 && billedEntries.every((e) => e.billable) && new Set(billedEntries.map((e) => e.invoiceId)).size === 3);
 
 // =====================================================================
 // 2. Log in through the screen as the demo user
@@ -279,9 +281,9 @@ await shot(A, '03-demo-time-entries-desktop');
 await A.goto(BASE + '/invoices');
 await A.waitForSelector('main ul > li a[href^="/invoices/"]');
 const rows = await A.$$eval('main ul > li a[href^="/invoices/"]', (as) => as.map((a) => a.innerText.replace(/\s+/g, ' ').trim()));
-check('Invoices: INV-0002 (Acme, Sent) above INV-0001 (Globex, Paid) with their totals', rows.length === 2 && rows[0].startsWith('INV-0002 Acme Corp') && rows[0].includes(money(inv2.total)) && rows[0].includes('Sent') && rows[1].startsWith('INV-0001 Globex Ltd') && rows[1].includes(money(inv1.total)) && rows[1].includes('Paid'), rows.join(' || '));
+check('Invoices: INV-0002 (Acme, Sent), INV-0003 (Initech, overdue) and INV-0001 (Globex, Paid), newest first, with their totals', rows.length === 3 && rows[0].startsWith('INV-0002 Acme Corp') && rows[0].includes(money(inv2.total)) && rows[0].includes('Sent') && rows[1].startsWith('INV-0003 Initech') && rows[1].includes(money(inv3demo.total)) && rows[1].includes('overdue') && rows[2].startsWith('INV-0001 Globex Ltd') && rows[2].includes(money(inv1.total)) && rows[2].includes('Paid'), rows.join(' || '));
 const cards = await A.$$eval('[data-testid="summary"] > div', (c) => c.map((x) => x.innerText.replace(/\s+/g, ' ').trim().toLowerCase()));
-check('Invoices: Outstanding = the sent invoice, Paid = the paid one, 2 invoices', cards[0].includes(money(inv2.total)) && cards[1].includes(money(inv1.total)) && cards[2].endsWith('2'), cards.join(' | '));
+check('Invoices: Outstanding = the two sent invoices (with the overdue part), Paid = the paid one, 3 invoices', cards[0].includes(money(inv2.total + inv3demo.total)) && cards[0].includes(`${money(inv3demo.total)} overdue`) && cards[1].includes(money(inv1.total)) && cards[2].endsWith('3'), cards.join(' | '));
 await shot(A, '04-demo-invoices-desktop');
 await A.click(`main ul > li a[href="/invoices/${inv2._id}"]`);
 await waitSel(A, '[data-testid="invoice-number"]');
@@ -364,7 +366,7 @@ check(`Rounding on: the preview says "Rounded up to 15 min per entry" and shows 
 check(`...with the amounts worked out per entry: ${money(roundedWanted.total)} instead of ${money(plainWanted.total)}`, roundedWanted.total > plainWanted.total && roundedText.includes(money(roundedWanted.total)) && roundedWanted.lines.every((l) => roundedText.includes(`${l.hours.toFixed(2)} h × ${money(l.rate)}`) && roundedText.includes(money(l.amount))), roundedText);
 await shot(A, '09-new-invoice-rounding-preview-desktop');
 await A.click('[role=dialog] button[type=submit]');
-check('creating it: toast "Invoice INV-0003 created" and the invoice page opens', (await hasText(A, 'Invoice INV-0003 created')) && (await waitUrl(A, "() => /^\\/invoices\\/[0-9a-f]{24}$/.test(location.pathname)")));
+check('creating it: toast "Invoice INV-0004 created" and the invoice page opens', (await hasText(A, 'Invoice INV-0004 created')) && (await waitUrl(A, "() => /^\\/invoices\\/[0-9a-f]{24}$/.test(location.pathname)")));
 await waitSel(A, '[data-testid="invoice-number"]');
 const inv3Id = (await pathOf(A)).split('/').pop();
 const page3 = await A.evaluate(() => ({
@@ -372,7 +374,7 @@ const page3 = await A.evaluate(() => ({
   total: document.querySelector('[data-testid="invoice-total"]').innerText,
   rows: [...document.querySelectorAll('[data-testid="line-items-table"] tbody tr')].map((tr) => [...tr.querySelectorAll('td')].map((td) => td.innerText.trim())),
 }));
-check('INV-0003 shows "Rounded up to 15 min per entry", the billed hours and the rounded total', page3.note === 'Rounded up to 15 min per entry' && page3.total === money(roundedWanted.total) && page3.rows.length === roundedWanted.lines.length && roundedWanted.lines.every((l, i) => page3.rows[i][0] === l.name && page3.rows[i][1] === l.hours.toFixed(2) && page3.rows[i][3] === money(l.amount)), JSON.stringify(page3.rows));
+check('INV-0004 shows "Rounded up to 15 min per entry", the billed hours and the rounded total', page3.note === 'Rounded up to 15 min per entry' && page3.total === money(roundedWanted.total) && page3.rows.length === roundedWanted.lines.length && roundedWanted.lines.every((l, i) => page3.rows[i][0] === l.name && page3.rows[i][1] === l.hours.toFixed(2) && page3.rows[i][3] === money(l.amount)), JSON.stringify(page3.rows));
 await A.click('[data-testid="entries-included"] summary');
 const listed = await A.$$eval('[data-testid="entries-included"] li', (lis) => lis.map((li) => li.innerText.replace(/\s+/g, ' ').trim()));
 const arrows = listed.filter((t) => t.includes('→')).length;
@@ -380,7 +382,7 @@ const toRound = entriesAll.filter((e) => e.billable && !e.invoiceId && e.clientI
 check(`the entry list shows tracked → billed for the entries that were rounded (${toRound} of ${listed.length})`, listed.length === roundedWanted.count && arrows === toRound && toRound > 0, `${arrows} arrows`);
 const sampleRounded = entriesAll.find((e) => e.billable && !e.invoiceId && e.clientId === initech && e.durationSeconds % 900 !== 0);
 check(`...e.g. "${fmtDur(sampleRounded.durationSeconds)} → ${fmtDur(billedSeconds(sampleRounded.durationSeconds, 15))}"`, listed.some((t) => t.includes(`${fmtDur(sampleRounded.durationSeconds)} → ${fmtDur(billedSeconds(sampleRounded.durationSeconds, 15))}`)));
-await gone(A, 'Invoice INV-0003 created'); // let the toast leave so it doesn't cover the buttons in the picture
+await gone(A, 'Invoice INV-0004 created'); // let the toast leave so it doesn't cover the buttons in the picture
 await A.evaluate(() => window.scrollTo(0, 0));
 await shot(A, '10-invoice-rounded-desktop');
 
@@ -398,7 +400,7 @@ await gone(A, 'Settings saved');
 check('rounding switched off again', (await call('GET', '/auth/me', T)).body.user.roundingMinutes === 0);
 await A.goto(BASE + `/invoices/${inv3Id}`);
 await waitSel(A, '[data-testid="invoice-number"]');
-check('INV-0003 is unchanged after switching the rule off: same note, same total', (await A.$eval('[data-testid="rounding-note"]', (n) => n.innerText.trim())) === 'Rounded up to 15 min per entry' && (await A.$eval('[data-testid="invoice-total"]', (n) => n.innerText)) === money(roundedWanted.total));
+check('INV-0004 is unchanged after switching the rule off: same note, same total', (await A.$eval('[data-testid="rounding-note"]', (n) => n.innerText.trim())) === 'Rounded up to 15 min per entry' && (await A.$eval('[data-testid="invoice-total"]', (n) => n.innerText)) === money(roundedWanted.total));
 await A.goto(BASE + `/invoices/${inv1._id}`);
 await waitSel(A, '[data-testid="invoice-number"]');
 check('INV-0001 (made before) has no rounding note and its total is unchanged', (await A.$('[data-testid="rounding-note"]')) === null && (await A.$eval('[data-testid="invoice-total"]', (n) => n.innerText)) === money(inv1.total));
@@ -422,7 +424,7 @@ await A.setViewport({ width: 794, height: 1123 });
 await A.emulateMediaType('print');
 await sleep(300);
 const printed = await A.evaluate(() => ({ note: document.querySelector('[data-testid="rounding-note"]')?.offsetParent !== null, aside: getComputedStyle(document.querySelector('aside')).display }));
-check('Print view of INV-0003: the sidebar is gone and the rounding note is part of the printed page', printed.note && printed.aside === 'none');
+check('Print view of INV-0004: the sidebar is gone and the rounding note is part of the printed page', printed.note && printed.aside === 'none');
 await A.emulateMediaType('screen');
 await A.setViewport({ width: 1280, height: 800 });
 
@@ -434,11 +436,11 @@ const seed3 = await runSeed();
 const invoiceLines = (out) => out.split(/\r?\n/).filter((l) => l.includes('INV-000') || l.includes('Clients:') || l.includes('Projects:')).join(' | ');
 check('npm run seed once more (with an extra invoice and rounding switched on): same clients, projects and invoices again', seed3.code === 0 && invoiceLines(seed3.out) === invoiceLines(seed1.out) && invoiceLines(seed1.out).includes('INV-0002'));
 const afterSeed = (await call('GET', '/invoices', T)).body.invoices;
-check('the extra invoice INV-0003 is gone and numbering starts again at INV-0001/INV-0002', afterSeed.map((i) => i.number).sort().join() === 'INV-0001,INV-0002');
+check('the extra invoice INV-0004 is gone and numbering starts again at INV-0001 to INV-0003', afterSeed.map((i) => i.number).sort().join() === 'INV-0001,INV-0002,INV-0003');
 check('the demo user is the same one (the session still works) and rounding is reset to off', (await call('GET', '/auth/me', T)).body.user._id === DEMO_ID && (await call('GET', '/auth/me', T)).body.user.roundingMinutes === 0);
 await A.goto(BASE + '/invoices');
 await A.waitForSelector('main ul > li a[href^="/invoices/"]');
-check('in the browser: still logged in after the re-seed, with the two seeded invoices', (await A.$$eval('main ul > li a[href^="/invoices/"]', (as) => as.length)) === 2);
+check('in the browser: still logged in after the re-seed, with the three seeded invoices', (await A.$$eval('main ul > li a[href^="/invoices/"]', (as) => as.length)) === 3);
 
 // =====================================================================
 // 6. Phone (375px)

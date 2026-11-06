@@ -10,7 +10,7 @@ PASS  add client opens a modal
 PASS  empty client form shows name error
 PASS  bad email shows error under the email field
 PASS  valid client closes modal + toast
-PASS  client row shows name, company, email and project count  -> A Acme Corp 0 projects Acme Inc billing@acme.com
+PASS  client row shows name, company, email and project count  -> A Acme Corp No invoices yet 0 projects Acme Inc billing@acme.com Outstanding $0.00 Overdue — Unbilled — Last payment —
 PASS  toast does not cover the Add client button
 PASS  duplicate client name shows error under name
 PASS  modal stays open after duplicate

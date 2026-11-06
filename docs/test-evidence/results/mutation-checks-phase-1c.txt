@@ -1,0 +1,129 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+1. Due today counts as overdue (the Current bucket stops at yesterday)
+  file: services/receivables.service.js
+  change: if (daysOverdue <= 0) return 'current';  ->  if (daysOverdue < 0) return 'current';
+  Tests:       2 failed, 27 passed, 29 total
+    x puts invoices in every bucket: not due and due today are Current, then 1-30, 31-60 and 61+ days overdue
+    x the same invoice is one day overdue in New York but only due today in India
+  file restored identical: yes
+
+2. 30 days overdue falls into the 31-60 bucket (off by one at 30)
+  file: services/receivables.service.js
+  change: if (daysOverdue <= 30) return '1-30';  ->  if (daysOverdue < 30) return '1-30';
+  Tests:       1 failed, 28 passed, 29 total
+    x puts invoices in every bucket: not due and due today are Current, then 1-30, 31-60 and 61+ days overdue
+  file restored identical: yes
+
+3. 60 days overdue falls into the 61+ bucket (off by one at 60)
+  file: services/receivables.service.js
+  change: if (daysOverdue <= 60) return '31-60';  ->  if (daysOverdue < 60) return '31-60';
+  Tests:       1 failed, 28 passed, 29 total
+    x puts invoices in every bucket: not due and due today are Current, then 1-30, 31-60 and 61+ days overdue
+  file restored identical: yes
+
+4. Paid invoices count as outstanding
+  file: services/receivables.service.js
+  change: outstanding: { amount: sumTotals(sent), count: sent.length },  ->  outstanding: { amount: sumTotals(invoices), count: invoices.length },
+  Tests:       2 failed, 27 passed, 29 total
+    x a paid invoice never counts as outstanding or overdue, and neither does a draft
+    x summary, clients and unbilled time only cover the logged-in user
+  file restored identical: yes
+
+5. Draft invoices are counted as invoiced and outstanding-ish (drafts load with the rest)
+  file: services/receivables.service.js
+  change: status: { $in: ['sent', 'paid'] }, ...extra  ->  status: { $in: ['draft', 'sent', 'paid'] }, ...extra
+  Tests:       2 failed, 27 passed, 29 total
+    x has one row per client, with the numbers of that client only
+    x has the same numbers as the clients list, the invoices with their display status, and the last 5 payments
+  file restored identical: yes
+
+6. The invoices are not limited to the logged-in user (user A sees user B's numbers)
+  file: services/receivables.service.js
+  change: Invoice.find({ userId, status:  ->  Invoice.find({ status:
+  Tests:       3 failed, 26 passed, 29 total
+    x the same invoice is one day overdue in New York but only due today in India
+    x summary, clients and unbilled time only cover the logged-in user
+    x returns { summary } for the logged-in user
+  file restored identical: yes
+
+7. Non-billable time is counted as unbilled
+  file: services/receivables.service.js
+  change: billable: true, invoiceId: null,  ->  invoiceId: null,
+  Tests:       2 failed, 27 passed, 29 total
+    x works out the unbilled amount from billable entries that are on no invoice, at each project's rate
+    x says what is not billed yet and for which days, so "Invoice unbilled time" can fill the period in
+  file restored identical: yes
+
+8. Entries that are already on an invoice are counted as unbilled
+  file: services/receivables.service.js
+  change: invoiceId: null, endedAt: { $ne: null } }  ->  endedAt: { $ne: null } }
+  Tests:       1 failed, 28 passed, 29 total
+    x works out the unbilled amount from billable entries that are on no invoice, at each project's rate
+  file restored identical: yes
+
+9. A running timer is counted as unbilled time (it stretches the period)
+  file: services/receivables.service.js
+  change: invoiceId: null, endedAt: { $ne: null } }  ->  invoiceId: null }
+  Tests:       1 failed, 28 passed, 29 total
+    x says what is not billed yet and for which days, so "Invoice unbilled time" can fill the period in
+  file restored identical: yes
+
+10. A client overview is not limited to the logged-in user (another user's client opens)
+  file: services/receivables.service.js
+  change: Client.findOne({ _id: clientId, userId })  ->  Client.findOne({ _id: clientId })
+  Tests:       2 failed, 27 passed, 29 total
+    x answers 404 for a client that does not exist and for somebody else's client
+    x is 404 for a client that does not exist and for another user's client (the same answer for both)
+  file restored identical: yes
+
+11. "This month" starts on the 1st in UTC instead of the owner's time zone
+  file: services/receivables.service.js
+  change: const local = now.setZone(zone);  ->  const local = now.setZone('utc');
+  Tests:       1 failed, 28 passed, 29 total
+    x paid this month counts what was paid since the 1st, in the owner's own time zone
+  file restored identical: yes
+
+12. The average days to get paid looks at every payment, not the last 90 days
+  file: services/receivables.service.js
+  change: export const PAID_WINDOW_DAYS = 90;  ->  export const PAID_WINDOW_DAYS = 36500;
+  Tests:       3 failed, 26 passed, 29 total
+    x a user with nothing gets zeros, four empty buckets and no average
+    x the average days to get paid goes from sent to paid, over the last 90 days only
+    x the 90 day window: an invoice paid a minute inside it counts, one paid a minute outside it does not
+  file restored identical: yes
+
+13. Clients with the same overdue amount are no longer ordered by what is outstanding
+  file: services/receivables.service.js
+  change: b.overdueAmount - a.overdueAmount || b.outstanding - a.outstanding ||  ->  b.overdueAmount - a.overdueAmount ||
+  Tests:       1 failed, 28 passed, 29 total
+    x sorts by overdue amount, then by outstanding, then by name
+  file restored identical: yes
+
+14. The average days to get paid has no decimals
+  file: services/receivables.service.js
+  change: Math.round(value * 10) / 10  ->  Math.round(value)
+  Tests:       1 failed, 28 passed, 29 total
+    x the average has one decimal
+  file restored identical: yes
+
+15. Totals are not rounded to cents (floating point dust like 0.30000000000000004)
+  file: services/receivables.service.js
+  change: roundToCents(invoices.reduce((total, invoice) => total + invoice.total, 0))  ->  invoices.reduce((total, invoice) => total + invoice.total, 0)
+  Tests:       1 failed, 28 passed, 29 total
+    x adds up money to two decimals
+  file restored identical: yes
+
+16. The "oldest" overdue invoice is the newest one
+  file: services/receivables.service.js
+  change: b.days - a.days || a.invoice.dueDate  ->  a.days - b.days || a.invoice.dueDate
+  Tests:       1 failed, 28 passed, 29 total
+    x the oldest overdue invoice is the one that has waited longest, with its client and its days
+  file restored identical: yes
+
+17. The list of last payments is not limited to 5
+  file: services/receivables.service.js
+  change: .slice(0, RECENT_PAYMENTS)  ->  .slice(0, 50)
+  Tests:       1 failed, 28 passed, 29 total
+    x has the same numbers as the clients list, the invoices with their display status, and the last 5 payments
+  file restored identical: yes

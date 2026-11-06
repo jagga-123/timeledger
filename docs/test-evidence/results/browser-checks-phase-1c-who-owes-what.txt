@@ -1,0 +1,87 @@
+PASS  the demo has 3 invoices: Globex paid, Acme sent (not due yet), Initech sent and overdue  -> ["INV-0002:sent:0","INV-0003:overdue:11","INV-0001:paid:0"]
+PASS  Initech's invoice is 7 to 13 days overdue  -> 11
+PASS  summary: outstanding is every sent invoice (Acme + Initech)  -> {"amount":1493.25,"count":2}
+PASS  summary: overdue is Initech's invoice, and it is the oldest one  -> {"amount":148.5,"count":1,"oldest":{"invoiceId":"6aed53a9ecd029725bc6b9c5","number":"INV-0003","clientId":"6aed53a9ecd029725bc6b975","clientName":"Initech","days":11,"amount":148.5}}
+PASS  summary: aging has Acme as current and Initech as 1-30 days  -> [{"key":"current","amount":1344.75,"count":1},{"key":"1-30","amount":148.5,"count":1},{"key":"31-60","amount":0,"count":0},{"key":"61+","amount":0,"count":0}]
+PASS  summary: the average days to get paid is Globex's (sent to paid, counted on the calendar)  -> 9 vs 9
+PASS  summary: paid this month is worked out from the paid date (Globex only counts when it was paid this month)  -> {"amount":0,"count":0}
+PASS  clients: Initech (overdue) first, then Acme (owes), then Globex (all paid)  -> Initech,Acme Corp,Globex Ltd
+PASS  clients: the unbilled amounts add up to the unbilled total of the time entries (worked out by a different route)  -> 3479.92 vs 3479.92
+PASS  clients: Initech has an overdue invoice, last payment none; Globex paid and nothing owed
+PASS  another user's client is a 404 with the same answer as one that does not exist  -> 404/404
+PASS  a stranger sees none of the demo numbers
+PASS  no login, no numbers (401)
+PASS  Dashboard: a red banner "1 invoice overdue · $X", and the oldest one ("Initech, N days")  -> 1 invoice overdue · $148.50 | Oldest: Initech, 11 days
+PASS  ...tinted red, at the top: above the timer
+PASS  ...with a "View overdue" button that goes to the Overdue filter of Invoices
+PASS  Money row: Outstanding (both sent invoices) with its note  -> {"label":"OUTSTANDING","value":"$1,493.25","note":"2 unpaid invoices"}
+PASS  Money row: Overdue is red, with "1 invoice · oldest N days"  -> {"label":"OVERDUE","value":"$148.50","note":"1 invoice · oldest 11 days"}
+PASS  Money row: Paid this month is emerald when there is something  -> {"label":"PAID THIS MONTH","value":"$0.00","note":"0 invoices"}
+PASS  Money row: the average days to get paid, over the last 90 days  -> {"label":"AVG. DAYS TO GET PAID","value":"9 days","note":"last 90 days · 1 invoice"}
+PASS  Aging bar legend: Current has Acme's invoice, 1–30 days has Initech's, the others are empty  -> {"current":{"amount":"$1,344.75","count":"1 invoice"},"1-30":{"amount":"$148.50","count":"1 invoice"},"31-60":{"amount":"$0.00","count":"0 invoices"},"61+":{"amount":"$0.00","count":"0 invoices"}}
+PASS  Aging bar: one stacked bar with a part for each bucket that has money, as wide as its share  -> [["current","90%"],["1-30","10%"]]
+PASS  Aging bar: a text alternative for screen readers
+PASS  Sidebar: a small red "1" badge next to Invoices (and nothing on the other items)  -> {"text":"1","label":"1 overdue invoice","bg":"oklch(0.577 0.245 27.325)","rect":{"x":214,"y":307,"width":18,"height":18,"top":307,"right":232,"bottom":325,"left":214}}
+PASS  Sidebar: the badge sits inside the Invoices link
+PASS  Dismiss (X): the banner goes, and the money cards and the badge stay
+PASS  ...for the day: it is remembered in the browser (today's date)
+PASS  ...and still hidden after a reload
+PASS  ...a dismissal from another day does not count: the banner is back tomorrow
+PASS  View overdue: Invoices opens with the Overdue filter already on, showing only the overdue invoice
+PASS  an unknown ?status= is ignored (All is on)
+PASS  Clients: sorted "Overdue first" by default: Initech, Acme Corp, Globex Ltd
+PASS  Initech: red "Overdue", its overdue amount with "N days", unbilled amount, no payment yet  -> {"status":"Overdue","outstanding":"$148.50","overdue":"$148.50 11 days","unbilled":"$453.75","last":"—","href":"/clients/6aed53a9ecd029725bc6b975"}
+PASS  Acme Corp: amber "Owes $X", nothing overdue  -> {"status":"Owes $1,344.75","outstanding":"$1,344.75","overdue":"—","unbilled":"$1,495.50","last":"—","href":"/clients/6aed53a9ecd029725bc6b973"}
+PASS  Globex Ltd: emerald "All paid" with the date of the last payment  -> {"status":"All paid","outstanding":"$0.00","overdue":"—","unbilled":"$1,530.67","last":"21 Oct 2026","href":"/clients/6aed53a9ecd029725bc6b974"}
+PASS  ...the colours are red, amber and emerald  -> {"Initech":"oklch(0.505 0.213 27.518)","Acme Corp":"oklch(0.555 0.163 48.998)","Globex Ltd":"oklch(0.508 0.118 165.612)"}
+PASS  the old things are still there: project count, company, e-mail, Edit and Delete
+PASS  Sort "Outstanding": the biggest amount owed first, whoever is late
+PASS  Sort "Name": alphabetical
+PASS  Filter "Owes me money": only the clients with something outstanding
+PASS  ...and the chip switches it off again
+PASS  Clicking a client opens /clients/:id
+PASS  Client page: the name, and the contact (company and e-mail)
+PASS  Four metric cards: Outstanding, Overdue, Unbilled and Paid, with the same numbers as the API  -> {"out":{"label":"OUTSTANDING","value":"$1,344.75","note":"1 unpaid invoice"},"over":{"label":"OVERDUE","value":"$0.00","note":"Nothing is late"},"unb":{"label":"UNBILLED","value":"$1,495.50","note":"26h 36m in 17 entries"},"paid":{"label":"PAID","value":"$0.00","note":"No payments yet"}}
+PASS  ...the Unbilled card says how much time that is  -> 26h 36m in 17 entries
+PASS  Its invoices, with status badges
+PASS  Two buttons: "New invoice" and, because there is unbilled time, "Invoice unbilled time"
+PASS  "New invoice" opens the modal with this client already chosen
+PASS  "Invoice unbilled time": the client and the days of the unbilled time are filled in  -> {"client":"6aed53a9ecd029725bc6b973","from":"2026-10-26","to":"2026-11-05","total":"$1,495.50"}
+PASS  ...and the preview total is exactly the unbilled amount of the card  -> $1,495.50 vs $1,495.50
+PASS  A client that does not exist: "Client not found" with a way back
+PASS  Somebody else's client looks the same: "Client not found", no name, no numbers
+PASS  A broken id is "Client not found" too
+PASS  Creating the invoice from "Invoice unbilled time" bills all of Initech's unbilled time (the new invoice is as big as the card said)
+PASS  ...and the client page now has nothing unbilled and no "Invoice unbilled time" button
+PASS  (set-up) two more invoices were made from unbilled time and sent  -> [{"number":"INV-0005","status":200},{"number":"INV-0006","status":200}]
+PASS  (set-up) one unpaid invoice in every bucket  -> {"current":1,"1-30":1,"31-60":1,"61+":1}
+PASS  Aging: the legend has the amounts and counts of every bucket (worked out from the invoices list)  -> {"current":{"amount":"$1,530.67","count":"1 invoice"},"1-30":{"amount":"$1,495.50","count":"1 invoice"},"31-60":{"amount":"$1,344.75","count":"1 invoice"},"61+":{"amount":"$148.50","count":"1 invoice"}}
+PASS  Aging: four parts in order, each as wide as its share of everything unpaid (within 1.5%)  -> [["current","34%"],["1-30","33%"],["31-60","30%"],["61+","3%"]]
+PASS  ...in four different colours, from emerald to red  -> ["oklch(0.696 0.17 162.48)","oklch(0.828 0.189 84.429)","oklch(0.705 0.213 47.604)","oklch(0.577 0.245 27.325)"]
+PASS  The banner counts every overdue invoice and names the oldest (Initech, 70 days)  -> 3 invoices overdue · $2,988.75
+PASS  The sidebar badge shows the count
+PASS  Clients: ordered by overdue amount (the API and the page agree)  -> Acme Corp,Initech,Globex Ltd | Acme Corp,Initech,Globex Ltd
+PASS  Phone: the banner and the Money cards fit; the four cards stack in one column  -> overflow=0 off=0 [343,343,343,343]
+PASS  Phone: the "View overdue" button is full width inside the banner  -> [33,300]
+PASS  Phone: the aging bar is as wide as the card and the legend sits in two columns, readable and inside the screen  -> [{"left":33,"top":77,"right":180},{"left":196,"top":77,"right":342},{"left":33,"top":143,"right":180},{"left":196,"top":143,"right":342}]
+PASS  Phone: the badge is on the Invoices tab of the bottom bar, in the corner of its icon, inside the screen  -> {"text":"1","label":"1 overdue invoice","bg":"oklch(0.577 0.245 27.325)","rect":{"x":347.75,"y":612,"width":18,"height":18,"top":612,"right":365.75,"bottom":630,"left":347.75}}
+PASS  Phone: the clients page fits; each row has its four figures in two columns  -> overflow=0 off=0
+PASS  Phone: a client page fits; the four metric cards stack, the invoices list is readable  -> overflow=0 off=0
+PASS  Phone at 360px: the dashboard still fits  -> overflow=0 off=0
+PASS  (before) the badge shows 1
+PASS  Mark as paid: the badge in the sidebar disappears at once (no reload)
+PASS  Dashboard after paying: no banner, Overdue $0.00 ("Nothing is late"), Paid this month has the new payment  -> {"label":"PAID THIS MONTH","value":"$148.50","note":"1 invoice"}
+PASS  ...and the aging bar only has Acme's invoice left (current)
+PASS  ...the average days to get paid now covers both payments (Globex's and the one just made)  -> {"days":17,"count":2,"windowDays":90}
+PASS  Clients: only Acme still owes money
+PASS  Clients: when everybody has paid, "Owes me money" says so and offers "Show all clients"
+PASS  A new user: no banner, no badge, zeros in the cards, "—" for the average  -> [{"label":"OUTSTANDING","value":"$0.00","note":"0 unpaid invoices"},{"label":"AVG. DAYS TO GET PAID","value":"—","note":"no payments in the last 90 days"}]
+PASS  ...and an aging bar with nothing in it (all four buckets $0.00)
+PASS  A client that was never invoiced: "No invoices yet", zero figures  -> F First Client No invoices yet 0 projects first@client.example Outstanding $0.00 Overdue — Unbilled — Last payment —
+PASS  Its page: zeros, "No invoices yet", and no "Invoice unbilled time" button (nothing to bill)
+PASS  Storage blocked: the banner still shows, can be dismissed for this visit, and nothing breaks
+PASS  ...it simply comes back after a reload (nothing could be remembered)
+PASS  isolated: no request went to the dev servers on 5000/5173
+PASS  no unexpected console/page errors
+
+ALL PHASE 1C BROWSER CHECKS PASSED

@@ -1,40 +1,41 @@
-PASS  npm run seed created the demo data (a paid and a sent invoice)
+PASS  npm run seed created the demo data (a paid invoice, a sent one and an overdue one)
 PASS  test set-up: the sent demo invoice INV-0002 is moved 3 days past its due date (in the throwaway database)
+PASS  test set-up: the demo invoice INV-0003 (Initech) is moved to 10 days from now
 PASS  API: every invoice has displayStatus and daysOverdue
-PASS  API: INV-0002 (sent, due 2026-11-02) is now 3 days overdue, while its stored status is still "sent"  -> overdue 3
-PASS  a new draft invoice for Initech (INV-0003) to send
+PASS  API: INV-0002 (sent, due 2026-11-03) is now 3 days overdue, while its stored status is still "sent"  -> overdue 3
+PASS  a new draft invoice for Initech (INV-0004) to send
 PASS  status filter chips: All, Draft, Sent, Overdue, Paid  -> All,Draft,Sent,Overdue,Paid
 PASS  INV-0002 shows a red-text badge "N days overdue" (not "Sent")  -> 3 days overdue
 PASS  ...the overdue badge is red, Draft slate, Paid emerald
 PASS  Outstanding card $1,947.00 with "$1,344.75 overdue" below it in red  -> OUTSTANDING $1,947.00 $1,344.75 overdue
 PASS  the Paid and count cards have no overdue note
 PASS  filter "Overdue" shows only INV-0002  -> INV-0002
-PASS  filter "Sent" does not include the overdue one (nothing else is sent yet)
+PASS  filter "Sent" does not include the overdue one (only the demo invoice that is not due yet is sent)  -> INV-0003
 PASS  draft: the buttons are Back, Print, Send invoice, Mark as sent, Mark as paid, Delete
 PASS  "Send invoice" is the primary (indigo) button  -> oklch(0.511 0.262 276.966)
-PASS  timeline of a draft: Created done; Sent, Viewed and Paid still to come  -> {"created":{"done":true,"text":"Created 5 Nov 2026"},"sent":{"done":false,"text":"Sent Not sent yet"},"reminder":{"done":false,"text":"Reminder sent —"},"viewed":{"done":false,"text":"Viewed —"},"paid":{"done":false,"text":"Paid —"}}
+PASS  timeline of a draft: Created done; Sent, Viewed and Paid still to come  -> {"created":{"done":true,"text":"Created 6 Nov 2026"},"sent":{"done":false,"text":"Sent Not sent yet"},"reminder":{"done":false,"text":"Reminder sent —"},"viewed":{"done":false,"text":"Viewed —"},"paid":{"done":false,"text":"Paid —"}}
 PASS  no share link yet: the box says so, and there is no Regenerate button
-PASS  the modal opens with To filled in with the client's email and a subject preview  -> {"to":"finance@initech.example","subject":"Invoice INV-0003 from Alex Morgan","title":"Send invoice","submit":"Send invoice"}
+PASS  the modal opens with To filled in with the client's email and a subject preview  -> {"to":"finance@initech.example","subject":"Invoice INV-0004 from Alex Morgan","title":"Send invoice","submit":"Send invoice"}
 PASS  a bad CC address is refused under the CC field and nothing is sent
 PASS  when the email can't be sent: the toast says so, the form stays open with what was typed, and the invoice is still a draft
 PASS  Send: toast "Invoice sent to finance@initech.example" and the modal closes
 PASS  the invoice is now Sent: sentAt, lastSentAt and sentTo are saved, and it has a share link
-PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/BGMoJ8cHawAf8XFjBBCarTn1A4FNp70C
-PASS  console provider: exactly one email, to the client, CC the boss, with the right subject  -> [["finance@initech.example","boss@initech.example","Invoice INV-0003 from Alex Morgan"]]
+PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/jth1ODe4zHJDE4lZFoql0uLx42jo80R_
+PASS  console provider: exactly one email, to the client, CC the boss, with the right subject  -> [["finance@initech.example","boss@initech.example","Invoice INV-0004 from Alex Morgan"]]
 PASS  ...the text version has the personal message, the amount, the due date and the link to /i/<token>
-PASS  the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example"  -> {"done":true,"text":"Sent 5 Nov 2026 to finance@initech.example"}
+PASS  the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example"  -> {"done":true,"text":"Sent 6 Nov 2026 to finance@initech.example"}
 PASS  the buttons now say "Resend invoice"; "Mark as sent" and Delete are gone (it is sent)
 PASS  the share link is shown in a box, with Copy and Regenerate buttons
 PASS  "Copy share link": toast "Share link copied"
-PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/BGMoJ8cHawAf8XFjBBCarTn1A4FNp70C
+PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/jth1ODe4zHJDE4lZFoql0uLx42jo80R_
 PASS  the client sees the invoice without logging in: no sidebar, no app bars, the same paper  -> Sent
 PASS  ...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page
-PASS  ...a useful tab title and no search engine indexing  -> Invoice INV-0003 from Alex Morgan | noindex, nofollow
+PASS  ...a useful tab title and no search engine indexing  -> Invoice INV-0004 from Alex Morgan | noindex, nofollow
 PASS  the page holds nothing from the owner: no buttons to send, delete or edit, no share link box
 PASS  black box: the public JSON has no user id, entry ids, client id, project ids, token or viewedAt
 PASS  "Download PDF" opens the print dialog (Save as PDF)
 PASS  printed: the button bar and the footer are hidden, white background, one A4 page  -> {"footer":"none","bar":"none","paperRight":794,"bg":"rgb(255, 255, 255)","pages":1,"width":594.95996,"height":841.91998}
-PASS  the owner's timeline now shows Viewed with a date (set when the client opened the link)  -> Viewed 5 Nov 2026
+PASS  the owner's timeline now shows Viewed with a date (set when the client opened the link)  -> Viewed 6 Nov 2026
 PASS  opening it again does not change the first view date
 PASS  an unknown link says "This invoice link is not valid", still without any app layout
 PASS  Regenerate asks first and says the old link stops working  -> Regenerate the share link? The current link stops working at once. Anyone you sent it to will need the new one. Cancel Regenerate

@@ -34,7 +34,7 @@ const runSeed = async () => (await run('node', ['src/seed.js'], { cwd: BACKEND, 
 
 // Moves one date of an invoice in the THROWAWAY database (no screen can change a due date or a sent date)
 const setInvoiceDate = async (number, field, daysFromNow) => {
-  const code = "import mongoose from 'mongoose'; await mongoose.connect(process.env.URI); const r = await mongoose.connection.collection('invoices').updateOne({ number: process.argv[1] }, { $set: { [process.argv[2]]: new Date(Date.now() + Number(process.argv[3]) * 86400000) } }); console.log(r.modifiedCount); await mongoose.disconnect();";
+  const code = "import mongoose from 'mongoose'; await mongoose.connect(process.env.URI); const r = await mongoose.connection.collection('invoices').updateOne({ userId: (await mongoose.connection.collection('users').findOne({ email: 'demo@timeledger.app' }))._id, number: process.argv[1] }, { $set: { [process.argv[2]]: new Date(Date.now() + Number(process.argv[3]) * 86400000) } }); console.log(r.modifiedCount); await mongoose.disconnect();";
   const { stdout } = await run('node', ['--input-type=module', '-e', code, number, field, String(daysFromNow)], { cwd: BACKEND, env: { ...process.env, URI: mongoUri() } });
   return stdout.trim() === '1';
 };
@@ -145,6 +145,9 @@ const seedOut = await runSeed();
 check('npm run seed: the demo user now has reminders on and fake payment details', seedOut.includes('INV-0002'));
 const login = await call('POST', '/auth/login', null, { email: 'demo@timeledger.app', password: 'Demo@1234' });
 const T = login.body.token;
+// The demo's due dates depend on the weekday (INV-0002 is due in 3 days on a Friday: a reminder is due the moment the job runs; INV-0003 is late and
+// can be due for its 7-day reminder early in the week). Both are parked 30 days ahead so that no reminder is due until a check asks for one.
+check('test set-up: the due dates of the demo invoices INV-0002 and INV-0003 are moved 30 days ahead (in the throwaway database)', (await setInvoiceDate('INV-0002', 'dueDate', 30)) && (await setInvoiceDate('INV-0003', 'dueDate', 30)));
 const me0 = login.body.user;
 check('the demo user: reminders 3 days before, on the due date, 7 and 14 after; a payment link, UPI ID and bank details', JSON.stringify(me0.reminders) === JSON.stringify({ enabled: true, beforeDueDays: 3, onDueDate: true, afterDueDays: [7, 14] }) && me0.payment.link === DEMO_LINK && me0.payment.upiId === 'alex.morgan@okhdfcbank' && me0.payment.bankDetails.includes('HDFC Bank'));
 const invoices0 = (await call('GET', '/invoices', T)).body.invoices;
@@ -209,7 +212,7 @@ const offRun = await curl(CRON_SECRET);
 check('the job with reminders off sends nothing (the invoice is skipped)', offRun.body.sent === 0 && offRun.body.skipped >= 1 && inbox().length === 0, JSON.stringify(offRun.body));
 await A.goto(BASE + '/invoices');
 await A.waitForSelector('main ul > li a[href^="/invoices/"]');
-check('Invoices list: a muted bell-off on the sent invoice ("Reminders are off in Settings")', (await A.$$eval('[data-testid="reminders-off"]', (b) => b.map((x) => x.title))).join() === 'Reminders are off in Settings');
+check('Invoices list: a muted bell-off on both sent invoices ("Reminders are off in Settings")', (await A.$$eval('[data-testid="reminders-off"]', (b) => b.map((x) => x.title))).join('|') === 'Reminders are off in Settings|Reminders are off in Settings');
 // ...and back on, with the defaults
 await call('PATCH', '/auth/me', T, { reminders: { enabled: true, beforeDueDays: 3, onDueDate: true, afterDueDays: [7, 14] } });
 
@@ -277,10 +280,8 @@ await clickButton(A, 'Send reminder now', '[data-testid="reminders"]');
 check('"Send reminder now" within 24 hours of the automatic one: toast "You already sent a reminder in the last 24 hours", no e-mail', (await hasText(A, 'You already sent a reminder in the last 24 hours')) && inbox().length === 1);
 await gone(A, 'You already sent a reminder in the last 24 hours');
 
-// a second invoice for manual sending and pausing: Initech, sent long ago, due in 10 days
-const made = await call('POST', '/invoices', T, { clientId: initech._id, from: '2026-10-05', to: '2026-10-15' });
-const inv3 = made.body.invoice;
-await call('POST', `/invoices/${inv3._id}/send`, T, {});
+// a second invoice for manual sending and pausing: the demo's Initech invoice INV-0003, sent long ago, due in 10 days
+const inv3 = (await call('GET', '/invoices', T)).body.invoices.find((i) => i.number === 'INV-0003');
 await setInvoiceDate(inv3.number, 'sentAt', -20);
 await setInvoiceDate(inv3.number, 'dueDate', 10);
 const mailsBefore3 = inbox().length;

@@ -131,15 +131,17 @@ const pdfInfo = (bytes) => {
 // 0. Demo data and one new draft invoice
 // =====================================================================
 const seedOut = await runSeed();
-check('npm run seed created the demo data (a paid and a sent invoice)', seedOut.includes('INV-0001') && seedOut.includes('INV-0002'));
+check('npm run seed created the demo data (a paid invoice, a sent one and an overdue one)', seedOut.includes('INV-0001') && seedOut.includes('INV-0002') && seedOut.includes('INV-0003'));
 // The seed's sent invoice is due a few days from now, so to have an overdue one the due date is moved back in the
 // THROWAWAY database (there is no screen for changing a due date)
 const moveDueDate = async (number, daysAgo) => {
-  const code = "import mongoose from 'mongoose'; await mongoose.connect(process.env.URI); const r = await mongoose.connection.collection('invoices').updateOne({ number: process.argv[1] }, { $set: { dueDate: new Date(Date.now() - Number(process.argv[2]) * 86400000) } }); console.log(r.modifiedCount); await mongoose.disconnect();";
+  const code = "import mongoose from 'mongoose'; await mongoose.connect(process.env.URI); const r = await mongoose.connection.collection('invoices').updateOne({ userId: (await mongoose.connection.collection('users').findOne({ email: 'demo@timeledger.app' }))._id, number: process.argv[1] }, { $set: { dueDate: new Date(Date.now() - Number(process.argv[2]) * 86400000) } }); console.log(r.modifiedCount); await mongoose.disconnect();";
   const { stdout } = await run('node', ['--input-type=module', '-e', code, number, String(daysAgo)], { cwd: BACKEND, env: { ...process.env, URI: readFileSync(URI_FILE, 'utf8').trim() } });
   return stdout.trim() === '1';
 };
 check('test set-up: the sent demo invoice INV-0002 is moved 3 days past its due date (in the throwaway database)', await moveDueDate('INV-0002', 3));
+// the demo's Initech invoice (INV-0003) is overdue by itself; here it is moved 10 days into the future so that INV-0002 stays the only overdue one
+check('test set-up: the demo invoice INV-0003 (Initech) is moved to 10 days from now', await moveDueDate('INV-0003', -10));
 const login = await call('POST', '/auth/login', null, { email: 'demo@timeledger.app', password: 'Demo@1234' });
 const T = login.body.token;
 const clients = (await call('GET', '/clients', T)).body.clients;
@@ -147,13 +149,14 @@ const initech = clients.find((c) => c.name === 'Initech');
 const seeded = (await call('GET', '/invoices', T)).body.invoices;
 const inv1 = seeded.find((i) => i.number === 'INV-0001'); // Globex, paid
 const inv2 = seeded.find((i) => i.number === 'INV-0002'); // Acme, sent
+const demoInitech = seeded.find((i) => i.number === 'INV-0003'); // Initech, sent, not due for 10 days (moved above)
 check('API: every invoice has displayStatus and daysOverdue', seeded.every((i) => ['draft', 'sent', 'overdue', 'paid'].includes(i.displayStatus) && Number.isInteger(i.daysOverdue)) && seeded.every((i) => i.publicToken === undefined));
 const inv2Overdue = inv2.displayStatus === 'overdue';
 check(`API: INV-0002 (sent, due ${inv2.dueDate.slice(0, 10)}) is now ${dayWord(inv2.daysOverdue)}, while its stored status is still "sent"`, inv2Overdue && inv2.status === 'sent' && inv2.daysOverdue === 3, `${inv2.displayStatus} ${inv2.daysOverdue}`);
 
 const made = await call('POST', '/invoices', T, { clientId: initech._id, from: mondayKey(4), to: TODAY, notes: 'Thank you!' });
 const inv3 = made.body.invoice;
-check('a new draft invoice for Initech (INV-0003) to send', made.status === 201 && inv3.number === 'INV-0003' && inv3.displayStatus === 'draft');
+check('a new draft invoice for Initech (INV-0004) to send', made.status === 201 && inv3.number === 'INV-0004' && inv3.displayStatus === 'draft');
 
 // =====================================================================
 // 1. Invoices list: Overdue everywhere
@@ -169,7 +172,7 @@ check('INV-0002 shows a red-text badge "N days overdue" (not "Sent")', row2.badg
 const rowBadgeColor = await A.evaluate(() => { const li = [...document.querySelectorAll('main ul > li')].find((l) => l.innerText.includes('INV-0002')); const s = [...li.querySelectorAll('span')].find((x) => /overdue/.test(x.innerText)); return s && getComputedStyle(s).color; });
 check('...the overdue badge is red, Draft slate, Paid emerald', rowBadgeColor === (await colorOf(A, 'text-red-700')));
 const cards = await A.$$eval('[data-testid="summary"] > div', (c) => c.map((x) => ({ text: x.innerText.replace(/\s+/g, ' ').trim(), noteColor: x.querySelectorAll('p').length > 2 ? getComputedStyle(x.querySelectorAll('p')[2]).color : null })));
-const outstanding = inv2.total + inv3.total;
+const outstanding = inv2.total + inv3.total + demoInitech.total;
 check(`Outstanding card ${money(outstanding)} with "${money(inv2.total)} overdue" below it in red`, cards[0].text.includes(money(outstanding)) && cards[0].text.includes(`${money(inv2.total)} overdue`) && cards[0].noteColor === (await colorOf(A, 'text-red-600')), cards[0].text);
 check('the Paid and count cards have no overdue note', !cards[1].text.includes('overdue') && !cards[2].text.includes('overdue'));
 await shot(A, '01-invoices-list-overdue-desktop');
@@ -177,7 +180,8 @@ await clickButton(A, 'Overdue');
 const overdueRows = await A.$$eval('main ul > li a[href^="/invoices/"]', (as) => as.map((a) => a.innerText.slice(0, 8)));
 check('filter "Overdue" shows only INV-0002', overdueRows.length === 1 && overdueRows[0] === 'INV-0002', overdueRows.join());
 await clickButton(A, 'Sent');
-check('filter "Sent" does not include the overdue one (nothing else is sent yet)', await hasText(A, 'No sent invoices'));
+const sentRows = await A.$$eval('main ul > li a[href^="/invoices/"]', (as) => as.map((a) => a.innerText.slice(0, 8)));
+check('filter "Sent" does not include the overdue one (only the demo invoice that is not due yet is sent)', sentRows.join() === 'INV-0003', sentRows.join());
 await clickButton(A, 'All');
 
 // =====================================================================
@@ -199,7 +203,7 @@ await shot(A, '02-invoice-draft-send-button-desktop');
 await clickButton(A, 'Send invoice', '[data-testid="invoice-actions"]');
 await waitSel(A, '[role=dialog] #to');
 const modal0 = await A.evaluate(() => ({ to: document.querySelector('#to').value, subject: document.querySelector('[data-testid="email-subject"]').innerText.trim(), title: document.querySelector('[role=dialog] h2')?.innerText, submit: document.querySelector('[role=dialog] button[type=submit]').innerText.trim() }));
-check('the modal opens with To filled in with the client\'s email and a subject preview', modal0.to === 'finance@initech.example' && modal0.subject === 'Invoice INV-0003 from Alex Morgan' && modal0.title === 'Send invoice' && modal0.submit === 'Send invoice', JSON.stringify(modal0));
+check('the modal opens with To filled in with the client\'s email and a subject preview', modal0.to === 'finance@initech.example' && modal0.subject === 'Invoice INV-0004 from Alex Morgan' && modal0.title === 'Send invoice' && modal0.submit === 'Send invoice', JSON.stringify(modal0));
 await typeInto(A, '#cc', 'boss@initech.example, not-an-address');
 await typeInto(A, '#message', 'Hi team,\nhere is the invoice for the API work. Thank you!');
 await A.click('[role=dialog] button[type=submit]');
@@ -223,7 +227,7 @@ const shareUrl = afterSend.shareUrl;
 check('the share link points at the app (APP_URL falls back to FRONTEND_URL)', shareUrl.startsWith(BASE + '/i/'), shareUrl);
 
 let emails = inbox();
-check('console provider: exactly one email, to the client, CC the boss, with the right subject', emails.length === 1 && emails[0].to === 'finance@initech.example' && emails[0].cc === 'boss@initech.example' && emails[0].subject === 'Invoice INV-0003 from Alex Morgan', JSON.stringify(emails.map((e) => [e.to, e.cc, e.subject])));
+check('console provider: exactly one email, to the client, CC the boss, with the right subject', emails.length === 1 && emails[0].to === 'finance@initech.example' && emails[0].cc === 'boss@initech.example' && emails[0].subject === 'Invoice INV-0004 from Alex Morgan', JSON.stringify(emails.map((e) => [e.to, e.cc, e.subject])));
 check('...the text version has the personal message, the amount, the due date and the link to /i/<token>', emails[0].body.includes('here is the invoice for the API work') && emails[0].body.includes(money(inv3.total)) && emails[0].body.includes('Due date:') && emails[0].body.includes(shareUrl));
 
 const badge3 = await badgeOf(A);
@@ -257,9 +261,9 @@ const pub = await C.evaluate(() => ({
   footerText: document.querySelector('footer')?.innerText.replace(/\s+/g, ' ').trim(),
   title: document.title, robots: document.querySelector('meta[name="robots"]')?.content, path: location.pathname,
 }));
-check('the client sees the invoice without logging in: no sidebar, no app bars, the same paper', !pub.hasSidebar && !pub.hasBottomNav && pub.path === shareUrl.replace(BASE, '') && pub.paper.includes('invoice inv-0003') && pub.paper.includes('alex morgan') && pub.paper.includes('initech') && pub.total === money(inv3.total) && pub.status === 'Sent', pub.status);
+check('the client sees the invoice without logging in: no sidebar, no app bars, the same paper', !pub.hasSidebar && !pub.hasBottomNav && pub.path === shareUrl.replace(BASE, '') && pub.paper.includes('invoice inv-0004') && pub.paper.includes('alex morgan') && pub.paper.includes('initech') && pub.total === money(inv3.total) && pub.status === 'Sent', pub.status);
 check('...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page', pub.button.join() === 'Download PDF' && pub.footerText === 'Sent with TimeLedger' && pub.footer === '/');
-check('...a useful tab title and no search engine indexing', pub.title === 'Invoice INV-0003 from Alex Morgan' && pub.robots === 'noindex, nofollow', `${pub.title} | ${pub.robots}`);
+check('...a useful tab title and no search engine indexing', pub.title === 'Invoice INV-0004 from Alex Morgan' && pub.robots === 'noindex, nofollow', `${pub.title} | ${pub.robots}`);
 check('the page holds nothing from the owner: no buttons to send, delete or edit, no share link box', !pub.button.includes('Send invoice') && !(await C.$('[data-testid="invoice-actions"]')) && !(await C.$('[data-testid="share-link"]')));
 await shot(C, '06-public-invoice-desktop');
 
