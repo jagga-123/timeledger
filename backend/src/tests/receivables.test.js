@@ -423,6 +423,7 @@ describe('clientDetail', () => {
     await addEntry(alex, project, { start: '2026-03-03T23:50:00', seconds: 600 }); //  3 March in India
     await addEntry(alex, project, { start: '2026-03-12T15:00:00', seconds: 7200 });
     await addEntry(alex, project, { start: '2026-03-01T10:00:00', seconds: 3600, billable: false }); // not billable: does not stretch the period
+    await addEntry(alex, project, { start: '2026-03-15T09:00:00', running: true }); // a timer still running: not finished, so not part of it
 
     const { unbilled } = await receivables.clientDetail(alex.id, acme._id, { now: NOW });
 
