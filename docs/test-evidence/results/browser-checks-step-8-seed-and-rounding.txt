@@ -4,19 +4,19 @@ PASS  NODE_ENV=production refuses to seed unless SEED_ALLOW=true  -> Seed failed
 PASS  the demo login works through the API (demo@timeledger.app / Demo@1234)
 PASS  the demo data: 3 clients, 4 projects with the rates from the brief
 PASS  the client names are Acme Corp, Globex Ltd and Initech
-PASS  about four weeks of entries, weekdays only, up to today  -> 71 entries from 2026-10-05
-PASS  2-4 entries on every full weekday, each 30 minutes to 3 hours  -> 222233323442233444442233
+PASS  about four weeks of entries, weekdays only, up to today  -> 73 entries from 2026-10-05
+PASS  2-4 entries on every full weekday, each 30 minutes to 3 hours  -> 2222233323442233444442233
 PASS  mostly billable, a few non-billable, one entry that crosses midnight, none in the future
 PASS  no running timer
 PASS  three invoices made by the real invoice service: INV-0001 Globex PAID (4 weeks ago), INV-0002 Acme SENT (3 to 2 weeks ago), INV-0003 Initech SENT (4 weeks ago, overdue)
 PASS  the last two weeks are left unbilled (so a reviewer can invoice them right away)
 PASS  every billed entry is billable and claimed by exactly one of the three invoices
 PASS  logging in as demo@timeledger.app / Demo@1234 opens the dashboard for Alex Morgan
-PASS  Dashboard: the "This week" card shows this week's tracked time  -> 12h 6m vs 12h 6m
+PASS  Dashboard: the "This week" card shows this week's tracked time  -> 14h 26m vs 14h 26m
 PASS  Dashboard: nothing is running (a Start button, no clock) and the sidebar shows the name
 PASS  Timesheet (last week): a row per project, and the total hours match the entries  -> total hours 22h 53m vs 22h 53m
 PASS  Time entries (all four weeks): every entry of INV-0001 and INV-0002 has a "Billed" badge that links to its own invoice  -> 33 badges
-PASS  ...every entry is listed and the non-billable ones are labelled  -> 71 entries, 4 non-billable
+PASS  ...every entry is listed and the non-billable ones are labelled  -> 73 entries, 5 non-billable
 PASS  Invoices: INV-0002 (Acme, Sent), INV-0003 (Initech, overdue) and INV-0001 (Globex, Paid), newest first, with their totals  -> INV-0002 Acme Corp 12 – 25 Oct 2026 · issued 26 Oct 2026 $1,344.75 Sent || INV-0003 Initech 5 – 11 Oct 2026 · issued 12 Oct 2026 $148.50 11 days overdue || INV-0001 Globex Ltd 5 – 11 Oct 2026 · issued 12 Oct 2026 $1,420.00 Paid
 PASS  Invoices: Outstanding = the two sent invoices (with the overdue part), Paid = the paid one, 3 invoices  -> outstanding $1,493.25 $148.50 overdue | paid $1,420.00 | invoices 3
 PASS  INV-0002: from Alex Morgan to Acme Corp, status Sent, total as listed, thank-you note, no rounding note
@@ -27,16 +27,16 @@ PASS  typing a different name enables Save
 PASS  a one-letter name is refused with the server's message under the field, and nothing changes
 PASS  a valid name is saved: toast, and the sidebar shows it straight away
 PASS  ...and it is still there after a reload
-PASS  Rounding off: the Initech preview bills exactly what was tracked (4 entries, $453.75)  -> API integration 8.25 h × $55.00 $453.75 4 entries · 5 Oct – 6 Nov 2026 $453.75
+PASS  Rounding off: the Initech preview bills exactly what was tracked (5 entries, $495.00)  -> API integration 9.00 h × $55.00 $495.00 5 entries · 5 Oct – 6 Nov 2026 $495.00
 PASS  ...and there is no rounding note
 PASS  toggling the switch enables Save
 PASS  Save: toast "Settings saved"
 PASS  ...and the rule is still on after a reload (saved on the server)
-PASS  Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time  -> API integration 8.50 h × $55.00 $467.50 Rounded up to 15 min per entry: 8h 15m tracked, 8h 30m billed 4 entries · 5 Oct – 6 Nov 2026 $467.50
-PASS  ...with the amounts worked out per entry: $467.50 instead of $453.75  -> API integration 8.50 h × $55.00 $467.50 Rounded up to 15 min per entry: 8h 15m tracked, 8h 30m billed 4 entries · 5 Oct – 6 Nov 2026 $467.50
+PASS  Rounding on: the preview says "Rounded up to 15 min per entry" and shows the tracked and billed time  -> API integration 9.25 h × $55.00 $508.75 Rounded up to 15 min per entry: 9h tracked, 9h 15m billed 5 entries · 5 Oct – 6 Nov 2026 $508.75
+PASS  ...with the amounts worked out per entry: $508.75 instead of $495.00  -> API integration 9.25 h × $55.00 $508.75 Rounded up to 15 min per entry: 9h tracked, 9h 15m billed 5 entries · 5 Oct – 6 Nov 2026 $508.75
 PASS  creating it: toast "Invoice INV-0004 created" and the invoice page opens
-PASS  INV-0004 shows "Rounded up to 15 min per entry", the billed hours and the rounded total  -> [["API integration","8.50","$55.00","$467.50"]]
-PASS  the entry list shows tracked → billed for the entries that were rounded (2 of 4)  -> 2 arrows
+PASS  INV-0004 shows "Rounded up to 15 min per entry", the billed hours and the rounded total  -> [["API integration","9.25","$55.00","$508.75"]]
+PASS  the entry list shows tracked → billed for the entries that were rounded (2 of 5)  -> 2 arrows
 PASS  ...e.g. "2h 52m → 3h"
 PASS  the entries themselves are untouched: every tracked duration is exactly what it was
 PASS  rounding switched off again

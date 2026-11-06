@@ -7,7 +7,7 @@ PASS  a new draft invoice for Initech (INV-0004) to send
 PASS  status filter chips: All, Draft, Sent, Overdue, Paid  -> All,Draft,Sent,Overdue,Paid
 PASS  INV-0002 shows a red-text badge "N days overdue" (not "Sent")  -> 3 days overdue
 PASS  ...the overdue badge is red, Draft slate, Paid emerald
-PASS  Outstanding card $1,947.00 with "$1,344.75 overdue" below it in red  -> OUTSTANDING $1,947.00 $1,344.75 overdue
+PASS  Outstanding card $1,988.25 with "$1,344.75 overdue" below it in red  -> OUTSTANDING $1,988.25 $1,344.75 overdue
 PASS  the Paid and count cards have no overdue note
 PASS  filter "Overdue" shows only INV-0002  -> INV-0002
 PASS  filter "Sent" does not include the overdue one (only the demo invoice that is not due yet is sent)  -> INV-0003
@@ -20,14 +20,14 @@ PASS  a bad CC address is refused under the CC field and nothing is sent
 PASS  when the email can't be sent: the toast says so, the form stays open with what was typed, and the invoice is still a draft
 PASS  Send: toast "Invoice sent to finance@initech.example" and the modal closes
 PASS  the invoice is now Sent: sentAt, lastSentAt and sentTo are saved, and it has a share link
-PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/jth1ODe4zHJDE4lZFoql0uLx42jo80R_
+PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/WTMMUeYBthCP5GVXNn9vWXNw9kkSXvrk
 PASS  console provider: exactly one email, to the client, CC the boss, with the right subject  -> [["finance@initech.example","boss@initech.example","Invoice INV-0004 from Alex Morgan"]]
 PASS  ...the text version has the personal message, the amount, the due date and the link to /i/<token>
 PASS  the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example"  -> {"done":true,"text":"Sent 6 Nov 2026 to finance@initech.example"}
 PASS  the buttons now say "Resend invoice"; "Mark as sent" and Delete are gone (it is sent)
 PASS  the share link is shown in a box, with Copy and Regenerate buttons
 PASS  "Copy share link": toast "Share link copied"
-PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/jth1ODe4zHJDE4lZFoql0uLx42jo80R_
+PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/WTMMUeYBthCP5GVXNn9vWXNw9kkSXvrk
 PASS  the client sees the invoice without logging in: no sidebar, no app bars, the same paper  -> Sent
 PASS  ...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page
 PASS  ...a useful tab title and no search engine indexing  -> Invoice INV-0004 from Alex Morgan | noindex, nofollow

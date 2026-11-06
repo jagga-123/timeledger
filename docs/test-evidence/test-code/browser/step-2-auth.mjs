@@ -61,8 +61,16 @@ const submit = () => page.click('button[type=submit]');
 // 1. Logged out: "/" redirects to /login
 await page.goto(BASE + '/');
 check('/ redirects to /login when logged out', await waitPath('/login'));
-check('login page shows brand + demo hint', (await text()).includes('TimeLedger') && (await text()).includes('demo@timeledger.app / Demo@1234'));
+check('login page shows the brand and NO demo hint (VITE_SHOW_DEMO is not set)', (await text()).includes('TimeLedger') && !(await text()).includes('Demo@1234') && !(await text()).includes('demo@timeledger.app') && !(await page.$('[data-testid="demo-hint"]')));
 await shot('01-login-desktop');
+// the same page from a build made with VITE_SHOW_DEMO=true (served on its own port): the hint is there
+const BASE_DEMO = process.env.E2E_BASE_DEMO || 'http://localhost:5274';
+await page.goto(BASE_DEMO + '/login');
+await page.waitForSelector('form', { timeout: 10000 }).catch(() => {});
+check('login page built with VITE_SHOW_DEMO=true shows "Demo: demo@timeledger.app / Demo@1234"', (await text()).includes('Demo: demo@timeledger.app / Demo@1234') && Boolean(await page.$('[data-testid="demo-hint"]')));
+await shot('01b-login-with-demo-hint-desktop');
+await page.goto(BASE + '/login');
+await page.waitForSelector('form', { timeout: 10000 });
 
 // 2. Empty login -> field errors from the server
 await submit();

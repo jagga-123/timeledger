@@ -1,0 +1,75 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+1. A +srv connection string can count as local (the +srv check is removed)
+  file: services/seed.service.js
+  change: if (!match || match[1]) return false;  ->  if (!match) return false;
+  Tests:       1 failed, 12 passed, 13 total
+    x knows which connection strings are local
+  file restored identical: yes
+
+2. One local host is enough to call a database local (every -> some)
+  file: services/seed.service.js
+  change: return hosts.every((entry) => {  ->  return hosts.some((entry) => {
+  Tests:       1 failed, 12 passed, 13 total
+    x knows which connection strings are local
+  file restored identical: yes
+
+3. The user name counts as the host ("localhost@evil.example.com" would look local): the credentials are no longer cut off
+  file: services/seed.service.js
+  change: authority.slice(authority.lastIndexOf('@') + 1)  ->  authority.slice(0, authority.indexOf('@') < 0 ? authority.length : authority.indexOf('@'))
+  Tests:       1 failed, 12 passed, 13 total
+    x knows which connection strings are local
+  file restored identical: yes
+
+4. The seed no longer refuses a remote database
+  file: services/seed.service.js
+  change: if (env.MONGODB_URI && !isLocalDatabase(env.MONGODB_URI) && env.SEED_ALLOW !== 'true') {  ->  if (false) {
+  Tests:       2 failed, 11 passed, 13 total
+    x refuses a remote database (Atlas or any other host) and never repeats the connection string
+    x `npm run seed` itself refuses before it connects anywhere (and does not print the password)
+  file restored identical: yes
+
+5. SEED_ALLOW=true no longer allows a remote database
+  file: services/seed.service.js
+  change: if (env.MONGODB_URI && !isLocalDatabase(env.MONGODB_URI) && env.SEED_ALLOW !== 'true') {  ->  if (env.MONGODB_URI && !isLocalDatabase(env.MONGODB_URI)) {
+  Tests:       1 failed, 12 passed, 13 total
+    x SEED_ALLOW=true allows it; a local database is fine; so is no connection string yet (connecting reports that itself)
+  file restored identical: yes
+
+6. The refusal repeats the connection string (and so its password)
+  file: services/seed.service.js
+  change: throw new Error('Refusing to seed: MONGODB_URI is not a local database (localhost or 127.0.0.1). Set SEED_ALLOW=true if you really mean it.');  ->  throw new Error(`Refusing to seed: ${env.MONGODB_URI} is not a local database (localhost or 127.0.0.1). Set SEED_ALLOW=true if you really mean it.`);
+  Tests:       2 failed, 11 passed, 13 total
+    x refuses a remote database (Atlas or any other host) and never repeats the connection string
+    x `npm run seed` itself refuses before it connects anywhere (and does not print the password)
+  file restored identical: yes
+
+7. npm run seed does not call the guard before connecting
+  file: seed.js
+  change: assertSeedAllowed(); // before touching any database  ->  // assertSeedAllowed();
+  Tests:       1 failed, 12 passed, 13 total
+    x `npm run seed` itself refuses before it connects anywhere (and does not print the password)
+  file restored identical: yes
+
+8. .env.example forgets a setting the code reads (DEMO_EMAIL)
+  file: .env.example
+  change: DEMO_EMAIL=demo@timeledger.app  ->  DEMO_EMAIL_REMOVED=demo@timeledger.app
+  Tests:       3 failed, 10 passed, 13 total
+    x lists every setting that was asked for
+    x lists every setting the backend code reads from the environment (so a new one can not be forgotten)
+    x is set up for local development: console e-mail, no keys, the demo e-mail, a local frontend
+  file restored identical: yes
+
+9. .env.example holds a real-looking Brevo key instead of a placeholder
+  file: .env.example
+  change: BREVO_API_KEY=replace-with-your-brevo-api-key  ->  BREVO_API_KEY=xkeysib-0123456789abcdef0123456789abcdef
+  Tests:       1 failed, 12 passed, 13 total
+    x has placeholders only: no real key, password or token
+  file restored identical: yes
+
+10. .env.example holds a connection string with a password
+  file: .env.example
+  change: MONGODB_URI=mongodb://127.0.0.1:27017/timeledger  ->  MONGODB_URI=mongodb://someuser:somepassword@127.0.0.1:27017/timeledger
+  Tests:       1 failed, 12 passed, 13 total
+    x has placeholders only: no real key, password or token
+  file restored identical: yes

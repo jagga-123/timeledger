@@ -1,5 +1,6 @@
 PASS  / redirects to /login when logged out
-PASS  login page shows brand + demo hint
+PASS  login page shows the brand and NO demo hint (VITE_SHOW_DEMO is not set)
+PASS  login page built with VITE_SHOW_DEMO=true shows "Demo: demo@timeledger.app / Demo@1234"
 PASS  empty login shows server field errors
 PASS  link goes to /register
 PASS  empty register shows errors under each field

@@ -1,12 +1,12 @@
 PASS  the demo has 3 invoices: Globex paid, Acme sent (not due yet), Initech sent and overdue  -> ["INV-0002:sent:0","INV-0003:overdue:11","INV-0001:paid:0"]
 PASS  Initech's invoice is 7 to 13 days overdue  -> 11
 PASS  summary: outstanding is every sent invoice (Acme + Initech)  -> {"amount":1493.25,"count":2}
-PASS  summary: overdue is Initech's invoice, and it is the oldest one  -> {"amount":148.5,"count":1,"oldest":{"invoiceId":"6aed53a9ecd029725bc6b9c5","number":"INV-0003","clientId":"6aed53a9ecd029725bc6b975","clientName":"Initech","days":11,"amount":148.5}}
+PASS  summary: overdue is Initech's invoice, and it is the oldest one  -> {"amount":148.5,"count":1,"oldest":{"invoiceId":"6aed8740d9e77a07648bb6ad","number":"INV-0003","clientId":"6aed8740d9e77a07648bb65b","clientName":"Initech","days":11,"amount":148.5}}
 PASS  summary: aging has Acme as current and Initech as 1-30 days  -> [{"key":"current","amount":1344.75,"count":1},{"key":"1-30","amount":148.5,"count":1},{"key":"31-60","amount":0,"count":0},{"key":"61+","amount":0,"count":0}]
 PASS  summary: the average days to get paid is Globex's (sent to paid, counted on the calendar)  -> 9 vs 9
 PASS  summary: paid this month is worked out from the paid date (Globex only counts when it was paid this month)  -> {"amount":0,"count":0}
 PASS  clients: Initech (overdue) first, then Acme (owes), then Globex (all paid)  -> Initech,Acme Corp,Globex Ltd
-PASS  clients: the unbilled amounts add up to the unbilled total of the time entries (worked out by a different route)  -> 3479.92 vs 3479.92
+PASS  clients: the unbilled amounts add up to the unbilled total of the time entries (worked out by a different route)  -> 3521.17 vs 3521.17
 PASS  clients: Initech has an overdue invoice, last payment none; Globex paid and nothing owed
 PASS  another user's client is a 404 with the same answer as one that does not exist  -> 404/404
 PASS  a stranger sees none of the demo numbers
@@ -30,9 +30,9 @@ PASS  ...a dismissal from another day does not count: the banner is back tomorro
 PASS  View overdue: Invoices opens with the Overdue filter already on, showing only the overdue invoice
 PASS  an unknown ?status= is ignored (All is on)
 PASS  Clients: sorted "Overdue first" by default: Initech, Acme Corp, Globex Ltd
-PASS  Initech: red "Overdue", its overdue amount with "N days", unbilled amount, no payment yet  -> {"status":"Overdue","outstanding":"$148.50","overdue":"$148.50 11 days","unbilled":"$453.75","last":"—","href":"/clients/6aed53a9ecd029725bc6b975"}
-PASS  Acme Corp: amber "Owes $X", nothing overdue  -> {"status":"Owes $1,344.75","outstanding":"$1,344.75","overdue":"—","unbilled":"$1,495.50","last":"—","href":"/clients/6aed53a9ecd029725bc6b973"}
-PASS  Globex Ltd: emerald "All paid" with the date of the last payment  -> {"status":"All paid","outstanding":"$0.00","overdue":"—","unbilled":"$1,530.67","last":"21 Oct 2026","href":"/clients/6aed53a9ecd029725bc6b974"}
+PASS  Initech: red "Overdue", its overdue amount with "N days", unbilled amount, no payment yet  -> {"status":"Overdue","outstanding":"$148.50","overdue":"$148.50 11 days","unbilled":"$495.00","last":"—","href":"/clients/6aed8740d9e77a07648bb65b"}
+PASS  Acme Corp: amber "Owes $X", nothing overdue  -> {"status":"Owes $1,344.75","outstanding":"$1,344.75","overdue":"—","unbilled":"$1,495.50","last":"—","href":"/clients/6aed8740d9e77a07648bb659"}
+PASS  Globex Ltd: emerald "All paid" with the date of the last payment  -> {"status":"All paid","outstanding":"$0.00","overdue":"—","unbilled":"$1,530.67","last":"21 Oct 2026","href":"/clients/6aed8740d9e77a07648bb65a"}
 PASS  ...the colours are red, amber and emerald  -> {"Initech":"oklch(0.505 0.213 27.518)","Acme Corp":"oklch(0.555 0.163 48.998)","Globex Ltd":"oklch(0.508 0.118 165.612)"}
 PASS  the old things are still there: project count, company, e-mail, Edit and Delete
 PASS  Sort "Outstanding": the biggest amount owed first, whoever is late
@@ -46,7 +46,7 @@ PASS  ...the Unbilled card says how much time that is  -> 26h 36m in 17 entries
 PASS  Its invoices, with status badges
 PASS  Two buttons: "New invoice" and, because there is unbilled time, "Invoice unbilled time"
 PASS  "New invoice" opens the modal with this client already chosen
-PASS  "Invoice unbilled time": the client and the days of the unbilled time are filled in  -> {"client":"6aed53a9ecd029725bc6b973","from":"2026-10-26","to":"2026-11-05","total":"$1,495.50"}
+PASS  "Invoice unbilled time": the client and the days of the unbilled time are filled in  -> {"client":"6aed8740d9e77a07648bb659","from":"2026-10-26","to":"2026-11-05","total":"$1,495.50"}
 PASS  ...and the preview total is exactly the unbilled amount of the card  -> $1,495.50 vs $1,495.50
 PASS  A client that does not exist: "Client not found" with a way back
 PASS  Somebody else's client looks the same: "Client not found", no name, no numbers

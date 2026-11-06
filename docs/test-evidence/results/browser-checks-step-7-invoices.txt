@@ -19,7 +19,7 @@ PASS  creating shows the toast "Invoice INV-0001 created"
 PASS  ...and opens the invoice page
 PASS  invoice page: logo, "INVOICE", number INV-0001 and a Draft badge  -> INV-0001 Draft
 PASS  From (the user) and Bill to (name, company, email)
-PASS  issue date is today and the due date is 14 days later (India time)  -> TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793937768862@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 6 Nov 2026 DUE DATE 20 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 NO
+PASS  issue date is today and the due date is 14 days later (India time)  -> TimeLedger INVOICE INV-0001 Draft FROM Priya s7-priya-1793951425988@example.com BILL TO Acme Corp Acme Inc billing@acme.com ISSUE DATE 6 Nov 2026 DUE DATE 20 Nov 2026 PERIOD 9 – 13 Mar 2026 PROJECT HOURS RATE AMOUNT App 1.50 $60.00 $90.00 Website 2.78 $50.00 $138.89 Subtotal $228.89 Total $228.89 NO
 PASS  period "9 – 13 Mar 2026"
 PASS  line items table: Project, Hours, Rate, Amount  -> project | hours | rate | amount
 PASS  ...App 1.50 / $60.00 / $90.00 and Website 2.78 / $50.00 / $138.89  -> [["App","1.50","$60.00","$90.00"],["Website","2.78","$50.00","$138.89"]]
@@ -36,10 +36,10 @@ PASS  ...and "Create invoice" stays disabled
 PASS  API: creating it again is refused with the same 400
 PASS  Time entries: the 4 invoiced entries show a "Billed" badge  -> 4
 PASS  ...and the others are still billable / non-billable  -> Website · Acme Corp Not billable 09:00–10:00 Non-billable 1h | Brand · Zeta Ltd Other client 14:00–15:00 Billable 1h
-PASS  the Billed badge links to its invoice  -> /invoices/6aed516cef6f6dcce3553c72
+PASS  the Billed badge links to its invoice  -> /invoices/6aed86c63ebdea274b4eb26b
 PASS  ...and clicking it opens that invoice
 PASS  both tabs see the same preview ($270.00, 3 entries)  -> App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00 || App 2.00 h × $60.00 $120.00 Website 3.00 h × $50.00 $150.00 3 entries · 16 – 20 Mar 2026 $270.00
-PASS  exactly ONE of the two tabs got an invoice  -> /invoices/6aed5174ef6f6dcce3553c75 / /invoices
+PASS  exactly ONE of the two tabs got an invoice  -> /invoices/6aed86cd3ebdea274b4eb26e / /invoices
 PASS  the other tab is told there is nothing left to bill, and stays on the form
 PASS  ...with "Create invoice" disabled again
 PASS  server: only one invoice exists for that period (INV-0002), not two  -> INV-0002,INV-0001
@@ -71,7 +71,7 @@ PASS  print: the sidebar, top bar, bottom bar, action buttons and the entry list
 PASS  print: white background, no leftover sidebar space, no border or shadow  -> ["rgb(255, 255, 255)","0px","0px","rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"]
 PASS  print: the invoice fills the page width and nothing is cut off at the sides  -> [0,794,794,0]
 PASS  print: the line items show as a table (not the stacked phone layout)
-PASS  print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice)  -> {"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":121840}
+PASS  print: a real PDF was produced (A4 size 595 x 842 pt, one page for this invoice)  -> {"pages":1,"width":594.95996,"height":841.91998,"isPdf":true,"bytes":122428}
 PASS  print: an invoice with 36 projects runs over several pages (nothing cut off) and still fits the width  -> 3 pages, 36 lines
 PASS  another user opening my invoice sees "Invoice not found" (and none of my data)
 PASS  ...and their own list is empty
