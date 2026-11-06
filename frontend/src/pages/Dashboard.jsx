@@ -7,7 +7,10 @@ import PageLoader from '../components/PageLoader';
 import TimerCard from '../components/TimerCard';
 import IconButton from '../components/IconButton';
 import EntryFormModal from '../components/EntryFormModal';
+import MoneyOverview from '../components/MoneyOverview';
+import OverdueBanner from '../components/OverdueBanner';
 import { useAuth } from '../hooks/useAuth';
+import { useReceivables } from '../hooks/useReceivables';
 import { useTimer } from '../hooks/useTimer';
 import { getEntries } from '../api/entries';
 import { getTimesheet } from '../api/timesheet';
@@ -17,6 +20,7 @@ import { dayRangeInZone, formatClock, formatDuration, formatWeekRange } from '..
 export default function Dashboard() {
   const { user } = useAuth();
   const { stoppedCount } = useTimer();
+  const { summary } = useReceivables(); // who owes what: null until it has loaded
   const [entries, setEntries] = useState(null); // null = loading
   const [week, setWeek] = useState(null); // this week's timesheet, null = loading
   const [reloadKey, setReloadKey] = useState(0);
@@ -61,7 +65,11 @@ export default function Dashboard() {
     <>
       <PageHeader title="Dashboard" description={`Welcome, ${user.name}`} />
 
+      <OverdueBanner overdue={summary?.overdue} currency={summary?.currency} timeZone={user.timezone} />
+
       <TimerCard />
+
+      <MoneyOverview summary={summary} />
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section aria-labelledby="week-heading" className="lg:order-2">

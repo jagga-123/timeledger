@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Bell, BellOff, FileText, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/PageHeader';
@@ -39,7 +39,9 @@ function ReminderBell({ invoice, ownerEnabled }) {
 export default function Invoices() {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState(null); // null = loading
-  const [status, setStatus] = useState('all');
+  // "View overdue" on the dashboard comes here as /invoices?status=overdue
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState(() => (FILTERS.some((filter) => filter.id === searchParams.get('status')) ? searchParams.get('status') : 'all'));
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
