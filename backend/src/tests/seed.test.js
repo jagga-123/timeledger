@@ -11,7 +11,11 @@ import Counter from '../models/Counter.js';
 import ReminderLog from '../models/ReminderLog.js';
 import * as invoiceService from '../services/invoice.service.js';
 import * as receivables from '../services/receivables.service.js';
-import { DEMO_PAYMENT, DEMO_USER, assertSeedAllowed, seedDemo } from '../services/seed.service.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { DEMO_PAYMENT, DEMO_USER, assertSeedAllowed, isLocalDatabase, seedDemo } from '../services/seed.service.js';
+
+const run = promisify(execFile);
 
 const ZONE = 'Asia/Kolkata';
 // A Wednesday afternoon in the past: the same "today" every time the tests run, so the data is the same too
@@ -200,5 +204,74 @@ describe('seed', () => {
     expect(() => assertSeedAllowed({ NODE_ENV: 'production', SEED_ALLOW: 'true' })).not.toThrow();
     expect(() => assertSeedAllowed({ NODE_ENV: 'development' })).not.toThrow();
     expect(() => assertSeedAllowed({})).not.toThrow();
+  });
+
+  describe('only against a local database', () => {
+    const LOCAL = [
+      'mongodb://127.0.0.1:27017/timeledger',
+      'mongodb://localhost/timeledger',
+      'mongodb://localhost:27017/timeledger?replicaSet=rs0',
+      'mongodb://127.0.0.1:50321/timeledger-e2e?replicaSet=rs0', // what the browser checks use
+      'mongodb://[::1]:27017/timeledger',
+      'mongodb://user:p%40ss%2Fword@localhost:27017/timeledger',
+      'mongodb://localhost:27017,127.0.0.1:27018,localhost:27019/timeledger?replicaSet=rs0',
+      'MONGODB://LOCALHOST:27017/timeledger',
+    ];
+    const REMOTE = [
+      'mongodb+srv://user:pass@cluster0.abcde.mongodb.net/timeledger',
+      'mongodb+srv://localhost/timeledger', // +srv is always a remote cluster, whatever it is called
+      'mongodb://cluster0-shard-00-00.abcde.mongodb.net:27017/timeledger',
+      'mongodb://localhost:27017,db.example.com:27017/timeledger', // one remote host is enough
+      'mongodb://localhost@evil.example.com/timeledger', // "localhost" is the user name here
+      'mongodb://user:localhost@evil.example.com/timeledger',
+      'mongodb://127.0.0.1.evil.example.com/timeledger',
+      'mongodb://evil.example.com/127.0.0.1',
+      'mongodb://10.0.0.5:27017/timeledger', // another computer in the network
+      'not a connection string',
+      '',
+      undefined,
+    ];
+
+    it('knows which connection strings are local', () => {
+      for (const uri of LOCAL) expect([uri, isLocalDatabase(uri)]).toEqual([uri, true]);
+      for (const uri of REMOTE) expect([uri, isLocalDatabase(uri)]).toEqual([uri, false]);
+    });
+
+    it('refuses a remote database (Atlas or any other host) and never repeats the connection string', () => {
+      const atlas = 'mongodb+srv://secretuser:secretpass@cluster0.abcde.mongodb.net/timeledger';
+      expect(() => assertSeedAllowed({ MONGODB_URI: atlas })).toThrow(/not a local database/);
+      expect(() => assertSeedAllowed({ MONGODB_URI: atlas, NODE_ENV: 'development' })).toThrow(/SEED_ALLOW=true/);
+      expect(() => assertSeedAllowed({ MONGODB_URI: atlas, SEED_ALLOW: 'yes' })).toThrow();
+
+      let message = '';
+      try {
+        assertSeedAllowed({ MONGODB_URI: atlas });
+      } catch (err) {
+        message = err.message;
+      }
+      expect(message).not.toMatch(/secretuser|secretpass|cluster0|mongodb\.net/);
+    });
+
+    it('SEED_ALLOW=true allows it; a local database is fine; so is no connection string yet (connecting reports that itself)', () => {
+      const atlas = 'mongodb+srv://user:pass@cluster0.abcde.mongodb.net/timeledger';
+      expect(() => assertSeedAllowed({ MONGODB_URI: atlas, SEED_ALLOW: 'true' })).not.toThrow();
+      expect(() => assertSeedAllowed({ MONGODB_URI: 'mongodb://127.0.0.1:27017/timeledger', NODE_ENV: 'development' })).not.toThrow();
+      expect(() => assertSeedAllowed({})).not.toThrow();
+      // production is still refused for a local database, as before
+      expect(() => assertSeedAllowed({ MONGODB_URI: 'mongodb://127.0.0.1:27017/timeledger', NODE_ENV: 'production' })).toThrow(/production/);
+    });
+
+    it('`npm run seed` itself refuses before it connects anywhere (and does not print the password)', async () => {
+      // an address that can never be reached: if the guard did not stop the command, it would fail with a different message
+      const env = { ...process.env, MONGODB_URI: 'mongodb+srv://seeduser:seedpassword123@seed-guard-test.invalid/timeledger', NODE_ENV: 'development', SEED_ALLOW: '' };
+      const result = await run('node', ['src/seed.js'], { env, timeout: 30_000 }).then(
+        () => ({ code: 0, output: '' }),
+        (err) => ({ code: err.code, output: `${err.stdout}${err.stderr}` })
+      );
+
+      expect(result.code).toBe(1);
+      expect(result.output).toMatch(/Refusing to seed: MONGODB_URI is not a local database/);
+      expect(result.output).not.toMatch(/seedpassword123|seeduser|seed-guard-test|MongoDB connected/);
+    }, 60_000);
   });
 });

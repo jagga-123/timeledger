@@ -23,7 +23,7 @@ export const DEMO_PAYMENT = Object.freeze({
 
 export const DEMO_USER = Object.freeze({
   name: 'Alex Morgan',
-  email: 'demo@timeledger.app',
+  email: (process.env.DEMO_EMAIL || '').trim().toLowerCase() || 'demo@timeledger.app', // DEMO_EMAIL in .env, to use another address locally
   password: 'Demo@1234',
   timezone: 'Asia/Kolkata',
   currency: 'USD',
@@ -87,9 +87,31 @@ const randomGenerator = (seed) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
+// A database is local when every host in its connection string is this computer. mongodb+srv:// is always a remote cluster
+// (Atlas), whatever it is called, and the hosts are what follows the last "@" of the part before the first "/", so a user
+// name that says "localhost" ("mongodb://localhost@evil.example.com/db") does not make a database local.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
+export const isLocalDatabase = (uri) => {
+  const match = typeof uri === 'string' ? uri.trim().match(/^mongodb(\+srv)?:\/\/(.+)$/i) : null;
+  if (!match || match[1]) return false;
+
+  const authority = match[2].split('/')[0];
+  const hosts = authority.slice(authority.lastIndexOf('@') + 1).split(',');
+  return hosts.every((entry) => {
+    const host = entry.trim().toLowerCase();
+    const bracketed = host.match(/^\[(.*)\](?::\d+)?$/); // [::1]:27017
+    return LOCAL_HOSTS.has(bracketed ? bracketed[1] : host.replace(/:\d+$/, ''));
+  });
+};
+
+// The seed deletes and recreates the demo user's data, so it only runs against a local database, and never in production,
+// unless SEED_ALLOW=true. The messages never repeat the connection string (it holds the password).
 export const assertSeedAllowed = (env = process.env) => {
   if (env.NODE_ENV === 'production' && env.SEED_ALLOW !== 'true') {
     throw new Error('Refusing to seed: NODE_ENV is "production". Set SEED_ALLOW=true if you really mean it.');
+  }
+  if (env.MONGODB_URI && !isLocalDatabase(env.MONGODB_URI) && env.SEED_ALLOW !== 'true') {
+    throw new Error('Refusing to seed: MONGODB_URI is not a local database (localhost or 127.0.0.1). Set SEED_ALLOW=true if you really mean it.');
   }
 };
 
