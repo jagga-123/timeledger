@@ -22,7 +22,8 @@ const sumOf = (lines, field) => lines.reduce((total, line) => total + line[field
 
 // Pick a client and a period, see exactly what would be billed, then create the invoice.
 // Render it only while it should be open.
-export default function InvoiceCreateModal({ onClose }) {
+// initialClientId and initialRange ({ from, to } as "YYYY-MM-DD") fill it in, e.g. "Invoice unbilled time" on a client's page.
+export default function InvoiceCreateModal({ onClose, initialClientId = '', initialRange = null }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const timeZone = user.timezone;
@@ -30,9 +31,9 @@ export default function InvoiceCreateModal({ onClose }) {
 
   const [clients, setClients] = useState(null);
   const [form, setForm] = useState(() => ({
-    clientId: '',
-    preset: 'this-month',
-    ...quickRangeKeys('this-month', timeZone),
+    clientId: initialClientId,
+    preset: initialRange ? 'custom' : 'this-month',
+    ...(initialRange ?? quickRangeKeys('this-month', timeZone)),
     notes: '',
   }));
   const [preview, setPreview] = useState(null);

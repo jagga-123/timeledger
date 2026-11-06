@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
+import ClientDetail from './pages/ClientDetail';
 import Projects from './pages/Projects';
 import TimeEntries from './pages/TimeEntries';
 import Timesheet from './pages/Timesheet';
@@ -36,6 +37,7 @@ export default function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/clients" element={<Clients />} />
+                <Route path="/clients/:id" element={<ClientDetail />} />
                 <Route path="/projects" element={<Projects />} />
                 <Route path="/time-entries" element={<TimeEntries />} />
                 <Route path="/timesheet" element={<Timesheet />} />
