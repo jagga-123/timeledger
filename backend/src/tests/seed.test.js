@@ -10,6 +10,7 @@ import Invoice from '../models/Invoice.js';
 import Counter from '../models/Counter.js';
 import ReminderLog from '../models/ReminderLog.js';
 import * as invoiceService from '../services/invoice.service.js';
+import * as receivables from '../services/receivables.service.js';
 import { DEMO_PAYMENT, DEMO_USER, assertSeedAllowed, seedDemo } from '../services/seed.service.js';
 
 const ZONE = 'Asia/Kolkata';
@@ -61,8 +62,8 @@ describe('seed', () => {
     expect(await ReminderLog.countDocuments()).toBe(0); // the demo user's reminder history is wiped with the rest of their data
     expect((await User.findOne({ email: DEMO_USER.email }))._id).toEqual(demoId); // the same user, reset
 
-    expect(countsAfterFirst).toMatchObject({ users: 1, clients: 3, projects: 4, invoices: 2, counters: 1 });
-    expect((await Counter.findOne({ userId: demoId })).seq).toBe(2); // numbers start again at INV-0001 after a re-seed
+    expect(countsAfterFirst).toMatchObject({ users: 1, clients: 3, projects: 4, invoices: 3, counters: 1 });
+    expect((await Counter.findOne({ userId: demoId })).seq).toBe(3); // numbers start again at INV-0001 after a re-seed
 
     // the user
     const user = await User.findOne({ email: DEMO_USER.email });
@@ -108,17 +109,29 @@ describe('seed', () => {
     expect(entries.some((e) => !e.billable)).toBe(true);
     expect(entries.filter((e) => e.billable).length).toBeGreaterThan(entries.length / 2);
 
-    // invoices: Globex paid (4 weeks ago), Acme sent (3 to 2 weeks ago), created by the real service
+    // invoices: Globex paid (4 weeks ago), Acme sent (3 to 2 weeks ago), Initech sent (4 weeks ago) and late, created by the real service
     const invoices = await Invoice.find({ userId: demoId }).sort({ number: 1 });
     expect(invoices.map((i) => [i.number, i.client.name, i.status, i.periodStart, i.periodEnd])).toEqual([
       ['INV-0001', 'Globex Ltd', 'paid', '2026-02-16', '2026-02-22'],
       ['INV-0002', 'Acme Corp', 'sent', '2026-02-23', '2026-03-08'],
+      ['INV-0003', 'Initech', 'sent', '2026-02-16', '2026-02-22'],
     ]);
-    // as if they had been emailed: sent to the client, with a share link; only the paid one was opened
+    // as if they had been emailed: sent to the client, with a share link; the paid one and Initech's were opened, Acme's was not
     expect(invoices.map((i) => [i.sentTo, Boolean(i.publicToken), Boolean(i.viewedAt), Boolean(i.lastSentAt)])).toEqual([
       ['billing@globex.example', true, true, true],
       ['accounts@acme.example', true, false, true],
+      ['finance@initech.example', true, true, true],
     ]);
+
+    // "who owes me what" has something to show: Acme's invoice is not due yet, Initech's is overdue (9 days on this Wednesday), Globex paid
+    const money = await receivables.summary(demoId, { now: NOW });
+    expect(money.overdue).toMatchObject({ count: 1, oldest: { number: 'INV-0003', clientName: 'Initech', days: 9 } });
+    expect(money.outstanding.count).toBe(2);
+    expect(money.aging.map((bucket) => [bucket.key, bucket.count])).toEqual([['current', 1], ['1-30', 1], ['31-60', 0], ['61+', 0]]);
+    expect(money.avgDaysToPay.days).toBe(9); // Globex paid 9 days after it was sent
+    const rows = await receivables.byClient(demoId, { now: NOW });
+    expect(rows.map((row) => row.client.name)).toEqual(['Initech', 'Acme Corp', 'Globex Ltd']); // the late one first, then who still owes, then who paid
+    expect(rows.every((row) => row.unbilledAmount > 0)).toBe(true); // every client has unbilled time left
     for (const invoice of invoices) {
       const claimed = entries.filter((e) => String(e.invoiceId) === String(invoice._id));
       expect(claimed.map((e) => String(e._id)).sort()).toEqual(invoice.entryIds.map(String).sort());
@@ -178,7 +191,7 @@ describe('seed', () => {
     const demo = await User.findOne({ email: DEMO_USER.email });
     expect(await Client.countDocuments({ userId: demo._id })).toBe(3);
     expect(await Client.countDocuments()).toBe(4);
-    expect(await Invoice.countDocuments({ userId: demo._id })).toBe(2);
+    expect(await Invoice.countDocuments({ userId: demo._id })).toBe(3);
   }, 60_000);
 
   it('refuses to run in production unless SEED_ALLOW=true', () => {

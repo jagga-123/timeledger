@@ -11,7 +11,7 @@ import { roundToCents } from '../utils/money.js';
 import * as invoiceService from './invoice.service.js';
 import { ensureShareToken } from './invoiceShare.service.js';
 
-// Demo data for reviewers: one user, three clients, about four weeks of time entries and two invoices.
+// Demo data for reviewers: one user, three clients, about four weeks of time entries and three invoices.
 // Running it again wipes and recreates ONLY this user's data; nobody else's data is ever touched.
 
 // Fake payment details, so the demo shows "Pay now" and how to pay (nothing real is behind them)
@@ -227,7 +227,9 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
 
   await TimeEntry.insertMany(buildEntries({ now: today, userId, projectByKey }));
 
-  // Globex: the week four weeks ago, paid. Acme: three and two weeks ago, sent. The last two weeks stay unbilled.
+  // Globex: the week four weeks ago, paid. Acme: three and two weeks ago, sent. Initech: also the week four weeks ago, sent and
+  // now late (its 14 days ran out 7 to 13 days ago, whatever the day of the week), so the overdue alert and the aging bar have
+  // something to show. The last two weeks stay unbilled.
   const thisMonday = today.startOf('day').minus({ days: today.weekday - 1 });
   const weekStart = (weeksAgo) => thisMonday.minus({ weeks: weeksAgo });
   await createInvoice({
@@ -250,6 +252,16 @@ export const seedDemo = async ({ now = DateTime.now() } = {}) => {
     statuses: ['sent'],
     sentTo: CLIENTS.find((client) => client.key === 'acme').email,
     viewed: false, // not opened yet: the reviewer can open the link and see "Viewed" appear
+  });
+  await createInvoice({
+    userId,
+    clientId: clientByKey.initech._id,
+    from: weekStart(4),
+    to: weekStart(4).plus({ days: 6 }),
+    notes: 'Thank you for your business. Payment by bank transfer within 14 days.',
+    statuses: ['sent'],
+    sentTo: CLIENTS.find((client) => client.key === 'initech').email,
+    viewed: true, // they opened it and still have not paid
   });
 
   return summarize({ user, zone });
