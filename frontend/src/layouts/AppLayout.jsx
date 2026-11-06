@@ -11,7 +11,9 @@ import {
   Users,
 } from 'lucide-react';
 import MiniTimer from '../components/MiniTimer';
+import { ReceivablesProvider } from '../context/ReceivablesContext';
 import { useAuth } from '../hooks/useAuth';
+import { useReceivables } from '../hooks/useReceivables';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -35,9 +37,38 @@ function Logo({ compact = false }) {
   );
 }
 
-// Desktop: fixed sidebar. Mobile: top bar + bottom tab bar.
+// The overdue count in the sidebar and the money cards on the dashboard come from the same numbers, fetched once here
 export default function AppLayout() {
+  return (
+    <ReceivablesProvider>
+      <Layout />
+    </ReceivablesProvider>
+  );
+}
+
+// A small red number: how many invoices are overdue. Nothing at all while there are none.
+function OverdueBadge({ count, className = '' }) {
+  if (!count) return null;
+
+  const label = `${count} overdue ${count === 1 ? 'invoice' : 'invoices'}`;
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      data-testid="overdue-badge"
+      className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-none text-white ${className}`}
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
+// Desktop: fixed sidebar. Mobile: top bar + bottom tab bar.
+function Layout() {
   const { user, logout } = useAuth();
+  const { summary } = useReceivables();
+  const overdueCount = summary?.overdue.count ?? 0;
 
   return (
     <div className="min-h-screen">
@@ -62,6 +93,7 @@ export default function AppLayout() {
             >
               <Icon size={18} />
               {label}
+              {to === '/invoices' && <OverdueBadge count={overdueCount} className="ml-auto" />}
             </NavLink>
           ))}
         </nav>
@@ -131,7 +163,10 @@ export default function AppLayout() {
               }`
             }
           >
-            <Icon size={20} />
+            <span className="relative">
+              <Icon size={20} />
+              {to === '/invoices' && <OverdueBadge count={overdueCount} className="absolute -right-3 -top-2" />}
+            </span>
             <span className="max-w-full truncate">{shortLabel || label}</span>
           </NavLink>
         ))}

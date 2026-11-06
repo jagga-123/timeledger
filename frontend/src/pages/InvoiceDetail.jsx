@@ -11,6 +11,7 @@ import InvoiceTimeline from '../components/InvoiceTimeline';
 import InvoiceReminders from '../components/InvoiceReminders';
 import SendInvoiceModal from '../components/SendInvoiceModal';
 import { getInvoice, updateInvoiceStatus, deleteInvoice, getShareLink, regenerateShareLink, getInvoiceReminders } from '../api/invoices';
+import { useReceivables } from '../hooks/useReceivables';
 import { getErrorMessage } from '../utils/errors';
 import { formatDate, formatDuration } from '../utils/time';
 
@@ -46,6 +47,7 @@ export default function InvoiceDetail() {
   const [confirmingNewLink, setConfirmingNewLink] = useState(false);
   const [linkBusy, setLinkBusy] = useState(false);
   const [reminders, setReminders] = useState(null); // what the payment reminders did and what comes next
+  const { reload: reloadReceivables } = useReceivables();
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +100,7 @@ export default function InvoiceDetail() {
       // the response has the new status and dates but not the lines, so merge it into what we have
       mergeInvoice(await updateInvoiceStatus(invoice._id, status));
       toast.success(status === 'sent' ? 'Marked as sent' : 'Marked as paid');
+      reloadReceivables(); // the overdue badge in the sidebar follows at once
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -107,6 +110,7 @@ export default function InvoiceDetail() {
 
   const handleSent = ({ invoice: updated, shareUrl }) => {
     mergeInvoice({ ...updated, shareUrl });
+    reloadReceivables();
     setSending(false);
   };
 
