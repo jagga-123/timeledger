@@ -1,0 +1,79 @@
+Mutation checks (each change was made temporarily, the tests were run, and the file was put back: checked byte for byte against a copy of the original)
+
+1. A handle that is not close to anything still gets a suggestion (no limit on how far away it may be)
+  file: ../frontend/src/utils/upiHandles.js
+  change: const allowed = Math.max(1, Math.floor(text.length / 3));  ->  const allowed = 100;
+  Tests:       3 failed, 40 passed, 43 total
+    x suggests nothing when nothing is close: no wild guesses
+    x says which handle it does not know, and what was probably meant
+    x without a close match it only says to double-check
+  file restored identical: yes
+
+2. A swap of two letters counts as two edits (the swap rule is removed)
+  file: ../frontend/src/utils/upiHandles.js
+  change: if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])  ->  if (false)
+  Tests:       1 failed, 42 passed, 43 total
+    x suggests the handle a typo was meant to be
+  file restored identical: yes
+
+3. On a tie the handle that starts with the same letter is no longer preferred
+  file: ../frontend/src/utils/upiHandles.js
+  change: const rank = [away, known[0] === text[0] ? 0 : 1, Math.abs(known.length - text.length)];  ->  const rank = [away, 0, Math.abs(known.length - text.length)];
+  Tests:       1 failed, 42 passed, 43 total
+    x on a tie prefers a handle that starts with the same letter, then the one that comes first in the list
+  file restored identical: yes
+
+4. The handle is not lower-cased before it is looked at
+  file: ../frontend/src/utils/upiHandles.js
+  change: const text = typeof upiId === 'string' ? upiId.trim().toLowerCase() : '';  ->  const text = typeof upiId === 'string' ? upiId.trim() : '';
+  Tests:       3 failed, 40 passed, 43 total
+    x is what follows the @, trimmed and in lower case
+    x says which handle it does not know, and what was probably meant
+    x names the handle and suggests the closest known one
+  file restored identical: yes
+
+5. The warning text changes (the suggestion wording)
+  file: ../frontend/src/utils/upiHandles.js
+  change: — did you mean @${check.suggestion}?  ->  - maybe @${check.suggestion}?
+  Tests:       1 failed, 42 passed, 43 total
+    x names the handle and suggests the closest known one
+  file restored identical: yes
+
+6. An ID without a name before the @ gets a warning too (it is warned about twice with the server's error)
+  file: ../frontend/src/utils/upiHandles.js
+  change: if (at < 1) return '';  ->  if (at < 0) return '';
+  Tests:       1 failed, 42 passed, 43 total
+    x is empty when there is nothing to look at: the server explains those mistakes itself, so they are not warned about twice
+  file restored identical: yes
+
+7. A common handle is missing from the list (freecharge)
+  file: ../frontend/src/utils/upiHandles.js
+  change: 'freecharge',  ->  (removed)
+  Tests:       2 failed, 41 passed, 43 total
+    x has every handle that was asked for, once each and in lower case
+    x suggests the handle a typo was meant to be
+  file restored identical: yes
+
+8. A short handle gets no suggestion (the allowed distance can drop to 0)
+  file: ../frontend/src/utils/upiHandles.js
+  change: const allowed = Math.max(1, Math.floor(text.length / 3));  ->  const allowed = Math.floor(text.length / 3);
+  Tests:       1 failed, 42 passed, 43 total
+    x suggests the handle a typo was meant to be
+  file restored identical: yes
+
+9. The server keeps the UPI ID in the case it was typed (no lower-casing)
+  file: validators/auth.validator.js
+  change: return typeof text === 'string' ? text.toLowerCase() : text;  ->  return text;
+  Tests:       2 failed, 41 passed, 43 total
+    x saves the UPI ID trimmed and in lower case, and gives it back that way
+    x a UPI ID with a handle that is not a known one is still saved (the warning is only shown on screen)
+  file restored identical: yes
+
+10. The server refuses an unknown handle instead of only warning (the warning became an error)
+  file: validators/auth.validator.js
+  change: 'UPI ID must look like name@bank, for example alex@okhdfcbank'), cleanUpiId)  ->  'UPI ID must look like name@bank, for example alex@okhdfcbank').refine((id) => /@(okhdfcbank|okicici|oksbi|okaxis|ybl|ibl|axl|paytm|upi)$/.test(id), 'Unknown handle'), cleanUpiId)
+  Tests:       3 failed, 40 passed, 43 total
+    x a UPI ID with a handle that is not a known one is still saved (the warning is only shown on screen)
+    x the UPI ID must look like name@bank
+    x several mistakes are all reported, each under its own field
+  file restored identical: yes

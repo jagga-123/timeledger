@@ -20,14 +20,14 @@ PASS  a bad CC address is refused under the CC field and nothing is sent
 PASS  when the email can't be sent: the toast says so, the form stays open with what was typed, and the invoice is still a draft
 PASS  Send: toast "Invoice sent to finance@initech.example" and the modal closes
 PASS  the invoice is now Sent: sentAt, lastSentAt and sentTo are saved, and it has a share link
-PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/WTMMUeYBthCP5GVXNn9vWXNw9kkSXvrk
+PASS  the share link points at the app (APP_URL falls back to FRONTEND_URL)  -> http://localhost:5273/i/HFzEi714GX8D43qU69NNrBFdcJweEb_K
 PASS  console provider: exactly one email, to the client, CC the boss, with the right subject  -> [["finance@initech.example","boss@initech.example","Invoice INV-0004 from Alex Morgan"]]
 PASS  ...the text version has the personal message, the amount, the due date and the link to /i/<token>
 PASS  the page updated by itself: badge "Sent", and the timeline shows Sent with the date and "to finance@initech.example"  -> {"done":true,"text":"Sent 6 Nov 2026 to finance@initech.example"}
 PASS  the buttons now say "Resend invoice"; "Mark as sent" and Delete are gone (it is sent)
 PASS  the share link is shown in a box, with Copy and Regenerate buttons
 PASS  "Copy share link": toast "Share link copied"
-PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/WTMMUeYBthCP5GVXNn9vWXNw9kkSXvrk
+PASS  ...and the link is really on the clipboard  -> http://localhost:5273/i/HFzEi714GX8D43qU69NNrBFdcJweEb_K
 PASS  the client sees the invoice without logging in: no sidebar, no app bars, the same paper  -> Sent
 PASS  ...with a "Download PDF" button and a small "Sent with TimeLedger" footer link to the start page
 PASS  ...a useful tab title and no search engine indexing  -> Invoice INV-0004 from Alex Morgan | noindex, nofollow

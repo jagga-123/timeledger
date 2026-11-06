@@ -24,9 +24,9 @@ PASS  ...and today's 15 minutes show in it  -> 15m
 PASS  a link with ?week=2026-03-10 (not a Monday) shows the current week and fixes the URL  -> 2026-11-02
 PASS  a link with ?week=2099-01-05 (in the future) shows the current week and fixes the URL  -> 2026-11-02
 PASS  a link with ?week=banana (not a date) shows the current week and fixes the URL  -> 2026-11-02
-PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6aed86b23ebdea274b4eb24a&from=2026-03-09&to=2026-03-09&overlap=1
+PASS  clicking a cell opens /time-entries with the project and the day in the URL  -> ?projectId=6aed95e72982a6e63babfa31&from=2026-03-09&to=2026-03-09&overlap=1
 PASS  Time entries starts with those filters already set (Custom range, that day, that project)  -> {"preset":"custom","from":"2026-03-09","to":"2026-03-09","project":"Website"}
-PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6aed86b23ebdea274b4eb24a","overlap":"true"}
+PASS  ...and asks for that day in India time, for that project  -> {"from":"2026-03-08T18:30:00.000Z","to":"2026-03-09T18:30:00.000Z","projectId":"6aed95e72982a6e63babfa31","overlap":"true"}
 PASS  the list shows exactly that entry (Homepage, 09:00–11:00, 2h)  -> Website · Acme Corp Homepage 09:00–11:00 Billable 2h
 PASS  Tuesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h
 PASS  Wednesday's cell (1h): the list shows the entry that crosses midnight (23:00–01:00)  -> Website · Acme Corp Late night deploy 23:00–01:00 (+1 day) Billable 2h

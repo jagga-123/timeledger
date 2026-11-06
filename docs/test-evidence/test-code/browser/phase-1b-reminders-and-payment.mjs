@@ -236,6 +236,37 @@ await typeInto(A, '#link', 'javascript:alert(1)');
 await clickButton(A, 'Save payment details', P);
 check('a javascript: link is refused too', await hasText(A, 'Payment link must be a full https:// address'));
 
+// the UPI ID: a handle that is not a known one is only a warning (amber): the details still save, and the ID is saved trimmed and in lower case
+const upiWarning = () => A.evaluate(() => document.querySelector('[data-testid="upiId-warning"]')?.innerText.trim() ?? null);
+await typeInto(A, '#link', 'https://rzp.io/l/alex-morgan');
+await typeInto(A, '#upiId', '  Alex.Morgan@OkHDFCNK ');
+check('while the UPI ID is still being typed there is no warning yet', (await upiWarning()) === null);
+await A.click('#bankDetails'); // leaves the field
+await waitSel(A, '[data-testid="upiId-warning"]');
+check('leaving the field shows the ID the way it will be saved: no spaces around it, lower case', (await A.$eval('#upiId', (i) => i.value)) === 'alex.morgan@okhdfcnk');
+const warn = await upiWarning();
+check('an unknown handle gets an amber warning that suggests the closest known one', warn === "We don't recognise \"@okhdfcnk\". Double-check your UPI ID — did you mean @okhdfcbank?", warn);
+const warnStyle = await A.$eval('[data-testid="upiId-warning"]', (e) => ({ color: getComputedStyle(e).color, role: e.getAttribute('role') }));
+check('...in amber (not the red of an error), announced politely, and the field has no error state', warnStyle.color === (await colorOf(A, 'text-amber-700')) && warnStyle.role === 'status' && (await A.$eval('#upiId', (i) => i.getAttribute('aria-invalid'))) === 'false' && (await A.$eval('#upiId', (i) => i.getAttribute('aria-describedby'))) === 'upiId-warning', JSON.stringify(warnStyle));
+await shot(A, '03b-settings-upi-warning-desktop');
+await clickButton(A, 'Save payment details', P);
+check('the warning does not stop the save: toast "Payment details saved", the ID is stored in lower case, and the warning is still there', (await hasText(A, 'Payment details saved')) && (await call('GET', '/auth/me', T)).body.user.payment.upiId === 'alex.morgan@okhdfcnk' && (await upiWarning()) !== null);
+await gone(A, 'Payment details saved');
+await typeInto(A, '#upiId', 'alex@mycompany');
+await A.click('#bankDetails');
+await waitSel(A, '[data-testid="upiId-warning"]');
+check('a handle that is not close to any known one: "Double-check your UPI ID." and no suggestion', (await upiWarning()) === "We don't recognise \"@mycompany\". Double-check your UPI ID.");
+await A.type('#upiId', 'x');
+check('typing again hides the warning until the field is left', (await upiWarning()) === null);
+await typeInto(A, '#upiId', 'alex@okaxis');
+await A.click('#bankDetails');
+await sleep(300);
+check('a known handle (@okaxis) has no warning', (await upiWarning()) === null);
+await typeInto(A, '#upiId', 'bad id');
+await clickButton(A, 'Save payment details', P);
+await hasText(A, 'UPI ID must look like name@bank');
+check('a wrongly formed ID is an error (red) and the amber warning stays away', (await upiWarning()) === null && (await A.$eval('#upiId', (i) => i.getAttribute('aria-invalid'))) === 'true');
+
 // a valid link with nicer details, saved
 await typeInto(A, '#link', 'https://rzp.io/l/alex-morgan');
 await typeInto(A, '#upiId', 'alex.morgan@okhdfcbank');

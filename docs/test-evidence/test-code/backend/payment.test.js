@@ -113,6 +113,33 @@ describe('PATCH /api/auth/me: payment details', () => {
     await setPayment({ link: `  ${LINK}  `, upiId: '  alex@okaxis ', bankDetails: '  HDFC\r\nA/C 123\u0007\u0000\r\n  ' });
     expect(await savedPayment()).toEqual({ link: LINK, upiId: 'alex@okaxis', bankDetails: 'HDFC\nA/C 123' });
   });
+
+  it('saves the UPI ID trimmed and in lower case, and gives it back that way', async () => {
+    const res = await setPayment({ upiId: '  Alex.Morgan@OkHDFCBank  ' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.payment.upiId).toBe('alex.morgan@okhdfcbank');
+    expect(await savedPayment()).toMatchObject({ upiId: 'alex.morgan@okhdfcbank' });
+
+    await setPayment({ upiId: 'ALEX@YBL' });
+    expect((await savedPayment()).upiId).toBe('alex@ybl');
+    expect((await api('get', '/api/auth/me', alex.token)).body.user.payment.upiId).toBe('alex@ybl');
+  });
+
+  it('a UPI ID with a handle that is not a known one is still saved (the warning is only shown on screen)', async () => {
+    const res = await setPayment({ upiId: 'Alex@OkHDFCNK' }); // a typo of okhdfcbank
+
+    expect(res.status).toBe(200);
+    expect(res.body.errors).toBeUndefined();
+    expect(await savedPayment()).toMatchObject({ upiId: 'alex@okhdfcnk' });
+  });
+
+  it('only spaces remove the UPI ID, like an empty string does', async () => {
+    await setPayment({ upiId: 'alex@okaxis' });
+    await setPayment({ upiId: '   ' });
+
+    expect((await savedPayment()).upiId).toBe('');
+  });
 });
 
 describe('payment details are validated', () => {
@@ -148,6 +175,11 @@ describe('payment details are validated', () => {
     for (const upiId of ['alex@okhdfcbank', 'alex.morgan-1@ybl', '9876543210@paytm', 'shop_name@axl']) {
       expect((await setPayment({ upiId })).status).toBe(200);
     }
+  });
+
+  it('upper case and spaces are no way round the format check: a space inside the ID is still refused', async () => {
+    await refused({ upiId: ' AL EX@OKAXIS ' }, 'payment.upiId', 'UPI ID must look like name@bank, for example alex@okhdfcbank');
+    expect((await savedPayment()).upiId).toBe('');
   });
 
   it('the bank details can be at most 500 characters', async () => {
