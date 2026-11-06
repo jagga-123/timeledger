@@ -27,7 +27,7 @@ More screenshots, every test result and the test code are in [docs/test-evidence
 
 ## Demo login
 
-Run `npm run seed` in `backend/` (see [Setup and run](#setup-and-run)) and log in with:
+The demo data only exists where you run `npm run seed` (see [Setup and run](#setup-and-run)), and the seed only runs against a **local** database (or with `SEED_ALLOW=true`), so a deployed app has no demo user. After seeding, log in with:
 
 | Email | Password |
 | --- | --- |
@@ -114,7 +114,7 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
    npm run seed
    ```
 
-   It prints what it created. Run it as often as you like: it deletes and recreates **only** the demo user's data and never touches anybody else's. It refuses to run when `NODE_ENV=production` unless `SEED_ALLOW=true` is also set.
+   It prints what it created. Run it as often as you like: it deletes and recreates **only** the demo user's data and never touches anybody else's. It refuses to run when `MONGODB_URI` is not a local database (anything but `localhost` or `127.0.0.1`, so never against Atlas) or when `NODE_ENV=production`, unless `SEED_ALLOW=true` is also set.
 
 4. **Start the app** (two terminals)
 
@@ -134,6 +134,7 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | Variable | Required | Example value in `.env.example` | Description |
 | --- | --- | --- | --- |
 | `PORT` | no | `5000` | API port |
+| `NODE_ENV` | no | `development` | `development` locally, `production` on the host. In production an unset `EMAIL_PROVIDER` is an error and `npm run seed` refuses to run |
 | `MONGODB_URI` | yes | `mongodb://127.0.0.1:27017/timeledger` | MongoDB connection string, with the database name. Use Atlas or a replica set (see above) |
 | `JWT_SECRET` | yes | `replace-with-a-long-random-string` | Long random string used to sign tokens |
 | `JWT_EXPIRES_IN` | no | `7d` | How long a login lasts |
@@ -144,6 +145,7 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | `EMAIL_FROM` | with `brevo` | `replace-with-your-verified-sender@example.com` | The sender address you verified in Brevo |
 | `EMAIL_FROM_NAME` | no | `TimeLedger` | The name shown with the sender address (an e-mail says "Alex Morgan via TimeLedger") |
 | `CRON_SECRET` | for reminders | `replace-with-a-long-random-string-for-the-scheduler` | The shared secret the scheduler sends in the `X-Cron-Secret` header to run the payment reminders (at least 16 characters). While it is empty or still the placeholder, the endpoint answers `503` and nothing runs. See [Payment reminders](#payment-reminders-and-the-hourly-job) |
+| `DEMO_EMAIL` | no | `demo@timeledger.app` | The e-mail of the demo user that `npm run seed` creates |
 | `DNS_SERVERS` | no | *(empty)* | Comma-separated DNS servers used to look up `mongodb+srv://` hosts; empty means `8.8.8.8,1.1.1.1` |
 
 `frontend/.env` (the same variable as `frontend/.env.example`)
@@ -151,8 +153,9 @@ Go to **Settings**, switch on *Round each entry up to 15 minutes* and save. From
 | Variable | Required | Example value in `.env.example` | Description |
 | --- | --- | --- | --- |
 | `VITE_API_URL` | no | `http://localhost:5000/api` | API base URL including `/api` |
+| `VITE_SHOW_DEMO` | no | `false` | `true` shows the "Demo: demo@timeledger.app / Demo@1234" hint on the login page. Leave it `false` anywhere real people log in; set it to `true` locally after `npm run seed` |
 
-`NODE_ENV` and `SEED_ALLOW` are only read by `npm run seed` (see step 3). Never commit a real `.env`: it is git-ignored, and `.env.example` only contains placeholders.
+`SEED_ALLOW` is not in `.env.example`: it is only read by `npm run seed` (see step 3). Never commit a real `.env`: it is git-ignored, and `.env.example` only contains placeholders.
 
 ### Scripts
 
@@ -387,7 +390,7 @@ erDiagram
 cd backend && npm test
 ```
 
-**304 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
+**314 backend tests** (Jest + Supertest) on a throwaway in-memory MongoDB, so they never touch a real database. The invoice and seed tests use an in-memory *replica set* because they need transactions.
 
 | File | Tests | Covers |
 | --- | --- | --- |
@@ -399,14 +402,15 @@ cd backend && npm test
 | `timesheet.test.js` | 24 | days and week edges, splitting across midnight, daylight saving weeks, totals |
 | `invoices.test.js` | 36 | which entries are billed, line items and rounding, snapshots, **an entry never on two invoices (two identical requests, eight at once, overlapping periods, two users)**, all or nothing, the `503` without transactions, time zone day boundaries, numbering, the status flow, deleting a draft, privacy; the rounding rule on invoices |
 | `rounding.test.js` | 6 | `roundUp`: 1 s → 15 min, 15 min → 15 min, 15 min 1 s → 30 min, 0 stays 0, never rounds down |
-| `seed.test.js` | 3 | running the seed twice gives identical data, it leaves another user's data untouched, the demo user gets reminders and payment details, the production guard |
+| `seed.test.js` | 7 | running the seed twice gives identical data, it leaves another user's data untouched, the demo user gets reminders and payment details, the production guard, and the guard against a database that is not local (which connection strings count as local, including the tricks, the `SEED_ALLOW` override, a message that never repeats the connection string, and `npm run seed` itself stopping before it connects) |
 | `invoice-send.test.js` | 21 | sending (draft to sent, the e-mail the provider gets, typed recipient, CC, message escaped, the client's current address), no client e-mail `400`, validation, paid `409`, a failing provider `502` with the invoice untouched, sending again, privacy; the Brevo request and failures (network faked); overdue (due yesterday in Asia/Kolkata, due today, N days, paid and draft never, New York, the list and its filters) |
 | `public-invoice.test.js` | 20 | the public answer holds only what the client needs, no private data anywhere, not cached or indexed, real states, every kind of unknown token `404`, `viewedAt` set once, one token even for simultaneous requests, regenerate kills the old link, privacy between users, the rate limit, and the rate limit behind one proxy (each visitor counted by the address the proxy reports; faking `X-Forwarded-For` does not help) |
 | `payment.test.js` | 25 | saving the payment details (link, UPI ID, bank details) through `PATCH /auth/me`: only what is sent changes, an empty string removes one, the text is cleaned; the validation (https only, so no `javascript:`, `http:`, passwords or spaces; real Stripe, PayPal and Razorpay links; the UPI format; the length limits; each mistake under its own field); the "Pay now" button in the invoice e-mail only when there is a link (the details still show without one, what the owner typed is escaped); the public invoice's `payment` (empty when nothing is set up, the owner's current settings, left out once the invoice is paid, no other owner data) |
 | `reminders.test.js` | 52 | the reminder settings (defaults, limits, sorted days without repeats, nothing saved when one field is wrong); the schedule in the **owner's** time zone (Asia/Kolkata and America/New_York near midnight UTC); each reminder once (running twice, `Promise.all`, five at once, and a unique index); draft, paid, paused, no client e-mail and switched-off invoices get nothing; catch-up (only the latest, nothing older than 2 days, nothing before the day the invoice was sent); a failing provider (logged as failed, the invoice unchanged, retried, 3 attempts, one failure does not stop the rest); the cron endpoint (`401`, `503`, needs no login); *Send reminder now* (once, then `429`, again after 24 hours, two clicks at once, the 24 hours given back on failure, `409` and `400`); pause and resume; the history and the next reminder; user B cannot touch user A's reminders (`404`); the reminder e-mail (subjects, wording, "Pay now" only with a link, everything escaped) |
 | `receivables.test.js` | 29 | invoices in every aging bucket (not due and due today are Current, then 1, 30, 31, 60, 61 and 100 days); outstanding, overdue and the oldest overdue invoice; paid and draft invoices never outstanding; money added up to the cent; paid this month and the 90 day average in the owner's own time zone (a New York owner is a day behind an Indian one); the client ordering (overdue, then outstanding, then name); the unbilled amount (billable, finished, on no invoice, at each project's rate, only the user's own); one client's invoices and last 5 payments; user A never sees user B's numbers; `404` for an unknown or somebody else's client; the three routes need a login |
+| `env-example.test.js` | 6 | `backend/.env.example` lists every setting the backend code reads (found by scanning the code, so a new one can't be forgotten), has placeholders only and nothing shaped like a real key or password, is set up for local development; `frontend/.env.example` keeps the demo login hint off; `.env` is git-ignored |
 
-**660 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule), and the Phase 1A checks (sending an invoice and reading the e-mail the backend prints, a failed send, the timeline, the share link, the client's view without a login, regenerating, overdue, phone layouts), and the Phase 1B checks (the hourly job called with `curl` and its secret, a wrong secret, the reminder e-mails read from the backend's output, the Settings cards and their validation, the invoice page with the next reminder, the history, pause and send now, the bells, Pay now on the client's page and in print, phone layouts), and the Phase 1C checks (the numbers of the dashboard and the clients page compared with what the invoices and entries routes say, the overdue alert and its dismissal, the aging bar with an invoice in every bucket, sorting and filtering the clients, a client's page and its two invoice buttons, the badge following *Mark as paid*, a brand-new user, a browser that refuses to store anything, 375px and 360px phones). Per step: 29 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings), 64 (Phase 1A), 63 (Phase 1B), 85 (Phase 1C). All the older checks were run again against the Phase 1C build: Steps 2 to 7 passed as they were, while Step 8 and Phases 1A and 1B needed their expectations updated, because the demo now has a third invoice.
+**661 browser checks** drive the real app in headless Microsoft Edge against the production build and a real backend on an in-memory database (on their own ports, so a running dev server and its real database are never touched): sign-up and login, every page on desktop and phone, the timer (refresh while running, a second tab, wrong device clocks), time entries and filters, the timesheet (including a device in New York on a daylight saving day), invoices (two tabs pressing Create at the same moment, six simultaneous API requests, printing to PDF), the Step 8 checks (the real `npm run seed` command, expected invoice amounts worked out independently from the raw entries, the Settings page and the rounding rule), and the Phase 1A checks (sending an invoice and reading the e-mail the backend prints, a failed send, the timeline, the share link, the client's view without a login, regenerating, overdue, phone layouts), and the Phase 1B checks (the hourly job called with `curl` and its secret, a wrong secret, the reminder e-mails read from the backend's output, the Settings cards and their validation, the invoice page with the next reminder, the history, pause and send now, the bells, Pay now on the client's page and in print, phone layouts), and the Phase 1C checks (the numbers of the dashboard and the clients page compared with what the invoices and entries routes say, the overdue alert and its dismissal, the aging bar with an invoice in every bucket, sorting and filtering the clients, a client's page and its two invoice buttons, the badge following *Mark as paid*, a brand-new user, a browser that refuses to store anything, 375px and 360px phones). Per step: 30 (auth), 62 (layout, clients, projects), 73 (timer), 82 (time entries), 54 (timesheet), 85 (invoices), 63 (demo data, rounding, settings), 64 (Phase 1A), 63 (Phase 1B), 85 (Phase 1C). All the older checks were run again against the Phase 1C build: Steps 2 to 7 passed as they were, while Step 8 and Phases 1A and 1B needed their expectations updated, because the demo now has a third invoice.
 
 **Mutation checks** show the tests can actually fail. For each one I temporarily broke the code on purpose, ran the tests, and put the file back (checked against a hash of the original):
 
@@ -419,8 +423,9 @@ cd backend && npm test
 | Remove `app.set('trust proxy', 1)`; or change it to `true` (believe every address) | 3 and 2 tests fail |
 | Phase 1B, nine changes: let the unique index stop covering scheduled reminders; send the oldest instead of the latest missed reminder; work out "today" in UTC; widen the catch-up window to 10 days; accept the placeholder cron secret; take away the 24 hour limit; log a failed e-mail as sent; show Pay now without a link; accept a payment link that is not https | 10, 2, 2, 1, 1, 4, 6, 3 and 2 tests fail (all nine caught) |
 | Phase 1C, 17 changes: Due today counted as overdue; 30 and 60 days overdue in the wrong bucket; paid invoices counted as outstanding; drafts loaded with the rest; the invoices not limited to the user (user A sees user B's numbers); non-billable, already billed and still running time counted as unbilled; another user's client opening; "this month" in UTC; no 90 day window; clients not ordered by what is outstanding; no decimal in the average; totals not rounded to cents; the oldest overdue invoice being the newest; more than 5 last payments | 1 to 3 tests fail for each (all 17 caught) |
+| Seed guard and `.env.example`, ten changes: a +srv connection string counting as local; one local host among remote ones; a "localhost" user name counting as the host; the guard removed; its `SEED_ALLOW` override broken; the connection string in the message; `npm run seed` not calling the guard; a setting missing from `.env.example`; a real-looking key in it; a password in its connection string | 1 to 3 tests fail for each (all ten caught) |
 
-The results, 131 screenshots, sample invoice PDFs and e-mails and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
+The results, 132 screenshots, sample invoice PDFs and e-mails and the test code are in [docs/test-evidence](docs/test-evidence); what was *not* tested is listed in its [README](docs/test-evidence/README.md). Building the last step also showed the value of looking at the screenshots: the dashboard cards had been wider than a phone screen since Step 6 without any check noticing, and the checks now catch that.
 
 ## What is finished and what is not
 
@@ -555,4 +560,4 @@ timeledger/
 - **`JWT_SECRET is not defined`:** copy `backend/.env.example` to `backend/.env` and set a long random value.
 - **Browser shows a CORS error:** make sure `FRONTEND_URL` in `backend/.env` matches the address of the frontend (default `http://localhost:5173`).
 - **Port already in use:** another copy of the app is running. Stop it, or change `PORT` / the Vite port.
-- **`npm run seed` says `Refusing to seed`:** `NODE_ENV` is `production`. Set `SEED_ALLOW=true` only if you really want demo data in that database.
+- **`npm run seed` says `Refusing to seed`:** `MONGODB_URI` is not a local database (the seed never touches Atlas or any other remote database on its own), or `NODE_ENV` is `production`. Set `SEED_ALLOW=true` only if you really want demo data in that database.
